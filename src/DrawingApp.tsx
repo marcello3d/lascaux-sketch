@@ -47,8 +47,8 @@ export default function DrawingApp({
       tiltY = 0,
     } = event;
 
-    const canvasX = (clientX - rect.left) / rect.width * canvas.width;
-    const canvasY = (clientY - rect.top) / rect.height * canvas.height;
+    const canvasX = ((clientX - rect.left) / rect.width) * canvas.width;
+    const canvasY = ((clientY - rect.top) / rect.height) * canvas.height;
     if (type === PointerDownEvent) {
       lastPoints[pointerId] = {
         x: canvasX,
@@ -108,7 +108,6 @@ export default function DrawingApp({
   useEventEffect(document, PointerMoveEvent, processPointerEvent);
   useEventEffect(document, PointerUpEvent, processPointerEvent);
   useEventEffect(document, PointerCancelEvent, processPointerEvent);
-
 
   return (
     <canvas

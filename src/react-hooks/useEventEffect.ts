@@ -23,7 +23,10 @@ export default function useEventEffect<E extends Event>(
       if (!elementOrRef || !enabled) {
         return undefined;
       }
-      const element = 'addEventListener' in elementOrRef ? elementOrRef : elementOrRef.current;
+      const element =
+        'addEventListener' in elementOrRef
+          ? elementOrRef
+          : elementOrRef.current;
       console.log(`adding ${type} listener to ${element}`);
       element.addEventListener(type, listener as EventListener, {
         capture,
@@ -36,7 +39,7 @@ export default function useEventEffect<E extends Event>(
         element.removeEventListener(type, listener as EventListener, {
           capture,
         });
-      }
+      };
     },
     [
       enabled ? elementOrRef : null,

@@ -28,7 +28,10 @@ export function App() {
   };
   return (
     <div className={styles.root}>
-      <header className={styles.head}>Sketchperiment 1 by <a href="https://marcello.cellosoft.com/">marcello</a></header>
+      <header className={styles.head}>
+        Sketchperiment 1 by{' '}
+        <a href="https://marcello.cellosoft.com/">marcello</a>
+      </header>
       <Measure bounds onResize={onResize}>
         {({ measureRef }) => (
           <main ref={measureRef} className={styles.main}>
