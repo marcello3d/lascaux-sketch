@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "type": "static",
+  "alias": [
+    "2draw-sketchperiment-1.now.sh"
+  ],
+  "static": {
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
