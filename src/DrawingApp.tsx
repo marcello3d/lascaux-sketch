@@ -1,24 +1,21 @@
 import React, { useRef } from 'react';
 
 import useEventEffect from './react-hooks/useEventEffect';
+import { Canvas2d, getCanvas2d } from './draw/canvas';
+import { useAppendChild } from './react-hooks/useAppendChild';
 
 const PointerDownEvent = 'pointerdown';
 const PointerMoveEvent = 'pointermove';
 const PointerUpEvent = 'pointerup';
 const PointerCancelEvent = 'pointercancel';
+const ContextMenuEvent = 'contextmenu';
 
 function lerp(a: number, b: number, frac: number) {
   return a * (1 - frac) + b * frac;
 }
 
-export default function DrawingApp({
-  width,
-  height,
-}: {
-  width: number;
-  height: number;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+export default function DrawingApp({ canvas2d }: { canvas2d: Canvas2d }) {
+  const ref = useRef<HTMLDivElement>(null);
   type TouchState = {
     x: number;
     y: number;
@@ -29,13 +26,16 @@ export default function DrawingApp({
   const pixelScale = window.devicePixelRatio;
   function processPointerEvent(event: PointerEvent) {
     const { type } = event;
-    const canvas = canvasRef.current;
-    if (!canvas) {
+    const canvas = canvas2d.canvas;
+    // right button
+    if (event.button === 2) {
+      if (type === PointerDownEvent) {
+        canvas2d.undo();
+      }
       return;
     }
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return;
+    if (type === PointerDownEvent) {
+      canvas2d.snapshot();
     }
     const rect = canvas.getBoundingClientRect();
     const {
@@ -60,7 +60,7 @@ export default function DrawingApp({
       return;
     }
     const { x, y, tx, ty } = lastPoints[pointerId];
-    context.fillStyle = `rgba(0,0,0,${pressure})`;
+    canvas2d.fillStyle = `rgba(0,0,0,${pressure})`;
     // context.beginPath();
     // context.moveTo(x, y);
     // context.lineTo(x + tx, y + ty);
@@ -77,7 +77,7 @@ export default function DrawingApp({
       const baseY = lerp(y, canvasY, frac);
       const rnd = Math.random();
       const r = 40 * rnd * rnd;
-      context.fillRect(
+      canvas2d.fillRect(
         baseX +
           r * Math.sin((tiltX * Math.PI) / 180) +
           Math.random() * 2 -
@@ -108,13 +108,16 @@ export default function DrawingApp({
   useEventEffect(document, PointerMoveEvent, processPointerEvent);
   useEventEffect(document, PointerUpEvent, processPointerEvent);
   useEventEffect(document, PointerCancelEvent, processPointerEvent);
+  useEventEffect(document, ContextMenuEvent, (event: MouseEvent) => {
+    event.preventDefault();
+  });
+
+  useAppendChild(ref, canvas2d.canvas);
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
+      ref={ref}
       touch-action="none"
-      width={width * pixelScale}
-      height={height * pixelScale}
       style={{
         borderRadius: '10px',
         width: '100%',
