@@ -18,7 +18,7 @@
     "redux-react-hook": "3.2.1",
     "resize-observer-polyfill": "1.5.1",
     "shortid": "2.2.14",
-    "typescript": "3.3",
+    "typescript": "3.3.4000",
     "typescript-fsa": "3.0.0-beta-2",
     "typescript-fsa-reducers": "1.2.0"
   },
