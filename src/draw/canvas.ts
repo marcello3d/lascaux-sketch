@@ -84,6 +84,11 @@ export class Canvas2d {
     dirtyTiles.clear();
   }
 
+
+  canUndo(): boolean {
+    return this.snapshots.length > 1;
+  }
+
   undo() {
     const snapshot = this.peekSnapshot();
     const { currentTiles, context, tileSize } = this;

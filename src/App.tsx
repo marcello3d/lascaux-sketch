@@ -33,6 +33,9 @@ export function App() {
           </button>
         )}
       </header>
+      <nav className={styles.nav}>
+        <Drawings />
+      </nav>
       <main className={styles.main}>
         <Router />
       </main>
@@ -63,29 +66,36 @@ function DrawingPage({ id }: { id: string }) {
   return <DrawingApp canvas2d={canvas2d} />;
 }
 
-function IndexPage() {
+function Drawings() {
   const drawings = useMappedState((state: AppState) => state.drawings);
   const dispatch = useDispatch();
-  const items = useMemo(() => {
-    return Object.entries(drawings).map(([drawingId, { width, height }]) => (
-      <li>
-        <button
-          onClick={() =>
-            dispatch(navigateToPage({ type: 'drawing', drawingId }))
-          }
-        >
-          {drawingId}: {width}x{height}
-        </button>
-      </li>
-    ));
-  }, [drawings]);
+  const items = useMemo(
+    () =>
+      Object.entries(drawings).map(([drawingId, { width, height }]) => (
+        <li key={drawingId}>
+          <button
+            onClick={() =>
+              dispatch(navigateToPage({ type: 'drawing', drawingId }))
+            }
+          >
+            {drawingId}: {width}x{height}
+          </button>
+        </li>
+      )),
+    [drawings],
+  );
 
+  return <ul>{items}</ul>;
+}
+
+function IndexPage() {
+  const dispatch = useDispatch();
   const addDrawing = () => dispatch(newDrawing({ width: 500, height: 500 }));
 
   return (
     <div>
       <h2>Index page</h2>
-      <ul>{items}</ul>
+      <Drawings />
       <p>
         <button onClick={addDrawing}>New Drawing</button>
       </p>

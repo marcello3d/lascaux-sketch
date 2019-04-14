@@ -5,12 +5,11 @@ export function useAppendChild(
   element: HTMLElement,
 ) {
   useLayoutEffect(() => {
-    if (parentRef.current) {
-      parentRef.current.appendChild(element);
+    const current = parentRef.current;
+    if (current) {
+      current.appendChild(element);
       return () => {
-        if (parentRef.current) {
-          parentRef.current.removeChild(element);
-        }
+        current.removeChild(element);
       };
     }
   }, [element]);

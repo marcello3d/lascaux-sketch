@@ -47,6 +47,7 @@ export default function useEventEffect<E extends Event>(
       enabled ? capture : null,
       enabled ? once : null,
       enabled ? passive : null,
+      enabled ? listener : null,
     ],
   );
 }

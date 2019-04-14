@@ -2,13 +2,18 @@
   width: 100vw;
   height: 100vh;
   max-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "header header"
+    "sidebar main"
+  ;
   background: #444;
 }
 
 .head {
-  flex-shrink: 0;
+  grid-area: header;
   color: #eee;
   padding: 10px;
   font-size: 20px;
@@ -16,10 +21,13 @@
 .head a {
   color: #ddc8ee;
 }
+.nav {
+  grid-area: sidebar;
+  background: #eee;
+}
 
 .main {
+  grid-area: main;
+  background: #888;
   flex-grow: 1;
-  margin: 0 10px 10px;
-  border-radius: 10px;
-  overflow: hidden;
 }

@@ -1,0 +1,30 @@
+.root {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "tools tools tools"
+    "left canvas right"
+    "status status status"
+  ;
+}
+.tools {
+  grid-area: tools;
+}
+.canvas {
+  grid-area: canvas;
+  overflow: auto;
+  background: #eee;
+  flex-shrink: 1;
+}
+.left {
+  grid-area: left;
+}
+.right {
+  grid-area: right;
+}
+.status {
+  grid-area: status;
+}
