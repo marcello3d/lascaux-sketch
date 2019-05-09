@@ -42,12 +42,13 @@ export default function useEventEffect<E extends Event>(
       };
     },
     [
-      enabled ? elementOrRef : null,
-      enabled ? type : null,
-      enabled ? capture : null,
-      enabled ? once : null,
-      enabled ? passive : null,
-      enabled ? listener : null,
+      enabled,
+      elementOrRef,
+      type,
+      capture,
+      once,
+      passive,
+      listener,
     ],
   );
 }

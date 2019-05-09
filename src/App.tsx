@@ -33,9 +33,6 @@ export function App() {
           </button>
         )}
       </header>
-      <nav className={styles.nav}>
-        <Drawings />
-      </nav>
       <main className={styles.main}>
         <Router />
       </main>
@@ -82,7 +79,7 @@ function Drawings() {
           </button>
         </li>
       )),
-    [drawings],
+    [drawings, dispatch],
   );
 
   return <ul>{items}</ul>;

@@ -2,8 +2,7 @@ import { reducerWithInitialState } from 'typescript-fsa-reducers';
 import { produce } from 'immer';
 import shortid from 'shortid';
 import { navigateToPage, newDrawing } from './actions';
-import { AppState } from './state';
-import { Canvas2d } from '../draw/canvas';
+import { AppState, Page } from './state';
 
 const initialState: AppState = {
   drawings: {},
@@ -27,7 +26,7 @@ export const reducer = reducerWithInitialState<AppState>(initialState)
       };
     }),
   )
-  .case(
+  .case<Page>(
     navigateToPage,
     produce((draft, page) => {
       draft.page = page;

@@ -3,11 +3,11 @@
   height: 100vh;
   max-height: 100vh;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 1fr;
   grid-template-rows: auto 1fr;
   grid-template-areas:
-    "header header"
-    "sidebar main"
+    "header"
+    "main"
   ;
   background: #444;
 }
@@ -21,13 +21,10 @@
 .head a {
   color: #ddc8ee;
 }
-.nav {
-  grid-area: sidebar;
-  background: #eee;
-}
 
 .main {
   grid-area: main;
   background: #888;
-  flex-grow: 1;
+  display: flex;
+  overflow: hidden;
 }

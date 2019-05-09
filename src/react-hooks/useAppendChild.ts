@@ -1,4 +1,4 @@
-import { MutableRefObject, useLayoutEffect, useRef } from 'react';
+import { MutableRefObject, useLayoutEffect } from 'react';
 
 export function useAppendChild(
   parentRef: MutableRefObject<HTMLElement | null | undefined>,
@@ -12,5 +12,5 @@ export function useAppendChild(
         current.removeChild(element);
       };
     }
-  }, [element]);
+  }, [parentRef, element]);
 }
