@@ -12,6 +12,8 @@ import {
   DrawletEvent,
 } from './Drawlet';
 
+import styles from './pointer-events-bridge.module.css';
+
 const CURSOR_TYPE_MAP: Record<string, CursorType> = {
   touch: 'touch',
   mouse: 'cursor',
@@ -28,6 +30,8 @@ export type Transform = {
   scaleStart?: number;
   centerX?: number;
   centerY?: number;
+  translateXStart?: number;
+  translateYStart?: number;
 };
 
 type Pointer = {
@@ -44,6 +48,9 @@ const WheelEventName = 'wheel';
 const GestureStartEventName = 'gesturestart';
 const GestureChangeEventName = 'gesturechange';
 const GestureEndEventName = 'gestureend';
+const KeyDownEventName = 'keydown';
+const KeyUpEventName = 'keyup';
+const KeySpace = ' ';
 
 const POINTER_EVENT_TYPE_MAP: Record<string, DrawletDrawEventType> = {
   [PointerDownEventName]: DRAW_START_EVENT,
@@ -75,6 +82,15 @@ export default function pointerEventsBridge(
   let viewportHeight = 0;
 
   let gesturing = false;
+  let spacebar = false;
+  let spacebarPanning:
+    | {
+        translateX: number;
+        translateY: number;
+        clientXStart: number;
+        clientYStart: number;
+      }
+    | undefined;
 
   let rect: ClientRect | DOMRect = domElement.getBoundingClientRect();
 
@@ -93,6 +109,15 @@ export default function pointerEventsBridge(
         document.addEventListener(PointerUpEventName, onPointerEvent);
         document.addEventListener(PointerMoveEventName, onPointerEvent);
         document.addEventListener(PointerCancelEventName, onPointerEvent);
+        if (spacebar) {
+          spacebarPanning = {
+            translateX: transform.translateX,
+            translateY: transform.translateY,
+            clientXStart: clientX,
+            clientYStart: clientY,
+          };
+          document.body.classList.add(styles.DrawletPanningActive);
+        }
       }
     } else if (!existingPointer) {
       console.warn(`Unexpected ${type} event for new pointer`);
@@ -106,11 +131,15 @@ export default function pointerEventsBridge(
     };
 
     if (gesturing) {
-      return;
-    }
-
-    // Prioritize existing pinch-zoom
-    if (transform.touchStart) {
+      // Priority 1: safari gesture
+    } else if (spacebarPanning) {
+      // Priority 2: spacebar pan/zoom gestures
+      setClampedTranslateScale(
+        spacebarPanning.translateX - spacebarPanning.clientXStart + clientX,
+        spacebarPanning.translateY - spacebarPanning.clientYStart + clientY,
+      );
+    } else if (transform.touchStart) {
+      // Priority 3: multi-touch pan/zoom gestures
       if (pointerCount === 2) {
         pinchZoomUpdate(getCurrentPointers());
       }
@@ -130,6 +159,8 @@ export default function pointerEventsBridge(
         if (transform.touchStart) {
           pinchZoomEnd();
         }
+        spacebarPanning = undefined;
+        document.body.classList.remove(styles.DrawletPanningActive);
       }
     }
   }
@@ -319,9 +350,9 @@ export default function pointerEventsBridge(
         setClampedTranslateScale(
           transform.translateX,
           transform.translateY,
-          transform.scale - event.deltaY * 0.01,
-          event.clientX,
-          event.clientY,
+          transform.scale - event.deltaY * 0.03,
+          event.clientX - rect.left,
+          event.clientY - rect.top,
         );
       } else {
         setClampedTranslateScale(
@@ -440,6 +471,21 @@ export default function pointerEventsBridge(
     document.removeEventListener(PointerCancelEventName, onPointerEvent);
   }
 
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key === KeySpace) {
+      spacebar = true;
+      document.body.classList.add(styles.DrawletPanning);
+    }
+  }
+  function onKeyUp(event: KeyboardEvent) {
+    if (event.key === KeySpace) {
+      spacebar = false;
+      document.body.classList.remove(styles.DrawletPanning);
+    }
+  }
+  document.addEventListener(KeyDownEventName, onKeyDown);
+  document.addEventListener(KeyUpEventName, onKeyUp);
+
   return {
     setScale(scale: number) {
       setClampedTranslateScale(
@@ -451,6 +497,8 @@ export default function pointerEventsBridge(
     unsubscribe() {
       domElement.removeEventListener(PointerDownEventName, onPointerEvent);
       domElement.removeEventListener(WheelEventName, onWheelEvent);
+      document.removeEventListener(KeyDownEventName, onKeyDown);
+      document.removeEventListener(KeyUpEventName, onKeyUp);
       removePointerMoveListeners();
       window.removeEventListener(
         GestureStartEventName,

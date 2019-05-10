@@ -1,0 +1,6 @@
+body.DrawletPanning * {
+  cursor: grab !important;
+}
+body.DrawletPanningActive * {
+  cursor: grabbing !important;
+}
