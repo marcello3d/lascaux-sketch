@@ -59,7 +59,9 @@ export default function DrawletApp({
     (size) => canvasInstance.setMode('size', size),
     [canvasInstance],
   );
-  const setScale = useCallback((size) => {}, [canvasInstance]);
+  const setScale = useCallback((scale) => canvasInstance.setScale(scale), [
+    canvasInstance,
+  ]);
   const colorButtons = useMemo(
     () =>
       colors.map((color, index) => {
@@ -67,7 +69,7 @@ export default function DrawletApp({
         return (
           <button
             key={index}
-            onClick={onClick}
+            onPointerDown={onClick}
             style={{
               width: '30px',
               height: '30px',
@@ -123,11 +125,7 @@ export default function DrawletApp({
         />
         <pre>{JSON.stringify(updateObject, null, 2)}</pre>
       </div>
-      <div
-        ref={drawletContainerRef}
-        touch-action="none"
-        className={styles.canvasContainer}
-      />
+      <div ref={drawletContainerRef} className={styles.canvasContainer} />
       <div className={styles.right} />
       <div className={styles.status} />
     </div>

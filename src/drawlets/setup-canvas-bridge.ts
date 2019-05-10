@@ -2,7 +2,6 @@ import DrawingModel from './file-format/DrawingModel';
 import { Dna } from './drawos/dna';
 import { DrawletEvent, DrawletInstance, UpdateObject } from './Drawlet';
 import pointerEventsBridge from './pointer-events-bridge';
-import { FiverMode } from './fiver/fiver';
 import { GOTO_EVENT } from './file-format/events';
 
 export default function setupHtmlCanvasBridge<
@@ -102,7 +101,7 @@ export default function setupHtmlCanvasBridge<
     }
   }
 
-  function togglePlaying(_playing: boolean) {
+  function togglePlaying() {
     if (playing) {
       // Stop
       console.log('stop playing');
@@ -161,6 +160,8 @@ export default function setupHtmlCanvasBridge<
       drawingModel.addStroke(`%${mode}`, Date.now(), value, notifyRenderDone);
     },
 
+    setScale(scale: number) {},
+
     addGoto(cursor: number) {
       drawingModel.addStroke(GOTO_EVENT, Date.now(), cursor, notifyRenderDone);
     },
@@ -171,7 +172,7 @@ export default function setupHtmlCanvasBridge<
 
     setPlaying(_playing: boolean) {
       if (playing !== _playing) {
-        togglePlaying(playing);
+        togglePlaying();
       }
     },
 

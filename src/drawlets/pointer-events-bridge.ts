@@ -35,16 +35,21 @@ type Pointer = {
   clientY: number;
 };
 
-const PointerDownEvent = 'pointerdown';
-const PointerMoveEvent = 'pointermove';
-const PointerUpEvent = 'pointerup';
-const PointerCancelEvent = 'pointercancel';
+const PointerDownEventName = 'pointerdown';
+const PointerMoveEventName = 'pointermove';
+const PointerUpEventName = 'pointerup';
+const PointerCancelEventName = 'pointercancel';
+const ResizeEventName = 'resize';
+const WheelEventName = 'wheel';
+const GestureStartEventName = 'gesturestart';
+const GestureChangeEventName = 'gesturechange';
+const GestureEndEventName = 'gestureend';
 
 const POINTER_EVENT_TYPE_MAP: Record<string, DrawletDrawEventType> = {
-  [PointerDownEvent]: DRAW_START_EVENT,
-  [PointerMoveEvent]: DRAW_EVENT,
-  [PointerUpEvent]: DRAW_END_EVENT,
-  [PointerCancelEvent]: DRAW_END_EVENT,
+  [PointerDownEventName]: DRAW_START_EVENT,
+  [PointerMoveEventName]: DRAW_EVENT,
+  [PointerUpEventName]: DRAW_END_EVENT,
+  [PointerCancelEventName]: DRAW_END_EVENT,
 };
 
 export default function pointerEventsBridge(
@@ -58,49 +63,68 @@ export default function pointerEventsBridge(
   maxHeight: number = Infinity,
 ) {
   const currentPointers: Record<string, Pointer> = {};
-  let touchCount = 0;
+  let pointerCount = 0;
   const deviceScale = 1 / (window.devicePixelRatio || 1);
 
   let viewportWidth = 0;
   let viewportHeight = 0;
 
+  let rect: ClientRect | DOMRect = domElement.getBoundingClientRect();
+
   function onPointerEvent(event: PointerEvent) {
     const { type, pointerId, clientX, clientY } = event;
-    if (type === PointerDownEvent) {
-      touchCount++;
-      if (touchCount === 1) {
-        eventCallback(toCursorEvent(event), false);
+    const existingPointer = pointerId in currentPointers;
+    if (type === PointerDownEventName) {
+      if (existingPointer) {
+        console.warn(`Unexpected ${type} event for existing pointer`);
+        return;
       }
-    } else if (!(pointerId in currentPointers)) {
+      rect = domElement.getBoundingClientRect();
+      pointerCount++;
+      if (pointerCount === 1) {
+        eventCallback(toCursorEvent(event), false);
+        document.addEventListener(PointerUpEventName, onPointerEvent);
+        document.addEventListener(PointerMoveEventName, onPointerEvent);
+        document.addEventListener(PointerCancelEventName, onPointerEvent);
+      }
+    } else if (!existingPointer) {
+      console.warn(`Unexpected ${type} event for new pointer`);
       return;
     }
-    if (type === PointerUpEvent || type === PointerCancelEvent) {
-      touchCount--;
-      delete currentPointers[pointerId];
-    } else {
-      currentPointers[pointerId] = {
-        clientX,
-        clientY,
-      };
-    }
+    const pointerUp =
+      type === PointerUpEventName || type === PointerCancelEventName;
+    currentPointers[pointerId] = {
+      clientX,
+      clientY,
+    };
+    // Prioritize existing pinch-zoom
     if (transform.touchStart) {
-      if (touchCount === 2) {
+      if (pointerCount === 2) {
         pinchZoomUpdate(getCurrentPointers());
       }
-    } else if (touchCount === 1) {
+    } else if (pointerCount === 1) {
+      // Only draw with one pointer
       sendDrawEvents(event);
-    } else if (touchCount === 2) {
+    } else if (pointerCount === 2) {
+      // Start new pinch-zoom
       pinchZoomStart(getCurrentPointers());
     }
-    if (touchCount === 0 && transform.touchStart) {
-      pinchZoomEnd();
+    if (pointerUp) {
+      pointerCount--;
+      delete currentPointers[pointerId];
+      if (pointerCount === 0) {
+        // Last pointer up
+        removePointerMoveListeners();
+        if (transform.touchStart) {
+          pinchZoomEnd();
+        }
+      }
     }
   }
 
-  domElement.addEventListener(PointerDownEvent, onPointerEvent);
-  document.addEventListener(PointerUpEvent, onPointerEvent);
-  document.addEventListener(PointerMoveEvent, onPointerEvent);
-  document.addEventListener(PointerCancelEvent, onPointerEvent);
+  domElement.setAttribute('touch-events', 'none');
+  domElement.addEventListener(PointerDownEventName, onPointerEvent);
+  domElement.addEventListener(WheelEventName, onWheelEvent);
 
   function getCurrentPointers(): Pointer[] {
     return Object.values(currentPointers);
@@ -108,11 +132,11 @@ export default function pointerEventsBridge(
 
   function sendDrawEvents(event: PointerEvent): void {
     const { translateX, translateY, scale } = transform;
-    const { left, top } = (event.target as HTMLElement).getBoundingClientRect();;
-    const dx = -translateX - left;
-    const dy = -translateY - top;
+    const dx = -translateX - rect.left;
+    const dy = -translateY - rect.top;
+    const { type } = event;
+    const eventType = POINTER_EVENT_TYPE_MAP[type];
     const toEvent = ({
-      type,
       clientX,
       clientY,
       timeStamp,
@@ -120,7 +144,7 @@ export default function pointerEventsBridge(
       tiltX,
       tiltY,
     }: PointerEvent): DrawletDrawEvent => [
-      POINTER_EVENT_TYPE_MAP[type],
+      eventType,
       timeStamp,
       {
         x: (clientX + dx) / scale,
@@ -130,8 +154,11 @@ export default function pointerEventsBridge(
         tiltY,
       },
     ];
-    if (event.getCoalescedEvents) {
+    if (type === PointerMoveEventName && event.getCoalescedEvents) {
       const events = event.getCoalescedEvents();
+      if (events.length === 0) {
+        throw new Error('got no coalesced events');
+      }
       for (let i = 0; i < events.length; i++) {
         eventCallback(toEvent(events[i]), i === events.length - 1);
       }
@@ -162,13 +189,13 @@ export default function pointerEventsBridge(
   function getCenterX(pointers: Pointer[]) {
     const x1 = pointers[0].clientX;
     const x2 = pointers[1].clientX;
-    return x1 + (x2 - x1) / 2;
+    return x1 + (x2 - x1) / 2 - rect.left;
   }
 
   function getCenterY(pointers: Pointer[]) {
     const y1 = pointers[0].clientY;
     const y2 = pointers[1].clientY;
-    return y1 + (y2 - y1) / 2;
+    return y1 + (y2 - y1) / 2 - rect.top;
   }
 
   function getDist(pointers: Pointer[]) {
@@ -195,25 +222,48 @@ export default function pointerEventsBridge(
       translateY,
     } = transform;
 
-    const scale = clampScale(
-      scaleStart * (distStart > 0 ? getDist(pointers) / distStart : 1),
-    );
     const newCenterX = getCenterX(pointers);
     const newCenterY = getCenterY(pointers);
-    const newTranslateX = translateX + newCenterX - centerX;
-    const newTranslateY = translateY + newCenterY - centerY;
-
     // The canvas should be able to move such that:
     //  - it's always visible on the screen
     //  - the minimum position is no less than -(width of the canvas - viewportWidth)
     //  - the maximum position is no greater than the viewportWidth - width of canvas or zero
 
-    setTranslateScale(
-      clampRange(newTranslateX, getViewportWidth(), canvasWidth, 0.75, scale),
-      clampRange(newTranslateY, getViewportHeight(), canvasHeight, 0.75, scale),
+    setClampedTranslateScale(
+      translateX + newCenterX - centerX,
+      translateY + newCenterY - centerY,
+      scaleStart * (distStart > 0 ? getDist(pointers) / distStart : 1),
       newCenterX,
       newCenterY,
-      scale,
+    );
+  }
+
+  function setClampedTranslateScale(
+    translateX: number,
+    translateY: number,
+    scale: number = transform.scale,
+    centerX: number = transform.centerX || 0,
+    centerY: number = transform.centerY || 0,
+  ) {
+    const clampedScale = clampScale(scale);
+    setTranslateScale(
+      clampRange(
+        translateX,
+        getViewportWidth(),
+        canvasWidth,
+        0.75,
+        clampedScale,
+      ),
+      clampRange(
+        translateY,
+        getViewportHeight(),
+        canvasHeight,
+        0.75,
+        clampedScale,
+      ),
+      centerX,
+      centerY,
+      clampedScale,
     );
   }
 
@@ -251,6 +301,63 @@ export default function pointerEventsBridge(
     transform.scale = newScale;
     transformCallback();
   }
+
+  function onWheelEvent(event: WheelEvent) {
+    if (event.deltaMode === WheelEvent.DOM_DELTA_PIXEL) {
+      if (event.ctrlKey) {
+        setClampedTranslateScale(
+          transform.translateX,
+          transform.translateY,
+          transform.scale - event.deltaY * 0.01,
+          event.clientX,
+          event.clientY,
+        );
+      } else {
+        setClampedTranslateScale(
+          transform.translateX - event.deltaX,
+          transform.translateY - event.deltaY,
+        );
+      }
+      transformCallback();
+      event.preventDefault();
+    }
+  }
+  interface GestureEvent extends MouseEvent {
+    rotation: number;
+    scale: number;
+  }
+  function onGestureStart(e: GestureEvent) {
+    e.preventDefault();
+    transform.scaleStart = transform.scale;
+    window.addEventListener(
+      GestureChangeEventName,
+      onGestureChange as EventListenerOrEventListenerObject,
+    );
+    window.addEventListener(
+      GestureEndEventName,
+      onGestureEnd as EventListenerOrEventListenerObject,
+    );
+  }
+  function onGestureChange(e: GestureEvent) {
+    e.preventDefault();
+    const { translateX, translateY, scaleStart = 0 } = transform;
+    setClampedTranslateScale(
+      translateX,
+      translateY,
+      scaleStart * e.scale,
+      e.clientX - rect.left,
+      e.clientY - rect.top,
+    );
+    transformCallback();
+  }
+  function onGestureEnd(e: GestureEvent) {
+    e.preventDefault();
+    removeGestureChangeListeners();
+  }
+  window.addEventListener(
+    GestureStartEventName,
+    onGestureStart as EventListenerOrEventListenerObject,
+  );
 
   function getViewportWidth() {
     return document.documentElement.clientWidth;
@@ -290,13 +397,35 @@ export default function pointerEventsBridge(
     viewportHeight = newViewportHeight;
   }
 
-  window.onresize = relayout;
+  window.addEventListener(ResizeEventName, relayout);
   relayout();
 
-  return () => {
-    domElement.removeEventListener(PointerDownEvent, onPointerEvent);
-    document.removeEventListener(PointerUpEvent, onPointerEvent);
-    document.removeEventListener(PointerMoveEvent, onPointerEvent);
-    document.removeEventListener(PointerCancelEvent, onPointerEvent);
+  function removeGestureChangeListeners() {
+    window.removeEventListener(
+      GestureChangeEventName,
+      onGestureChange as EventListenerOrEventListenerObject,
+    );
+    window.removeEventListener(
+      GestureEndEventName,
+      onGestureEnd as EventListenerOrEventListenerObject,
+    );
   }
+
+  function removePointerMoveListeners() {
+    document.removeEventListener(PointerUpEventName, onPointerEvent);
+    document.removeEventListener(PointerMoveEventName, onPointerEvent);
+    document.removeEventListener(PointerCancelEventName, onPointerEvent);
+  }
+
+  return () => {
+    domElement.removeEventListener(PointerDownEventName, onPointerEvent);
+    domElement.removeEventListener(WheelEventName, onWheelEvent);
+    removePointerMoveListeners();
+    window.removeEventListener(
+      GestureStartEventName,
+      onGestureStart as EventListenerOrEventListenerObject,
+    );
+    removeGestureChangeListeners();
+    window.removeEventListener(ResizeEventName, relayout);
+  };
 }

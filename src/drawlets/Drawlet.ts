@@ -1,5 +1,4 @@
 import { Dna } from './drawos/dna';
-import { FiverMode } from './fiver/fiver';
 
 export type DrawletInitContext<DrawletDna extends Dna> = {
   dna: DrawletDna;
@@ -132,8 +131,8 @@ export type Transform = {
   translateX: number;
   translateY: number;
   scale: number;
-}
-  export type UpdateObject<Mode extends object> = {
+};
+export type UpdateObject<Mode extends object> = {
   cursor: number;
   strokeCount: number;
   undo: number | undefined;
@@ -148,6 +147,7 @@ export type DrawletInstance<Mode extends object> = {
   getUpdateObject(): UpdateObject<Mode>;
   flush(): void;
   setMode(mode: string, value: any): void;
+  setScale(scale: number): void;
   addGoto(cursor: number): void;
   getImageDataUrl(): void;
   setPlaying(playing: boolean): void;
