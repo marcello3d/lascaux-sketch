@@ -4,10 +4,14 @@ import shortid from 'shortid';
 import { navigateToPage, newDrawing } from './actions';
 import { AppState, Page } from './state';
 
+const drawingId = shortid();
 const initialState: AppState = {
-  drawings: {},
+  drawings: {
+    [drawingId]: { width: 512, height: 512 },
+  },
   page: {
-    type: 'index',
+    type: 'drawing',
+    drawingId,
   },
 };
 

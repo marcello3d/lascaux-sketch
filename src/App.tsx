@@ -1,5 +1,4 @@
 import React, { useCallback, useMemo } from 'react';
-import DrawingApp from './DrawingApp';
 
 import styles from './App.module.css';
 import useEventEffect from './react-hooks/useEventEffect';
@@ -7,7 +6,8 @@ import { useDispatch, useMappedState } from 'redux-react-hook';
 import { getCurrentPage, getDrawing } from './app/selectors';
 import { AppState } from './app/state';
 import { navigateToPage, newDrawing } from './app/actions';
-import { getCanvas2d } from './draw/canvas';
+import DrawletApp from './DrawletApp';
+import { getDrawingModel } from './drawlets/drawlet-cache';
 
 export function App() {
   const target = document.body;
@@ -59,8 +59,8 @@ function DrawingPage({ id }: { id: string }) {
   if (drawing === undefined) {
     throw new Error('Drawing not found');
   }
-  const canvas2d = getCanvas2d(id, drawing);
-  return <DrawingApp canvas2d={canvas2d} />;
+  const drawingModel = getDrawingModel(id, drawing);
+  return <DrawletApp drawingModel={drawingModel} />;
 }
 
 function Drawings() {

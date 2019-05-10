@@ -21,29 +21,24 @@ function lerp(a: number, b: number, frac: number) {
   return a * (1 - frac) + b * frac;
 }
 
-const colors: ReadonlyArray<string> = [
-  0xffffff, // white
-  0x33ccff, // light sky-blue
-  0xfddebf, // pale skin tone
-  0xffffb9, // light yellow
-  0xffff00, // yellow
-  0x0000ff, // blue
-  0xff0000, // red
-  0x00ff00, // green
-  0x000000, // black
-  0x333399, // dark sky-blue
-  0xfca672, // darker skin tone
-  0xfeae0a, // sandstone yellow
-  0xcc6600, // brownish-dark yellow
-  0x420066, // dark purple-ish blue
-  0xb00077, // dark magenta-ish red
-  0x006666, // dark blue-ish green
-].map((color) => {
-  const red = (color & 0xff0000) >> 16;
-  const green = (color & 0x00ff00) >> 8;
-  const blue = color & 0xff;
-  return `${red},${green},${blue}`;
-});
+const colors: readonly string[] = [
+  [0xff, 0xff, 0xff], // white
+  [0x33, 0xcc, 0xff], // light sky-blue
+  [0xfd, 0xde, 0xbf], // pale skin tone
+  [0xff, 0xff, 0xb9], // light yellow
+  [0xff, 0xff, 0x00], // yellow
+  [0x00, 0x00, 0xff], // blue
+  [0xff, 0x00, 0x00], // red
+  [0x00, 0xff, 0x00], // green
+  [0x00, 0x00, 0x00], // black
+  [0x33, 0x33, 0x99], // dark sky-blue
+  [0xfc, 0xa6, 0x72], // darker skin tone
+  [0xfe, 0xae, 0x0a], // sandstone yellow
+  [0xcc, 0x66, 0x00], // brownish-dark yellow
+  [0x42, 0x00, 0x66], // dark purple-ish blue
+  [0xb0, 0x00, 0x77], // dark magenta-ish red
+  [0x00, 0x66, 0x66], // dark blue-ish green
+].map((rgb) => rgb.join(','));
 
 export default function DrawingApp({ canvas2d }: { canvas2d: Canvas2d }) {
   const [brushColor, setBrushColor] = useState('0,0,0');
@@ -188,8 +183,7 @@ export default function DrawingApp({ canvas2d }: { canvas2d: Canvas2d }) {
     [zoomedWidth, zoomedHeight, marginLeft, marginTop],
   );
   return (
-    <div className={styles.root}
-         touch-action="none">
+    <div className={styles.root} touch-action="none">
       <div className={styles.tools}>
         <button onClick={() => canvas2d.undo()}>Undo</button>
         <button disabled>Redo</button>
