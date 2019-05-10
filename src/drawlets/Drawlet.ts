@@ -151,7 +151,7 @@ export type DrawletInstance<Mode extends object> = {
   addGoto(cursor: number): void;
   getImageDataUrl(): void;
   setPlaying(playing: boolean): void;
-  goto(cursor: number): void;
+  seekTo(cursor: number): void;
   subscribe(): () => void;
 };
 export type DrawOsConstructor = new (

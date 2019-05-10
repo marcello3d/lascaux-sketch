@@ -25,7 +25,7 @@ export function App() {
   return (
     <div className={styles.root}>
       <header className={styles.head}>
-        Sketchperiment 2 by{' '}
+        Sketchperiment 3 by{' '}
         <a href="https://marcello.cellosoft.com/">marcello</a>
         {page.type !== 'index' && (
           <button onClick={() => dispatch(navigateToPage({ type: 'index' }))}>

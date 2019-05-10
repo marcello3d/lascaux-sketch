@@ -52,6 +52,11 @@ const POINTER_EVENT_TYPE_MAP: Record<string, DrawletDrawEventType> = {
   [PointerCancelEventName]: DRAW_END_EVENT,
 };
 
+export type EventBridge = {
+  setScale(scale: number): void;
+  unsubscribe(): void;
+};
+
 export default function pointerEventsBridge(
   domElement: HTMLElement,
   canvasWidth: number,
@@ -61,13 +66,15 @@ export default function pointerEventsBridge(
   transformCallback: () => void,
   maxWidth: number = Infinity,
   maxHeight: number = Infinity,
-) {
+): EventBridge {
   const currentPointers: Record<string, Pointer> = {};
   let pointerCount = 0;
   const deviceScale = 1 / (window.devicePixelRatio || 1);
 
   let viewportWidth = 0;
   let viewportHeight = 0;
+
+  let gesturing = false;
 
   let rect: ClientRect | DOMRect = domElement.getBoundingClientRect();
 
@@ -97,6 +104,11 @@ export default function pointerEventsBridge(
       clientX,
       clientY,
     };
+
+    if (gesturing) {
+      return;
+    }
+
     // Prioritize existing pinch-zoom
     if (transform.touchStart) {
       if (pointerCount === 2) {
@@ -122,7 +134,6 @@ export default function pointerEventsBridge(
     }
   }
 
-  domElement.setAttribute('touch-events', 'none');
   domElement.addEventListener(PointerDownEventName, onPointerEvent);
   domElement.addEventListener(WheelEventName, onWheelEvent);
 
@@ -242,8 +253,8 @@ export default function pointerEventsBridge(
     translateX: number,
     translateY: number,
     scale: number = transform.scale,
-    centerX: number = transform.centerX || 0,
-    centerY: number = transform.centerY || 0,
+    centerX: number = getViewportWidth() / 2,
+    centerY: number = getViewportHeight() / 2,
   ) {
     const clampedScale = clampScale(scale);
     setTranslateScale(
@@ -328,7 +339,10 @@ export default function pointerEventsBridge(
   }
   function onGestureStart(e: GestureEvent) {
     e.preventDefault();
+    gesturing = true;
     transform.scaleStart = transform.scale;
+    transform.centerX = e.clientX - rect.left;
+    transform.centerY = e.clientY - rect.top;
     window.addEventListener(
       GestureChangeEventName,
       onGestureChange as EventListenerOrEventListenerObject,
@@ -340,18 +354,27 @@ export default function pointerEventsBridge(
   }
   function onGestureChange(e: GestureEvent) {
     e.preventDefault();
-    const { translateX, translateY, scaleStart = 0 } = transform;
-    setClampedTranslateScale(
+    const {
       translateX,
       translateY,
+      centerX = 0,
+      centerY = 0,
+      scaleStart = 0,
+    } = transform;
+    const newCenterX = e.clientX - rect.left;
+    const newCenterY = e.clientY - rect.top;
+    setClampedTranslateScale(
+      translateX + newCenterX - centerX,
+      translateY + newCenterY - centerY,
       scaleStart * e.scale,
-      e.clientX - rect.left,
-      e.clientY - rect.top,
+      newCenterX,
+      newCenterY,
     );
     transformCallback();
   }
   function onGestureEnd(e: GestureEvent) {
     e.preventDefault();
+    gesturing = false;
     removeGestureChangeListeners();
   }
   window.addEventListener(
@@ -417,15 +440,24 @@ export default function pointerEventsBridge(
     document.removeEventListener(PointerCancelEventName, onPointerEvent);
   }
 
-  return () => {
-    domElement.removeEventListener(PointerDownEventName, onPointerEvent);
-    domElement.removeEventListener(WheelEventName, onWheelEvent);
-    removePointerMoveListeners();
-    window.removeEventListener(
-      GestureStartEventName,
-      onGestureStart as EventListenerOrEventListenerObject,
-    );
-    removeGestureChangeListeners();
-    window.removeEventListener(ResizeEventName, relayout);
+  return {
+    setScale(scale: number) {
+      setClampedTranslateScale(
+        transform.translateX,
+        transform.translateY,
+        scale,
+      );
+    },
+    unsubscribe() {
+      domElement.removeEventListener(PointerDownEventName, onPointerEvent);
+      domElement.removeEventListener(WheelEventName, onWheelEvent);
+      removePointerMoveListeners();
+      window.removeEventListener(
+        GestureStartEventName,
+        onGestureStart as EventListenerOrEventListenerObject,
+      );
+      removeGestureChangeListeners();
+      window.removeEventListener(ResizeEventName, relayout);
+    },
   };
 }

@@ -1,7 +1,7 @@
 import DrawingModel from './file-format/DrawingModel';
 import { Dna } from './drawos/dna';
 import { DrawletEvent, DrawletInstance, UpdateObject } from './Drawlet';
-import pointerEventsBridge from './pointer-events-bridge';
+import pointerEventsBridge, { EventBridge } from './pointer-events-bridge';
 import { GOTO_EVENT } from './file-format/events';
 
 export default function setupHtmlCanvasBridge<
@@ -147,6 +147,7 @@ export default function setupHtmlCanvasBridge<
     });
   }
 
+  let eventBridge: EventBridge | undefined;
   return {
     dom: canvas.dom,
 
@@ -160,7 +161,12 @@ export default function setupHtmlCanvasBridge<
       drawingModel.addStroke(`%${mode}`, Date.now(), value, notifyRenderDone);
     },
 
-    setScale(scale: number) {},
+    setScale(scale: number) {
+      if (!eventBridge) {
+        throw new Error('trying to set scale when not subscribed');
+      }
+      eventBridge.setScale(scale);
+    },
 
     addGoto(cursor: number) {
       drawingModel.addStroke(GOTO_EVENT, Date.now(), cursor, notifyRenderDone);
@@ -176,12 +182,12 @@ export default function setupHtmlCanvasBridge<
       }
     },
 
-    goto(cursor: number) {
+    seekTo(cursor: number) {
       canvas.goto(cursor, notifyRenderDone);
     },
 
     subscribe() {
-      return pointerEventsBridge(
+      eventBridge = pointerEventsBridge(
         canvas.dom,
         dna.width,
         dna.height,
@@ -196,6 +202,7 @@ export default function setupHtmlCanvasBridge<
         maxInitialWidth,
         maxInitialHeight,
       );
+      return eventBridge.unsubscribe;
     },
   };
 }

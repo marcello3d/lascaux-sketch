@@ -16,6 +16,7 @@ import DrawingModel from './drawlets/file-format/DrawingModel';
 import { makeFiverCanvas } from './drawlets/fiver/gl';
 import { UpdateObject } from './drawlets/Drawlet';
 import { FiverMode } from './drawlets/fiver/fiver';
+import { preventDefault } from './preventDefault';
 
 const colors: readonly string[] = [
   '#ffffff', // white
@@ -55,8 +56,14 @@ export default function DrawletApp({
 
   useAppendChild(drawletContainerRef, drawingModel.editCanvas.dom);
 
+  const [tempBrushSize, setTempBrushSize] = useState<number | undefined>(
+    updateObject.mode.size,
+  );
   const setBrushSize = useCallback(
-    (size) => canvasInstance.setMode('size', size),
+    (size) => {
+      canvasInstance.setMode('size', size);
+      setTempBrushSize(undefined);
+    },
     [canvasInstance],
   );
   const setScale = useCallback((scale) => canvasInstance.setScale(scale), [
@@ -66,24 +73,32 @@ export default function DrawletApp({
     () =>
       colors.map((color, index) => {
         const onClick = () => canvasInstance.setMode('color', color);
+        const selected = color === updateObject.mode.color;
         return (
           <button
             key={index}
-            onPointerDown={onClick}
+            onTouchStart={preventDefault}
+            onClick={onClick}
+            className={styles.colorButton}
             style={{
-              width: '30px',
-              height: '30px',
               backgroundColor: color,
-              border:
-                color === updateObject.mode.color
-                  ? 'solid 2px white'
-                  : `solid 2px ${color}`,
+              border: selected ? 'solid 2px white' : `solid 2px ${color}`,
             }}
           />
         );
       }),
     [canvasInstance, updateObject.mode.color],
   );
+  const seek = useCallback(
+    (cursor: number) => {
+      canvasInstance.seekTo(cursor);
+    },
+    [canvasInstance],
+  );
+
+  const togglePlay = useCallback(() => {
+    canvasInstance.setPlaying(!updateObject.playing);
+  }, [canvasInstance, updateObject.playing]);
   const undo = useCallback(() => {
     if (updateObject.undo) {
       canvasInstance.addGoto(updateObject.undo);
@@ -95,37 +110,95 @@ export default function DrawletApp({
     }
   }, [canvasInstance, updateObject.redo]);
 
+  const brushSize =
+    tempBrushSize === undefined ? updateObject.mode.size : tempBrushSize;
+  const sizeSlider = useMemo(
+    () => (
+      <Slider
+        min={1}
+        max={100}
+        value={brushSize}
+        onChange={setTempBrushSize}
+        onAfterChange={setBrushSize}
+      />
+    ),
+    [brushSize, setBrushSize],
+  );
+  const zoomSlider = useMemo(
+    () => (
+      <Slider
+        min={0.1}
+        step={0.05}
+        marks={{ 1: '' }}
+        max={5}
+        value={updateObject.transform.scale}
+        onChange={setScale}
+      />
+    ),
+    [setScale, updateObject.transform.scale],
+  );
+  const playbackSlider = useMemo(
+    () => (
+      <Slider
+        min={0}
+        step={1}
+        max={updateObject.strokeCount}
+        value={updateObject.cursor}
+        onChange={seek}
+        className={styles.cursorSlider}
+      />
+    ),
+    [updateObject.strokeCount, updateObject.cursor, seek],
+  );
   return (
-    <div className={styles.root}>
-      <div className={styles.tools}>
-        <button disabled={updateObject.undo === undefined} onClick={undo}>
+    <div
+      className={styles.root}
+      touch-action="none"
+      onTouchStart={preventDefault}
+    >
+      <div className={styles.tools} onTouchStart={preventDefault}>
+        <button
+          onTouchStart={preventDefault}
+          disabled={updateObject.strokeCount === 0}
+          onClick={togglePlay}
+        >
+          {updateObject.playing ? 'Pause' : 'Play'}
+        </button>
+        {playbackSlider}
+        <button
+          onTouchStart={preventDefault}
+          disabled={updateObject.undo === undefined}
+          onClick={undo}
+        >
           Undo
         </button>
-        <button disabled={updateObject.redo === undefined} onClick={redo}>
+        <button
+          onTouchStart={preventDefault}
+          disabled={updateObject.redo === undefined}
+          onClick={redo}
+        >
           Redo
         </button>
       </div>
       <div className={styles.left}>
         <div>Color</div>
-        {colorButtons}
+        <div className={styles.colorButtons}>
+          <div
+            className={styles.currentColor}
+            style={{ backgroundColor: updateObject.mode.color }}
+          />
+          {colorButtons}
+        </div>
         <div>Size</div>
-        <Slider
-          min={1}
-          max={100}
-          value={updateObject.mode.size}
-          onChange={setBrushSize}
-        />
+        {sizeSlider}
         <div>Zoom</div>
-        <Slider
-          min={10}
-          marks={{ 10: '10%', 100: '100%', 500: '500%' }}
-          max={500}
-          value={updateObject.transform.scale}
-          onChange={setScale}
-        />
-        <pre>{JSON.stringify(updateObject, null, 2)}</pre>
+        {zoomSlider}
       </div>
-      <div ref={drawletContainerRef} className={styles.canvasContainer} />
+      <div
+        ref={drawletContainerRef}
+        touch-action="none"
+        className={styles.canvasContainer}
+      />
       <div className={styles.right} />
       <div className={styles.status} />
     </div>

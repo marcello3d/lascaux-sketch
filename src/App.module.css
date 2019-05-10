@@ -6,9 +6,8 @@
   grid-template-columns: 1fr;
   grid-template-rows: auto 1fr;
   grid-template-areas:
-    "header"
-    "main"
-  ;
+    'header'
+    'main';
   background: #444;
 }
 
@@ -17,6 +16,9 @@
   color: #eee;
   padding: 10px;
   font-size: 20px;
+}
+@media (env(safe-area-inset-top, 0) > 0) {
+  padding-top: env(safe-area-inset-top, 10px);
 }
 .head a {
   color: #ddc8ee;
@@ -27,4 +29,18 @@
   background: #888;
   display: flex;
   overflow: hidden;
+}
+
+button {
+  background: #4a48ff;
+  color: #fff;
+  border: none;
+  border-radius: 1em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 0.25em 1em;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+  margin: 2px;
+  vertical-align: middle;
 }
