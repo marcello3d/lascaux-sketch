@@ -3,6 +3,7 @@ export type FrameBuffer = {
   height: number;
   texture: WebGLTexture;
   framebuffer: WebGLFramebuffer;
+  destroy(): void;
 };
 
 export function createFrameBuffer(
@@ -63,6 +64,10 @@ export function createFrameBuffer(
     height,
     texture,
     framebuffer,
+    destroy() {
+      gl.deleteFramebuffer(framebuffer);
+      gl.deleteTexture(texture);
+    },
   };
 }
 

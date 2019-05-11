@@ -14,7 +14,8 @@ import seedrandom from 'seedrandom';
 import jsonCopy from './json-copy';
 import { Dna } from '../drawos/dna';
 import {
-  DrawingContext, DrawletHandleContext,
+  DrawingContext,
+  DrawletHandleContext,
   DrawletHandleFn,
   DrawletInitContext,
   DrawletInitializeFn,
@@ -49,7 +50,7 @@ function getInitializeContext<DrawletDna extends Dna>(
 export default class DrawingModel<
   DrawletDna extends Dna = FiverDna,
   Mode extends object = FiverMode,
-  State extends object = FiverState,
+  State extends object = FiverState
 > {
   readonly _storageModel: StorageModel;
   private _loadedCallbacks: ReadyCallbackFn[] | undefined = [];
@@ -351,7 +352,12 @@ export class CanvasModel<
     this._drawing._initialize(this._drawos.getDrawingContext());
   }
 
-  _execute(cursor: number, eventType: string, payload: any, callback: ReadyCallbackFn) {
+  _execute(
+    cursor: number,
+    eventType: string,
+    payload: any,
+    callback: ReadyCallbackFn,
+  ) {
     this._targetCursor = cursor;
     if (eventType === GOTO_EVENT) {
       return this._goto(payload, callback);
@@ -360,7 +366,6 @@ export class CanvasModel<
     if (isModeEvent(eventType)) {
       return callback();
     }
-    this._drawos.beforeExecute();
     this._executeRaw(eventType, payload);
     this._drawos.afterExecute();
     callback();
@@ -399,7 +404,6 @@ export class CanvasModel<
   }
 
   redraw() {
-    this._drawos.beforeExecute();
     this._drawos.afterExecute();
   }
 
@@ -427,7 +431,6 @@ export class CanvasModel<
       return done();
     }
 
-    this._drawos.beforeExecute();
     this._inGoto = true;
 
     const runLoop = () => {
@@ -446,7 +449,6 @@ export class CanvasModel<
         }
         if (async === true) {
           // not immediate
-          this._drawos.beforeExecute();
         } else {
           // immediate
           async = false;

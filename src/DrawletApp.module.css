@@ -70,6 +70,23 @@
   outline: none;
   border-radius: 3px;
 }
+.layers {
+  display: flex;
+  flex-direction: column;
+  border: solid 1px #888;
+}
+.layer + .layer {
+  border-top: solid 1px #888;
+}
+.layer {
+  display: block;
+  border-radius: 0;
+  background: #444;
+  margin: 0;
+}
+.layerSelected {
+  background: #666;
+}
 .left {
   grid-area: left;
   flex-shrink: 0;

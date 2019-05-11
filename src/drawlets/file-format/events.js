@@ -10,6 +10,7 @@ export const MODE_EVENT_REGEX = /^%(.*)$/;
 export const CURSOR_EVENT = '%cursor';
 
 // Normal events
+export const ADD_LAYER_EVENT = 'add-layer';
 export const DRAW_START_EVENT = 'start';
 export const DRAW_EVENT = 'draw';
 export const DRAW_END_EVENT = 'end';

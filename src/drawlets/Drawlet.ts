@@ -59,6 +59,9 @@ export type Rect = readonly [number, number, number, number];
 export type Rects = readonly Rect[];
 
 export interface DrawingContext {
+  addLayer(): void;
+
+  setLayer(layer: number): void;
   setFillStyle(fillStyle: string): void;
 
   fillRect(x: number, y: number, w: number, h: number): void;
@@ -112,8 +115,7 @@ export interface DrawOs {
     callback: (error?: Error) => void,
   ): void;
   getDom(): HTMLCanvasElement;
-  saveRect(x: number, y: number, w: number, h: number): void;
-  beforeExecute(): void;
+  saveRect(layer: number, x: number, y: number, w: number, h: number): void;
   afterExecute(): void;
   setTransform(translateX: number, translateY: number, scale: number): void;
   toDataUrl(): string;
@@ -124,7 +126,12 @@ export type Snapshot = {
   tileSize: number;
 };
 export type Links = Record<string, string>;
-export type Tile = { x: number; y: number; link: string };
+export type Tile = {
+  layer: number;
+  x: number;
+  y: number;
+  link: string;
+};
 export type Tiles = Record<string, Tile>;
 
 export type Transform = {
@@ -148,6 +155,7 @@ export type DrawletInstance<Mode extends object> = {
   flush(): void;
   setMode(mode: string, value: any): void;
   setScale(scale: number): void;
+  addLayer(): void;
   addGoto(cursor: number): void;
   getImageDataUrl(): void;
   setPlaying(playing: boolean): void;

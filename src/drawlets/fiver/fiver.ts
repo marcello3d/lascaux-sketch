@@ -1,9 +1,12 @@
 import { Dna } from '../drawos/dna';
 import {
+  DRAW_END_EVENT,
+  DRAW_START_EVENT,
   DrawingContext,
   DrawletHandleContext,
   DrawletInitContext,
 } from '../Drawlet';
+import { ADD_LAYER_EVENT, DRAW_EVENT } from '../file-format/events';
 
 export const name = 'fiver';
 export const author = 'marcello';
@@ -28,6 +31,8 @@ export function newDna(width: number = 512, height: number = 512): FiverDna {
   };
 }
 export type FiverMode = {
+  layers: number;
+  layer: number;
   color: string;
   size: number;
 };
@@ -51,6 +56,8 @@ export function initializeCommand(
     canvas.fillRect(0, 0, width, height);
   }
   return {
+    layers: 1,
+    layer: 0,
     color: colors[(bg + 1) % colors.length],
     size: 8,
   };
@@ -63,7 +70,11 @@ export function handleCommand(
   payload: any,
 ): void {
   switch (event) {
-    case 'start':
+    case ADD_LAYER_EVENT:
+      canvas.addLayer();
+      break;
+
+    case DRAW_START_EVENT:
       state.size = 0;
       state.vx = 0;
       state.vy = 0;
@@ -71,7 +82,7 @@ export function handleCommand(
       state.y = payload.y;
       break;
 
-    case 'draw':
+    case DRAW_EVENT:
       const dragx = payload.x;
       const dragy = payload.y;
       let dx = dragx - state.x;
@@ -80,6 +91,7 @@ export function handleCommand(
       const dsize = (rad > 0 ? Math.log(rad) : 0) * mode.size;
       let i = 0;
       canvas.setFillStyle(mode.color);
+      canvas.setLayer(mode.layer);
       const rects = new Array(100);
       let j = 0;
       do {
@@ -115,7 +127,7 @@ export function handleCommand(
 
       break;
 
-    case 'end':
+    case DRAW_END_EVENT:
       break;
   }
 }

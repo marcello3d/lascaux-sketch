@@ -6,9 +6,9 @@ import React, {
   useState,
 } from 'react';
 
-import styles from './DrawingApp2.module.css';
+import styles from './DrawletApp.module.css';
 import { useAppendChild } from './react-hooks/useAppendChild';
-
+import classnames from 'classnames';
 import 'rc-slider/assets/index.css';
 import 'rc-tooltip/assets/bootstrap.css';
 import Slider from 'rc-slider';
@@ -102,6 +102,9 @@ export default function DrawletApp({
   const togglePlay = useCallback(() => {
     canvasInstance.setPlaying(!updateObject.playing);
   }, [canvasInstance, updateObject.playing]);
+  const addLayer = useCallback(() => {
+    canvasInstance.addLayer();
+  }, [canvasInstance]);
   const undo = useCallback(() => {
     if (updateObject.undo) {
       canvasInstance.addGoto(updateObject.undo);
@@ -153,6 +156,26 @@ export default function DrawletApp({
     ),
     [updateObject.strokeCount, updateObject.cursor, seek],
   );
+  const layers = useMemo(() => {
+    const array: React.ReactNode[] = [];
+    for (let i = updateObject.mode.layers - 1; i >= 0; i--) {
+      const layer = i;
+      const onClick = () => canvasInstance.setMode('layer', layer);
+      array.push(
+        <button
+          key={i}
+          className={classnames(styles.layer, {
+            [styles.layerSelected]: updateObject.mode.layer === layer,
+          })}
+          onClick={onClick}
+          onTouchStart={onClick}
+        >
+          Layer #{i + 1}
+        </button>,
+      );
+    }
+    return array;
+  }, [updateObject.mode.layer, updateObject.mode.layers, canvasInstance]);
   return (
     <div
       className={styles.root}
@@ -196,6 +219,9 @@ export default function DrawletApp({
         {sizeSlider}
         <div>Zoom</div>
         {zoomSlider}
+        <div>Layers</div>
+        <div className={styles.layers}>{layers}</div>
+        <button onClick={addLayer}>Add Layer</button>
       </div>
       <div
         ref={drawletContainerRef}

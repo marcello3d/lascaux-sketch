@@ -2,7 +2,8 @@ import DrawingModel from './file-format/DrawingModel';
 import { Dna } from './drawos/dna';
 import { DrawletEvent, DrawletInstance, UpdateObject } from './Drawlet';
 import pointerEventsBridge, { EventBridge } from './pointer-events-bridge';
-import { GOTO_EVENT } from './file-format/events';
+import { ADD_LAYER_EVENT, GOTO_EVENT } from './file-format/events';
+import { FiverMode } from './fiver/fiver';
 
 export default function setupHtmlCanvasBridge<
   DrawletDna extends Dna,
@@ -147,6 +148,10 @@ export default function setupHtmlCanvasBridge<
     });
   }
 
+  function addStroke(name: string, payload: any = null) {
+    drawingModel.addStroke(name, Date.now(), payload, notifyRenderDone);
+  }
+
   let eventBridge: EventBridge | undefined;
   return {
     dom: canvas.dom,
@@ -158,7 +163,7 @@ export default function setupHtmlCanvasBridge<
     },
 
     setMode(mode: string, value: any) {
-      drawingModel.addStroke(`%${mode}`, Date.now(), value, notifyRenderDone);
+      addStroke(`%${mode}`, value);
     },
 
     setScale(scale: number) {
@@ -168,8 +173,13 @@ export default function setupHtmlCanvasBridge<
       eventBridge.setScale(scale);
     },
 
+    addLayer() {
+      addStroke(ADD_LAYER_EVENT);
+      addStroke('%layers', (getUpdateObject().mode as FiverMode).layers + 1);
+    },
+
     addGoto(cursor: number) {
-      drawingModel.addStroke(GOTO_EVENT, Date.now(), cursor, notifyRenderDone);
+      addStroke(GOTO_EVENT, cursor);
     },
 
     getImageDataUrl() {
