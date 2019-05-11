@@ -72,12 +72,15 @@ export default function DrawletApp({
   const colorButtons = useMemo(
     () =>
       colors.map((color, index) => {
-        const onClick = () => canvasInstance.setMode('color', color);
+        const onClick = (event: React.MouseEvent | React.TouchEvent) => {
+          event.preventDefault();
+          canvasInstance.setMode('color', color);
+        };
         const selected = color === updateObject.mode.color;
         return (
           <button
             key={index}
-            onTouchStart={preventDefault}
+            onTouchStart={onClick}
             onClick={onClick}
             className={styles.colorButton}
             style={{

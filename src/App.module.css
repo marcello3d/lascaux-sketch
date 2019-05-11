@@ -16,9 +16,7 @@
   color: #eee;
   padding: 10px;
   font-size: 20px;
-}
-@media (env(safe-area-inset-top, 0) > 0) {
-  padding-top: env(safe-area-inset-top, 10px);
+  padding-top: 15px;
 }
 .head a {
   color: #ddc8ee;
