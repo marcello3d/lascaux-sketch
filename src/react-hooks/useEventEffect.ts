@@ -27,7 +27,6 @@ export default function useEventEffect<E extends Event>(
         'addEventListener' in elementOrRef
           ? elementOrRef
           : elementOrRef.current;
-      console.log(`adding ${type} listener to ${element}`);
       element.addEventListener(type, listener as EventListener, {
         capture,
         once,
@@ -35,7 +34,6 @@ export default function useEventEffect<E extends Event>(
       });
 
       return () => {
-        console.log(`removing ${type} listener from ${element}`);
         element.removeEventListener(type, listener as EventListener, {
           capture,
         });

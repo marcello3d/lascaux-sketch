@@ -13,6 +13,7 @@ import { Dna } from '../dna';
 import { Program } from './program';
 
 import raw from 'raw.macro';
+
 import {
   DrawingContext,
   DrawOs,
@@ -24,6 +25,7 @@ import {
   Snap,
 } from '../../Drawlet';
 
+// cache bust v5
 const ellipseVertexShader = raw('./draw-ellipse.vert');
 const ellipseFragmentShader = raw('./draw-ellipse.frag');
 const rectVertexShader = raw('./draw-rect.vert');
@@ -100,6 +102,7 @@ export default class GlOS1 implements DrawOs {
   private readonly _drawingVertexBuffer: WebGLBuffer;
   private readonly _drawingVertexBuffer2: WebGLBuffer;
   private readonly _drawingVertexIndexBuffer: WebGLBuffer;
+  private readonly _halfFloatExtension: OES_texture_half_float | null;
 
   constructor(dna: Dna, scale: number = 1, tileSize: number = 64) {
     this.dna = dna;
@@ -149,8 +152,21 @@ export default class GlOS1 implements DrawOs {
     // gl.disable(gl.DEPTH_BUFFER_BIT)
 
     this.gl = gl;
+    this._halfFloatExtension =
+      gl.getExtension('OES_texture_half_float');
+    console.log(
+      `using ${this._halfFloatExtension ? 'floating point' : 'byte'} textures`,
+    );
+
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    // gl.blendFunc(gl.BLEND_SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.blendFuncSeparate(
+      gl.SRC_ALPHA,
+      gl.ONE_MINUS_SRC_ALPHA,
+      gl.ONE,
+      gl.ONE_MINUS_SRC_ALPHA,
+    );
+    // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     this._programManager = new ProgramManager(gl);
     this._mainProgram = this._createMainGlProgram(gl);
@@ -219,7 +235,12 @@ export default class GlOS1 implements DrawOs {
   }
   private _addLayer() {
     const { gl } = this;
-    const buffer = createFrameBuffer(gl, this.pixelWidth, this.pixelHeight);
+    const buffer = createFrameBuffer(
+      gl,
+      this.pixelWidth,
+      this.pixelHeight,
+      this._halfFloatExtension ? this._halfFloatExtension.HALF_FLOAT_OES : gl.UNSIGNED_BYTE,
+    );
     this._layers.push(buffer);
     this._bindFrameBuffer(buffer);
     gl.clearColor(0, 0, 0, 0);
@@ -594,6 +615,7 @@ export default class GlOS1 implements DrawOs {
   ) {
     const gl = this.gl;
 
+    this._prepareToDraw(layer);
     this._programManager.use(this._ellipseProgram);
 
     gl.uniform4f(this._ellipseProgram.uniforms.uColor, r, g, b, a);

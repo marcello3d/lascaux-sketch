@@ -64,6 +64,8 @@
     "@types/react-dom": "16.8.4",
     "@types/seedrandom": "2.4.28",
     "@types/shortid": "0.0.29",
+    "babel-plugin-glsl": "1.0.0",
+    "glslify": "7.0.0",
     "husky": "2.2.0",
     "prettier": "1.17.0",
     "pretty-quick": "1.10.0",

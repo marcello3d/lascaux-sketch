@@ -148,7 +148,7 @@ export default function setupHtmlCanvasBridge<
     });
   }
 
-  function addStroke(name: string, payload: any = null) {
+  function addStroke(name: string, payload: any = {}) {
     drawingModel.addStroke(name, Date.now(), payload, notifyRenderDone);
   }
 

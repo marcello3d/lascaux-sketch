@@ -10,6 +10,7 @@ export function createFrameBuffer(
   gl: WebGLRenderingContext,
   width: number,
   height: number,
+  type: GLenum = gl.UNSIGNED_BYTE,
 ): FrameBuffer {
   const framebuffer = gl.createFramebuffer();
   if (!framebuffer) {
@@ -35,7 +36,7 @@ export function createFrameBuffer(
     height,
     0, // border
     gl.RGBA, // format
-    gl.UNSIGNED_BYTE, // type
+    type, // type
     null, // pixels
   );
 

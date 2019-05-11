@@ -123,6 +123,7 @@ export default function pointerEventsBridge(
       console.warn(`Unexpected ${type} event for new pointer`);
       return;
     }
+    event.preventDefault();
     const pointerUp =
       type === PointerUpEventName || type === PointerCancelEventName;
     currentPointers[pointerId] = {

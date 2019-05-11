@@ -7,7 +7,7 @@ import { AppState, Page } from './state';
 const drawingId = shortid();
 const initialState: AppState = {
   drawings: {
-    [drawingId]: { width: 512, height: 512 },
+    [drawingId]: { width: 1024, height: 1024 },
   },
   page: {
     type: 'drawing',

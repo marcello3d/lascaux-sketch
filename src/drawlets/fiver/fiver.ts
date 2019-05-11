@@ -106,20 +106,12 @@ export function handleCommand(
         dx = dragx - state.x;
         dy = dragy - state.y;
         rad = Math.sqrt(dy * dy + dx * dx);
-        const size2 = Math.floor(
-          Math.max(
-            1,
-            state.size *
-              (payload.pressure !== undefined ? payload.pressure : 1),
-          ),
+        const size2 = Math.max(
+          1,
+          state.size * (payload.pressure !== undefined ? payload.pressure : 1),
         );
         if (size2 > 0) {
-          rects[j++] = [
-            Math.floor(state.x - size2 / 2),
-            Math.floor(state.y - size2 / 2),
-            size2,
-            size2,
-          ];
+          rects[j++] = [state.x - size2 / 2, state.y - size2 / 2, size2, size2];
         }
       } while (dx * dx + dy * dy > 3 * 3 && i < 100);
       rects.length = j;

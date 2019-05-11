@@ -18,5 +18,6 @@ void main() {
   if (inEllipse > 1.0) {
     discard;
   }
-  gl_FragColor = uColor;
+
+  gl_FragColor = vec4(uColor.rgb, (1.0 - inEllipse) * 0.2);
 }
