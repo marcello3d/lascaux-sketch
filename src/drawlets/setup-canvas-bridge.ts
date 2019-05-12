@@ -174,8 +174,10 @@ export default function setupHtmlCanvasBridge<
     },
 
     addLayer() {
+      const currentLayerCount = (getUpdateObject().mode as FiverMode).layers;
       addStroke(ADD_LAYER_EVENT);
-      addStroke('%layers', (getUpdateObject().mode as FiverMode).layers + 1);
+      addStroke('%layers', currentLayerCount + 1);
+      addStroke('%layer', currentLayerCount);
     },
 
     addGoto(cursor: number) {

@@ -35,7 +35,8 @@
     "start": "react-scripts start",
     "build": "GENERATE_SOURCEMAP=false react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "now-build": "yarn build"
   },
   "husky": {
     "hooks": {
@@ -68,7 +69,6 @@
     "glslify": "7.0.0",
     "husky": "2.2.0",
     "prettier": "1.17.0",
-    "pretty-quick": "1.10.0",
-    "raw.macro": "0.3.0"
+    "pretty-quick": "1.10.0"
   }
 }

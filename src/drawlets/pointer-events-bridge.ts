@@ -315,6 +315,7 @@ export default function pointerEventsBridge(
       Math.min(maxWidth, viewportWidth) / canvasWidth,
       Math.min(maxHeight, viewportHeight) / canvasHeight,
       deviceScale,
+      0.1,
     );
     return clamp(scale, min, 10);
   }
