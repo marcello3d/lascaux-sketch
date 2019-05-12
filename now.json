@@ -12,12 +12,20 @@
   "routes": [
     {
       "src": "/static/(.*)",
-      "headers": { "cache-control": "s-maxage=31536000,immutable" },
+      "headers": {
+        "cache-control": "max-age=31536000,s-maxage=31536000,immutable"
+      },
       "dest": "/static/$1"
     },
     {
       "src": "/favicon.ico",
+      "headers": { "cache-control": "max-age=3600,s-maxage=3600,immutable" },
       "dest": "/favicon.ico"
+    },
+    {
+      "src": "/icon.png",
+      "headers": { "cache-control": "max-age=3600,s-maxage=3600,immutable" },
+      "dest": "/icon.png"
     },
     {
       "src": "/asset-manifest.json",
