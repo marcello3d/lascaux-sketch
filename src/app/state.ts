@@ -1,5 +1,3 @@
-import { Canvas2d } from '../draw/canvas';
-
 export type Page =
   | {
       type: 'index';
