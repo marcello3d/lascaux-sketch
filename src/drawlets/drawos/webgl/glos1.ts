@@ -13,8 +13,6 @@ import md5 from 'md5';
 import { Dna } from '../dna';
 import { Program } from './program';
 
-import raw from 'raw.macro';
-
 import {
   DrawingContext,
   DrawOs,
@@ -25,16 +23,10 @@ import {
   Snapshot,
   Tiles,
 } from '../../Drawlet';
-
-// cache bust v8
-const ellipseVertexShader = raw('./draw-ellipse.vert');
-const ellipseFragmentShader = raw('./draw-ellipse.frag');
-const rectVertexShader = raw('./draw-rect.vert');
-const rectFragmentShader = raw('./draw-rect.frag');
-const lineVertexShader = raw('./draw-line.vert');
-const lineFragmentShader = raw('./draw-line.frag');
-const textureVertexShader = raw('./draw-texture.vert');
-const textureFragmentShader = raw('./draw-texture.frag');
+import { ellipseVertexShader, ellipseFragmentShader } from './glsl/ellipse';
+import { textureFragmentShader, textureVertexShader } from './glsl/texture';
+import { lineVertexShader, lineFragmentShader } from './glsl/line';
+import { rectVertexShader, rectFragmentShader } from './glsl/rect';
 
 function makeTextureVertexArray(
   x1: number,

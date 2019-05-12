@@ -1,3 +1,3 @@
 declare module 'babel-plugin-glsl/macro' {
-  export default function(glsl: string): string;
+  export default function(strings: any, ...values: any[]): string;
 }

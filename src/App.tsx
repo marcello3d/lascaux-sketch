@@ -19,19 +19,12 @@ export function App() {
     },
     { passive: false },
   );
-  const dispatch = useDispatch();
-  const page = useMappedState(getCurrentPage);
 
   return (
     <div className={styles.root}>
       <header className={styles.head}>
         Sketchperiment 3 by{' '}
         <a href="https://marcello.cellosoft.com/">marcello</a>
-        {page.type !== 'index' && (
-          <button onClick={() => dispatch(navigateToPage({ type: 'index' }))}>
-            Back
-          </button>
-        )}
       </header>
       <main className={styles.main}>
         <Router />

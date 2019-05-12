@@ -26,6 +26,10 @@
   color: #fff;
   background: rgba(0, 0, 0, 0.4);
 }
+.left {
+  display: flex;
+  flex-direction: column;
+}
 .tools {
   grid-area: tools;
   display: flex;
@@ -56,6 +60,16 @@
 .currentColor {
   height: 30px;
   margin: 1px;
+}
+.toolLabel {
+  margin-top: 10px;
+  margin-bottom: 3px;
+}
+.value {
+  float: right;
+}
+.toolLabel:first-child {
+  margin-top: 0;
 }
 .colorButtons {
   background: #000;

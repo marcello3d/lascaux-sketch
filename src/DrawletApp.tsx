@@ -102,9 +102,13 @@ export default function DrawletApp({
   const togglePlay = useCallback(() => {
     canvasInstance.setPlaying(!updateObject.playing);
   }, [canvasInstance, updateObject.playing]);
-  const addLayer = useCallback(() => {
-    canvasInstance.addLayer();
-  }, [canvasInstance]);
+  const addLayer = useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault();
+      canvasInstance.addLayer();
+    },
+    [canvasInstance],
+  );
   const undo = useCallback(() => {
     if (updateObject.undo) {
       canvasInstance.addGoto(updateObject.undo);
@@ -207,7 +211,7 @@ export default function DrawletApp({
         </button>
       </div>
       <div className={styles.left}>
-        <div>Color</div>
+        <label className={styles.toolLabel}>Color</label>
         <div className={styles.colorButtons}>
           <div
             className={styles.currentColor}
@@ -215,12 +219,19 @@ export default function DrawletApp({
           />
           {colorButtons}
         </div>
-        <div>Size</div>
+        <label className={styles.toolLabel}>
+          Size <span className={styles.value}>{updateObject.mode.size}</span>
+        </label>
         {sizeSlider}
-        <div>Zoom</div>
+        <label className={styles.toolLabel}>
+          Zoom{' '}
+          <span className={styles.value}>
+            {(updateObject.transform.scale * 100).toFixed(0)}%
+          </span>
+        </label>
         {zoomSlider}
-        <div>Layers</div>
-        <div className={styles.layers}>{layers}</div>
+        <label className={styles.toolLabel}>Layers</label>
+        <label className={styles.layers}>{layers}</label>
         <button onClick={addLayer}>Add Layer</button>
       </div>
       <div
