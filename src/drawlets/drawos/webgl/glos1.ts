@@ -1,6 +1,7 @@
 import parseColor from '../parse-color';
 
 import {
+  checkRenderTargetSupport,
   createFrameBuffer,
   FrameBuffer,
   setDrawingMatrix,
@@ -20,12 +21,12 @@ import {
   GetLinkFn,
   Links,
   Rects,
+  Snap,
   Snapshot,
   Tiles,
-  Snap,
 } from '../../Drawlet';
 
-// cache bust v5
+// cache bust v8
 const ellipseVertexShader = raw('./draw-ellipse.vert');
 const ellipseFragmentShader = raw('./draw-ellipse.frag');
 const rectVertexShader = raw('./draw-rect.vert');
@@ -102,7 +103,10 @@ export default class GlOS1 implements DrawOs {
   private readonly _drawingVertexBuffer: WebGLBuffer;
   private readonly _drawingVertexBuffer2: WebGLBuffer;
   private readonly _drawingVertexIndexBuffer: WebGLBuffer;
-  private readonly _halfFloatExtension: OES_texture_half_float | null;
+  private readonly _OES_texture_float: OES_texture_float_linear | null;
+  private readonly _OES_texture_half_float: OES_texture_half_float | null;
+  private readonly _frameBufferType: GLenum;
+  private readonly _frameBufferFormat: GLenum;
 
   constructor(dna: Dna, scale: number = 1, tileSize: number = 64) {
     this.dna = dna;
@@ -152,21 +156,47 @@ export default class GlOS1 implements DrawOs {
     // gl.disable(gl.DEPTH_BUFFER_BIT)
 
     this.gl = gl;
-    this._halfFloatExtension =
-      gl.getExtension('OES_texture_half_float');
-    console.log(
-      `using ${this._halfFloatExtension ? 'floating point' : 'byte'} textures`,
-    );
+    this._OES_texture_float = gl.getExtension('OES_texture_float');
+    this._OES_texture_half_float = gl.getExtension('OES_texture_half_float');
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+
+    if (
+      this._OES_texture_float &&
+      checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT)
+    ) {
+      console.log('using full float RGBA textures');
+      this._frameBufferType = gl.FLOAT;
+    } else if (
+      this._OES_texture_half_float &&
+      checkRenderTargetSupport(
+        gl,
+        gl.RGBA,
+        this._OES_texture_half_float.HALF_FLOAT_OES,
+      )
+    ) {
+      console.log('using half float RGBA textures');
+      this._frameBufferType = this._OES_texture_half_float.HALF_FLOAT_OES;
+    } else {
+      console.log('using unsigned byte RGBA textures');
+      this._frameBufferType = gl.UNSIGNED_BYTE;
+    }
+
+    console.log(`using RGBA textures`);
+    this._frameBufferFormat = gl.RGBA;
 
     gl.enable(gl.BLEND);
-    // gl.blendFunc(gl.BLEND_SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    //  A OVER B
+    // SRC OVER DST
+
+    // a0 = alpha A + alpha B (1 - alpha A)
+    // a0 = alpha SRC * 1 + alpha DST (1 - alpha SRC)
     gl.blendFuncSeparate(
       gl.SRC_ALPHA,
       gl.ONE_MINUS_SRC_ALPHA,
       gl.ONE,
       gl.ONE_MINUS_SRC_ALPHA,
     );
-    // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     this._programManager = new ProgramManager(gl);
     this._mainProgram = this._createMainGlProgram(gl);
@@ -230,6 +260,23 @@ export default class GlOS1 implements DrawOs {
     if (this._framebuffer !== buffer) {
       const { gl } = this;
       gl.bindFramebuffer(gl.FRAMEBUFFER, buffer ? buffer.framebuffer : null);
+      if (buffer) {
+        // Not pre-multiplied
+        gl.blendFuncSeparate(
+          gl.SRC_ALPHA,
+          gl.ONE_MINUS_SRC_ALPHA,
+          gl.ONE,
+          gl.ONE_MINUS_SRC_ALPHA,
+        );
+      } else {
+        // Premultiplied
+        gl.blendFuncSeparate(
+          gl.ONE,
+          gl.ONE_MINUS_SRC_ALPHA,
+          gl.ONE,
+          gl.ONE_MINUS_SRC_ALPHA,
+        );
+      }
       this._framebuffer = buffer;
     }
   }
@@ -239,7 +286,8 @@ export default class GlOS1 implements DrawOs {
       gl,
       this.pixelWidth,
       this.pixelHeight,
-      this._halfFloatExtension ? this._halfFloatExtension.HALF_FLOAT_OES : gl.UNSIGNED_BYTE,
+      this._frameBufferType,
+      this._frameBufferFormat,
     );
     this._layers.push(buffer);
     this._bindFrameBuffer(buffer);

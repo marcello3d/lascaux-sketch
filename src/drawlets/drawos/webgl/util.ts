@@ -11,6 +11,7 @@ export function createFrameBuffer(
   width: number,
   height: number,
   type: GLenum = gl.UNSIGNED_BYTE,
+  format: GLenum = gl.RGBA,
 ): FrameBuffer {
   const framebuffer = gl.createFramebuffer();
   if (!framebuffer) {
@@ -31,11 +32,11 @@ export function createFrameBuffer(
   gl.texImage2D(
     gl.TEXTURE_2D, // target
     0, // level
-    gl.RGBA, // internal format
+    format, // internal format
     width,
     height,
     0, // border
-    gl.RGBA, // format
+    format, // format
     type, // type
     null, // pixels
   );
@@ -179,4 +180,46 @@ export function setDrawingMatrix(
       -1, -1, 0, 1
     ]),
   );
+}
+
+export function checkRenderTargetSupport(
+  gl: WebGLRenderingContext,
+  format: GLenum,
+  type: GLenum,
+): boolean {
+  // create temporary frame buffer and texture
+  const framebuffer = gl.createFramebuffer();
+  if (!framebuffer) {
+    return false;
+  }
+  try {
+    const texture = gl.createTexture();
+    if (!texture) {
+      return false;
+    }
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, format, 2, 2, 0, format, type, null);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      gl.framebufferTexture2D(
+        gl.FRAMEBUFFER,
+        gl.COLOR_ATTACHMENT0,
+        gl.TEXTURE_2D,
+        texture,
+        0,
+      );
+
+      // check frame buffer status
+      return (
+        gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE
+      );
+    } finally {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.deleteTexture(texture);
+    }
+  } finally {
+    gl.deleteFramebuffer(framebuffer);
+  }
 }
