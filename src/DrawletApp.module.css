@@ -67,6 +67,8 @@
 }
 .value {
   float: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 80%;
 }
 .toolLabel:first-child {
   margin-top: 0;

@@ -220,7 +220,7 @@ export default function DrawletApp({
           {colorButtons}
         </div>
         <label className={styles.toolLabel}>
-          Size <span className={styles.value}>{updateObject.mode.size}</span>
+          Size <span className={styles.value}>{brushSize}</span>
         </label>
         {sizeSlider}
         <label className={styles.toolLabel}>
