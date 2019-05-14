@@ -2,12 +2,20 @@ import React, { useCallback, useMemo } from 'react';
 
 import styles from './App.module.css';
 import useEventEffect from './react-hooks/useEventEffect';
-import { useDispatch, useMappedState } from 'redux-react-hook';
+import { StoreContext, useDispatch, useMappedState } from 'redux-react-hook';
 import { getCurrentPage, getDrawing } from './app/selectors';
 import { AppState } from './app/state';
 import { navigateToPage, newDrawing } from './app/actions';
 import DrawletApp from './DrawletApp';
 import { getDrawingModel } from './drawlets/drawlet-cache';
+import { createStore } from 'redux';
+import { reducer } from './app/reducer';
+
+const store = createStore(
+  reducer,
+  // @ts-ignore
+  window.__REDUX_DEVTOOLS_EXTENSION__ && window.__REDUX_DEVTOOLS_EXTENSION__(),
+);
 
 export function App() {
   const target = document.body;
@@ -21,15 +29,17 @@ export function App() {
   );
 
   return (
-    <div className={styles.root}>
-      <header className={styles.head}>
-        Sketchperiment 3 by{' '}
-        <a href="https://marcello.cellosoft.com/">marcello</a>
-      </header>
-      <main className={styles.main}>
-        <Router />
-      </main>
-    </div>
+    <StoreContext.Provider value={store}>
+      <div className={styles.root}>
+        <header className={styles.head}>
+          Sketchperiment 3 by{' '}
+          <a href="https://marcello.cellosoft.com/">marcello</a>
+        </header>
+        <main className={styles.main}>
+          <Router />
+        </main>
+      </div>
+    </StoreContext.Provider>
   );
 }
 

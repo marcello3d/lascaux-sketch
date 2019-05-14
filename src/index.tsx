@@ -4,9 +4,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 import { App } from './App';
-import { StoreContext } from 'redux-react-hook';
-import { createStore } from 'redux';
-import { reducer } from './app/reducer';
+import Diagnostics from './Diagnostics';
 
 // const pixelRatio = window.devicePixelRatio;
 // if (pixelRatio > 1) {
@@ -26,15 +24,8 @@ import { reducer } from './app/reducer';
 //   }
 // }
 
-const store = createStore(
-  reducer,
-  // @ts-ignore
-  window.__REDUX_DEVTOOLS_EXTENSION__ && window.__REDUX_DEVTOOLS_EXTENSION__(),
-);
-
-ReactDOM.render(
-  <StoreContext.Provider value={store}>
-    <App />
-  </StoreContext.Provider>,
-  document.getElementById('root'),
-);
+if (document.location.pathname === '/diag') {
+  ReactDOM.render(<Diagnostics />, document.getElementById('root'));
+} else {
+  ReactDOM.render(<App />, document.getElementById('root'));
+}
