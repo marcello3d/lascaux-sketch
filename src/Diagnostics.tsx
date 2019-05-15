@@ -1,44 +1,272 @@
 // @ts-ignore
 import * as PEPJS from '@marcello/pepjs';
 import * as React from 'react';
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useCallback, useMemo, useState } from 'react';
 import Bowser from 'bowser';
 
 import styles from './Diagnostics.module.css';
 import { checkRenderTargetSupport } from './drawlets/drawos/webgl/util';
+import produce from 'immer';
+
+type PointerData = {
+  types: Record<string, boolean>;
+  pointerIds: Record<string, boolean>;
+  pointers: Record<
+    string,
+    {
+      clientX: number;
+      clientY: number;
+      movementX: number;
+      movementY: number;
+      fractional: boolean;
+      buttons: number;
+      pressure: number;
+      minPressure: number;
+      maxPressure: number;
+      tiltX: number;
+      minTiltX: number;
+      maxTiltX: number;
+      tiltY: number;
+      minTiltY: number;
+      maxTiltY: number;
+      width: number;
+      minWidth: number;
+      maxWidth: number;
+      height: number;
+      minHeight: number;
+      maxHeight: number;
+    }
+  >;
+};
 
 export default function Diagnostics() {
-  const { browser, os, platform, engine } = useMemo(
-    () => Bowser.parse(window.navigator.userAgent),
-    [],
-  );
+  const system = useMemo((): Row[] => {
+    const { browser, os, platform, engine } = Bowser.parse(
+      window.navigator.userAgent,
+    );
+    return [
+      [
+        'Browser',
+        <>
+          <strong>
+            {browser.name} {browser.version}
+          </strong>{' '}
+          ({engine.name} {engine.version})
+        </>,
+      ],
+      [
+        'OS',
+        `${os.name} ${os.version}${
+          os.versionName ? ` (${os.versionName})` : ''
+        }`,
+      ],
+      ['Platform', `${platform.vendor} ${platform.type} ${platform.model}`],
+    ];
+  }, []);
   const webgl = useMemo(() => computeWebglSupport(false), []);
   const webgl2 = useMemo(() => computeWebglSupport(true), []);
+  const [data, setData] = useState<PointerData>({
+    types: {},
+    pointerIds: {},
+    pointers: {},
+  });
+  const handlePointerEvent = useCallback(
+    ({
+      type,
+      clientX,
+      clientY,
+      movementX,
+      movementY,
+      pageX,
+      pageY,
+      screenX,
+      screenY,
+      buttons,
+      pressure,
+      tiltX,
+      tiltY,
+      pointerId,
+      pointerType,
+      width,
+      height,
+    }: React.PointerEvent) => {
+      setData(
+        produce(data, (draft) => {
+          draft.types[type.replace(/^pointer/, '')] = true;
+          draft.pointerIds[pointerId] = true;
+          const pointer = draft.pointers[pointerType];
+          const fractional =
+            clientX !== Math.floor(clientX) || clientY !== Math.floor(clientY);
+          if (!pointer) {
+            draft.pointers[pointerType] = {
+              clientX,
+              clientY,
+              movementX,
+              movementY,
+              fractional,
+              buttons,
+              pressure,
+              minPressure: pressure,
+              maxPressure: pressure,
+              tiltX,
+              minTiltX: tiltX,
+              maxTiltX: tiltX,
+              tiltY,
+              minTiltY: tiltY,
+              maxTiltY: tiltY,
+              width,
+              minWidth: width,
+              maxWidth: width,
+              height,
+              minHeight: height,
+              maxHeight: height,
+            };
+          } else {
+            pointer.pressure = pressure;
+            pointer.buttons = buttons;
+            pointer.clientX = clientX;
+            pointer.clientY = clientY;
+            pointer.movementX = movementX;
+            pointer.movementY = movementY;
+            pointer.tiltX = tiltX;
+            pointer.tiltY = tiltY;
+            pointer.width = width;
+            pointer.height = height;
+            if (fractional) {
+              pointer.fractional = true;
+            }
+            if (pointer.minPressure > pressure) {
+              pointer.minPressure = pressure;
+            }
+            if (pointer.maxPressure < pressure) {
+              pointer.maxPressure = pressure;
+            }
+            if (pointer.minTiltX > tiltX) {
+              pointer.minTiltX = tiltX;
+            }
+            if (pointer.maxTiltX < tiltX) {
+              pointer.maxTiltX = tiltX;
+            }
+            if (pointer.minTiltY > tiltY) {
+              pointer.minTiltY = tiltY;
+            }
+            if (pointer.maxTiltY < tiltY) {
+              pointer.maxTiltY = tiltY;
+            }
+            if (pointer.minWidth > width) {
+              pointer.minWidth = width;
+            }
+            if (pointer.maxWidth < width) {
+              pointer.maxWidth = width;
+            }
+            if (pointer.minHeight > height) {
+              pointer.minHeight = height;
+            }
+            if (pointer.maxHeight < height) {
+              pointer.maxHeight = height;
+            }
+          }
+        }),
+      );
+    },
+    [data],
+  );
+  const dataRows = useMemo<Row[]>(() => {
+    const { types, pointerIds, pointers } = data;
+    const pointerIdKeys = Object.keys(pointerIds);
+    const rows: Row[] = [
+      ['Seen Pointer Event Types', Object.keys(types)],
+      [
+        'Seen Pointer Ids',
+        pointerIdKeys.slice(0, 3) +
+          (pointerIdKeys.length > 3
+            ? `, ... (${pointerIdKeys.length} total)`
+            : ''),
+      ],
+    ];
+    for (const type of Object.keys(pointers)) {
+      const {
+        clientX,
+        clientY,
+        movementX,
+        movementY,
+        fractional,
+        buttons,
+        pressure,
+        minPressure,
+        maxPressure,
+        tiltX,
+        minTiltX,
+        maxTiltX,
+        tiltY,
+        minTiltY,
+        maxTiltY,
+        width,
+        minWidth,
+        maxWidth,
+        height,
+        minHeight,
+        maxHeight,
+      } = pointers[type];
+      rows.push(
+        [`Cursor ${type}`],
+        [`Buttons`, buttons],
+        [`Client X/Y`, `${clientX.toFixed(2)}, ${clientY.toFixed(2)}`],
+        [`Movement X/Y`, `${movementX.toFixed(2)}, ${movementY.toFixed(2)}`],
+        [`Fractional position`, fractional],
+        [
+          `Pressure`,
+          `${pressure.toFixed(3)} (min: ${minPressure.toFixed(
+            3,
+          )}, max: ${maxPressure.toFixed(3)})`,
+        ],
+        [
+          `TiltX`,
+          `${tiltX.toFixed(1)} (min: ${minTiltX.toFixed(
+            1,
+          )}, max: ${maxTiltX.toFixed(1)})`,
+        ],
+        [
+          `TiltY`,
+          `${tiltY.toFixed(1)} (min: ${minTiltY.toFixed(
+            1,
+          )}, max: ${maxTiltY.toFixed(1)})`,
+        ],
+        [
+          `Width`,
+          `${width.toFixed(1)} (min: ${minWidth.toFixed(
+            1,
+          )}, max: ${maxWidth.toFixed(1)})`,
+        ],
+        [
+          `Height`,
+          `${height.toFixed(1)} (min: ${minHeight.toFixed(
+            1,
+          )}, max: ${maxHeight.toFixed(1)})`,
+        ],
+      );
+    }
+    return rows;
+  }, [data]);
   return (
-    <div className={styles.root}>
+    <div
+      className={styles.root}
+      touch-action="none"
+      onPointerEnter={handlePointerEvent}
+      onPointerLeave={handlePointerEvent}
+      onPointerMove={handlePointerEvent}
+      onPointerDown={handlePointerEvent}
+      onPointerUp={handlePointerEvent}
+      onPointerOut={handlePointerEvent}
+      onPointerOver={handlePointerEvent}
+    >
       <h1>PointerEvents Diagnostics</h1>
       <Table
         rows={[
-          [
-            'Browser',
-            <>
-              <strong>
-                {browser.name} {browser.version}
-              </strong>{' '}
-              ({engine.name} {engine.version})
-            </>,
-          ],
-          [
-            'OS',
-            `${os.name} ${os.version}${
-              os.versionName ? ` (${os.versionName})` : ''
-            }`,
-          ],
-          ['Platform', `${platform.vendor} ${platform.type} ${platform.model}`],
-          [
-            'PointerEvents',
-            PEPJS.PointerEvent === window.PointerEvent ? 'polyfill' : 'native',
-          ],
+          ...system,
+          ['PointerEvents'],
+          ['Polyfill', PEPJS.PointerEvent === window.PointerEvent],
+          ...dataRows,
           ['WebGL'],
           ...webgl,
           ['WebGL2'],
@@ -55,6 +283,9 @@ function renderValue(value: boolean | string | ReactNode) {
   }
   if (value === false) {
     return <strong>No</strong>;
+  }
+  if (Array.isArray(value)) {
+    return <strong>{value.join(', ')}</strong>;
   }
   if (typeof value === 'string' || typeof value === 'number') {
     return <strong>{value}</strong>;

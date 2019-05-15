@@ -26,6 +26,7 @@ import Diagnostics from './Diagnostics';
 
 if (document.location.pathname === '/diag') {
   ReactDOM.render(<Diagnostics />, document.getElementById('root'));
+  document.body.classList.add('diagnostics');
 } else {
   ReactDOM.render(<App />, document.getElementById('root'));
 }
