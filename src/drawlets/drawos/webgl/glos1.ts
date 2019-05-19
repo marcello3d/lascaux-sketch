@@ -1,6 +1,7 @@
 import parseColor from '../parse-color';
 
 import {
+  checkError,
   checkRenderTargetSupport,
   createFrameBuffer,
   FrameBuffer,
@@ -23,10 +24,10 @@ import {
   Snapshot,
   Tiles,
 } from '../../Drawlet';
-import { ellipseVertexShader, ellipseFragmentShader } from './glsl/ellipse';
+import { ellipseFragmentShader, ellipseVertexShader } from './glsl/ellipse';
 import { textureFragmentShader, textureVertexShader } from './glsl/texture';
-import { lineVertexShader, lineFragmentShader } from './glsl/line';
-import { rectVertexShader, rectFragmentShader } from './glsl/rect';
+import { lineFragmentShader, lineVertexShader } from './glsl/line';
+import { rectFragmentShader, rectVertexShader } from './glsl/rect';
 
 function makeTextureVertexArray(
   x1: number,
@@ -50,19 +51,22 @@ function getOrThrow<T>(value: T | null, type: string): T {
   return value;
 }
 
-function getTileX(x: number, tileSize: number): number {
-  return Math.floor(Math.max(0, x / tileSize));
-}
-function getTileY(y: number, tileSize: number): number {
-  return Math.floor(Math.max(0, y / tileSize));
-}
 function getTileKey(layer: number, tilex: number, tiley: number): string {
   return layer + '.' + tilex + '.' + tiley;
 }
 
+type Layer = {
+  changed?: {
+    tiles: Record<string, ChangedTile>;
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
+  };
+  frameBuffer: FrameBuffer;
+};
+
 type ChangedTile = [
-  // layer
-  number,
   // x
   number,
   // y
@@ -77,14 +81,13 @@ export default class GlOS1 implements DrawOs {
 
   private canvas: HTMLCanvasElement;
 
-  private _changedTiles: Record<string, ChangedTile> = {};
+  private readonly _layers: Array<Layer> = [];
   private _tiles: Tiles = {};
   private readonly gl: WebGLRenderingContext;
   private pixelRatio: number = 1;
   private _framebuffer: FrameBuffer | undefined;
 
   private _mainTextureVertexArray: Float32Array;
-  private readonly _layers: FrameBuffer[] = [];
   private readonly _programManager: ProgramManager;
   private readonly _mainProgram: Program;
   private readonly _textureProgram: Program;
@@ -100,6 +103,11 @@ export default class GlOS1 implements DrawOs {
   private readonly _frameBufferType: GLenum;
   private readonly _frameBufferFormat: GLenum;
 
+  private readonly _readBuffer: Uint8Array;
+  private readonly _loadImage = new Image();
+  private readonly _tileSaveCanvas: HTMLCanvasElement;
+  private readonly _tileSaveContext: CanvasRenderingContext2D;
+
   constructor(dna: Dna, scale: number = 1, tileSize: number = 64) {
     this.dna = dna;
     this.tileSize = tileSize;
@@ -110,7 +118,17 @@ export default class GlOS1 implements DrawOs {
     const pixelHeight = Math.ceil(this.dna.height * scale);
     this.pixelWidth = pixelWidth;
     this.pixelHeight = pixelHeight;
-    this.saveRect(0, 0, 0, pixelWidth, pixelHeight);
+
+    this._readBuffer = new Uint8Array(pixelWidth * pixelHeight * 4);
+
+    this._tileSaveCanvas = document.createElement('canvas');
+    this._tileSaveCanvas.width = tileSize;
+    this._tileSaveCanvas.height = tileSize;
+    this._tileSaveContext = getOrThrow(
+      this._tileSaveCanvas.getContext('2d'),
+      'tile save canvas',
+    );
+    // this._tileSaveImageData = this._tileSaveContext.createImageData(tileSize, tileSize);
 
     const canvas = document.createElement('canvas');
 
@@ -145,9 +163,9 @@ export default class GlOS1 implements DrawOs {
     }
 
     this.canvas = canvas;
-    // gl.disable(gl.DEPTH_BUFFER_BIT)
 
     this.gl = gl;
+
     this._OES_texture_float = gl.getExtension('OES_texture_float');
     this._OES_texture_half_float = gl.getExtension('OES_texture_half_float');
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
@@ -238,11 +256,13 @@ export default class GlOS1 implements DrawOs {
     this.initialize();
 
     updateCanvasAndGl();
+
+    checkError(gl);
   }
 
   initialize(): void {
     for (let i = 0; i < this._layers.length; i++) {
-      this._layers[i].destroy();
+      this._layers[i].frameBuffer.destroy();
     }
     this._layers.length = 0;
     this._addLayer();
@@ -274,36 +294,78 @@ export default class GlOS1 implements DrawOs {
   }
   private _addLayer() {
     const { gl } = this;
-    const buffer = createFrameBuffer(
+    const {
+      _layers,
+      pixelWidth,
+      pixelHeight,
+      _frameBufferType,
+      _frameBufferFormat,
+    } = this;
+    const frameBuffer = createFrameBuffer(
       gl,
-      this.pixelWidth,
-      this.pixelHeight,
-      this._frameBufferType,
-      this._frameBufferFormat,
+      pixelWidth,
+      pixelHeight,
+      _frameBufferType,
+      _frameBufferFormat,
     );
-    this._layers.push(buffer);
-    this._bindFrameBuffer(buffer);
+    _layers.push({ frameBuffer });
+    this._bindFrameBuffer(frameBuffer);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
+    this.saveRect(_layers.length - 1, 0, 0, pixelWidth, pixelHeight);
   }
 
   getSnapshot(): Snap {
     const links: Links = {};
-    for (const key of Object.keys(this._changedTiles)) {
-      const [layer, x, y] = this._changedTiles[key];
-      const dataUri = this._getTile(layer, x, y, this.tileSize, this.tileSize);
-      const link = md5(dataUri);
-      this._tiles[key] = { layer, x, y, link };
-      links[link] = dataUri;
+    const start = Date.now();
+    const {
+      tileSize,
+      _tileSaveContext,
+      _tileSaveCanvas,
+      _tiles,
+      _readBuffer,
+      _layers,
+      gl,
+    } = this;
+    const { length: length1 } = _layers;
+    let changedTiles = 0;
+    for (let layer = 0; layer < length1; layer++) {
+      const { changed } = _layers[layer];
+      if (!changed) {
+        continue;
+      }
+      const { tiles, maxX, minY, minX, maxY } = changed;
+      const tileKeys = Object.keys(tiles);
+      this._prepareToDraw(layer);
+      const w = maxX - minX;
+      const h = maxY - minY;
+      const imageData = _tileSaveContext.createImageData(w, h);
+      gl.readPixels(minX, minY, w, h, gl.RGBA, gl.UNSIGNED_BYTE, _readBuffer);
+      imageData.data.set(_readBuffer.subarray(0, imageData.data.length));
+      for (const key of tileKeys) {
+        const [x, y] = tiles[key];
+        _tileSaveContext.putImageData(imageData, minX - x, minY - y);
+        const dataUri = _tileSaveCanvas.toDataURL();
+        const link = md5(dataUri);
+        _tiles[key] = { layer, x, y, link };
+        links[link] = dataUri;
+        changedTiles++;
+      }
+      delete _layers[layer].changed;
     }
-    this._changedTiles = {};
-    return {
+    const snapshot = {
       snapshot: {
-        tileSize: this.tileSize,
-        tiles: { ...this._tiles },
+        tileSize,
+        tiles: { ..._tiles },
       },
       links,
     };
+    console.log(
+      `snapshot generated in ${Date.now() - start} ms: ${
+        Object.keys(_tiles).length
+      } tile(s), ${changedTiles} changed, ${Object.keys(links).length} links`,
+    );
+    return snapshot;
   }
 
   loadSnapshot(
@@ -319,43 +381,42 @@ export default class GlOS1 implements DrawOs {
       return callback();
     }
 
-    let putCount = 0;
-    const onPutFinish = (error?: Error) => {
+    // Async (callback-based) loop
+    const next = (error?: Error) => {
       if (error) {
         // Prevent multiple callbacks
-        putCount = keys.length;
         return callback(error);
       }
-      putCount++;
-      if (putCount >= keys.length) {
-        callback();
+      const key = keys.pop();
+      if (!key) {
+        return callback();
       }
-    };
-
-    for (const key of keys) {
       const { layer, x, y, link } = tiles[key];
+      const layerInfo = this._layers[layer];
       if (
-        !this._changedTiles[key] &&
+        (!layerInfo.changed || !layerInfo.changed.tiles[key]) &&
         this._tiles[key] &&
         this._tiles[key].link === link
       ) {
         // Already have this tile loaded
         this._tiles[key] = tiles[key];
-        delete this._changedTiles[key];
-        onPutFinish();
+        next();
       } else {
         // Get tile
-        getLink(link, (error: Error | undefined, data: any) => {
-          if (error || !data) {
-            onPutFinish(error);
+        getLink(link, (error: Error | undefined, dataUri: string) => {
+          if (error || !dataUri) {
+            next(error);
           } else {
             this._tiles[key] = tiles[key];
-            delete this._changedTiles[key];
-            this._putTile(layer, x, y, tileSize, tileSize, data, onPutFinish);
+            if (layerInfo.changed) {
+              delete layerInfo.changed.tiles[key];
+            }
+            this._putTile(layer, x, y, dataUri, next);
           }
         });
       }
-    }
+    };
+    next();
   }
 
   getDom(): HTMLCanvasElement {
@@ -368,10 +429,9 @@ export default class GlOS1 implements DrawOs {
       return;
     }
 
-    const changedTiles = this._changedTiles;
     const tileSize = this.tileSize;
-    const tilex1 = getTileX(x, tileSize);
-    const tiley1 = getTileY(y, tileSize);
+    const tilex1 = Math.max(0, Math.floor(x / tileSize));
+    const tiley1 = Math.max(0, Math.floor(y / tileSize));
     const tilex2 = Math.floor(
       Math.min((x + w) / tileSize, this.pixelWidth / tileSize - 1),
     );
@@ -379,77 +439,58 @@ export default class GlOS1 implements DrawOs {
       Math.min((y + h) / tileSize, this.pixelHeight / tileSize - 1),
     );
 
+    const layerInfo = this._layers[layer];
+    const changed =
+      layerInfo.changed ||
+      (layerInfo.changed = {
+        tiles: {},
+        minX: Infinity,
+        maxX: -Infinity,
+        minY: Infinity,
+        maxY: -Infinity,
+      });
+    changed.minX = Math.min(changed.minX, tilex1 * tileSize);
+    changed.maxX = Math.max(changed.maxX, (tilex2 + 1) * tileSize);
+    changed.minY = Math.min(changed.minY, tiley1 * tileSize);
+    changed.maxY = Math.max(changed.maxY, (tiley2 + 1) * tileSize);
     for (let tiley = tiley1; tiley <= tiley2; tiley++) {
       for (let tilex = tilex1; tilex <= tilex2; tilex++) {
         const key = getTileKey(layer, tilex, tiley);
-        if (!changedTiles[key]) {
-          changedTiles[key] = [layer, tilex * tileSize, tiley * tileSize];
+        if (!changed.tiles[key]) {
+          changed.tiles[key] = [tilex * tileSize, tiley * tileSize];
         }
       }
     }
-  }
-
-  private _getTile(
-    layer: number,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-  ): string {
-    return this._getDataUrl(layer, x, y, w, h);
   }
 
   private _putTile(
     layer: number,
     x: number,
     y: number,
-    w: number,
-    h: number,
     dataUri: string,
     callback: (error?: Error) => void,
   ) {
-    const gl = this.gl;
-    const image = new Image();
-    image.onload = () => {
-      if (image.width !== w || image.height !== h) {
-        return callback(
-          new Error(
-            `image size doesn't match: ${image.width}x${
-              image.height
-            }, expected ${x}x${y}`,
-          ),
-        );
-      }
+    const { _loadImage, gl } = this;
+    _loadImage.onload = () => {
       this._prepareToDraw(layer);
-      const texture = getOrThrow(gl.createTexture(), 'createTexture');
-      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.bindTexture(gl.TEXTURE_2D, this._layers[layer].frameBuffer.texture);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
-      this._drawTexture(
-        this._textureProgram,
-        texture,
-        makeTextureVertexArray(x, y, x + w, y + h),
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        x,
+        y,
+        this._frameBufferFormat,
+        this._frameBufferType,
+        _loadImage,
       );
       callback();
     };
-    image.src = dataUri;
-  }
-
-  private _getRawPixelData(
-    layer: number,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-  ): Uint8Array {
-    const gl = this.gl;
-    const data = new Uint8Array(width * height * 4);
-    this._prepareToDraw(layer);
-    gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, data);
-    return data;
+    _loadImage.onerror = (error) => callback(new Error(String(error)));
+    _loadImage.src = dataUri;
   }
 
   afterExecute() {
@@ -466,10 +507,6 @@ export default class GlOS1 implements DrawOs {
     this._redraw();
   }
 
-  toDataUrl(): string {
-    return this._getDataUrl(0, 0, 0, this.pixelWidth, this.pixelHeight);
-  }
-
   private _getDataUrl(
     layer: number,
     x: number,
@@ -478,23 +515,7 @@ export default class GlOS1 implements DrawOs {
     height: number,
     type?: string,
     options?: any,
-  ) {
-    // Create a 2D canvas to store the result
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext('2d');
-    if (!context) {
-      throw new Error('New canvas 2d context is null');
-    }
-
-    // Copy the pixels to a 2D canvas
-    const imageData = context.createImageData(width, height);
-    imageData.data.set(this._getRawPixelData(layer, x, y, width, height));
-    context.putImageData(imageData, 0, 0);
-
-    return canvas.toDataURL(type, options);
-  }
+  ) {}
 
   private _redraw() {
     if (!this._mainProgram) {
@@ -506,11 +527,11 @@ export default class GlOS1 implements DrawOs {
     gl.clearColor(0x33 / 255, 0x33 / 255, 0x33 / 255, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    const buffers = this._layers;
-    for (let i = 0; i < buffers.length; i++) {
+    const layers = this._layers;
+    for (let i = 0; i < layers.length; i++) {
       this._drawTexture(
         this._mainProgram,
-        buffers[i].texture,
+        layers[i].frameBuffer.texture,
         this._mainTextureVertexArray,
       );
     }
@@ -638,7 +659,7 @@ export default class GlOS1 implements DrawOs {
 
   private _prepareToDraw(layer: number) {
     const { gl } = this;
-    this._bindFrameBuffer(this._layers[layer]);
+    this._bindFrameBuffer(this._layers[layer].frameBuffer);
     gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
   }
 
@@ -655,6 +676,7 @@ export default class GlOS1 implements DrawOs {
   ) {
     const gl = this.gl;
 
+    this.saveRect(layer, x, y, w, h);
     this._prepareToDraw(layer);
     this._programManager.use(this._ellipseProgram);
 
@@ -729,42 +751,6 @@ export default class GlOS1 implements DrawOs {
     );
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
-  private _fillRect(
-    layer: number,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    r: number,
-    g: number,
-    b: number,
-    a: number = 1,
-  ) {
-    const gl = this.gl;
-
-    this._prepareToDraw(layer);
-    this._programManager.use(this._rectProgram);
-    gl.uniform4f(this._rectProgram.uniforms.uColor, r, g, b, a);
-
-    const x2 = x + w;
-    const y2 = y + h;
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._drawingVertexBuffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([x, y, x2, y, x, y2, x2, y2]),
-      gl.STATIC_DRAW,
-    );
-    gl.vertexAttribPointer(
-      this._rectProgram.attributes.aPosition,
-      2,
-      gl.FLOAT,
-      false,
-      0,
-      0,
-    );
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  }
-
   private _fillRects(
     layer: number,
     rects: Rects,
@@ -1008,11 +994,7 @@ export default class GlOS1 implements DrawOs {
       },
 
       fillRect(x: number, y: number, w: number, h: number) {
-        if (w * h === 0) {
-          return;
-        }
         const { layer, red, green, blue } = state;
-        os.saveRect(layer, x, y, w, h);
         os._fillRects(layer, [[x, y, w, h]], red, green, blue, 1);
       },
 
@@ -1026,7 +1008,6 @@ export default class GlOS1 implements DrawOs {
           return;
         }
         const { layer, red, green, blue } = state;
-        os.saveRect(layer, x, y, w, h);
         os._fillEllipse(layer, x, y, w, h, red, green, blue, 1);
       },
 

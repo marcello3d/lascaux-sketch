@@ -337,10 +337,6 @@ export class CanvasModel<
     return this._drawos.getDom();
   }
 
-  toDataUrl(): string {
-    return this._drawos.toDataUrl();
-  }
-
   setTransform(translateX: number, translateY: number, scale: number): void {
     this._drawos.setTransform(translateX, translateY, scale);
   }

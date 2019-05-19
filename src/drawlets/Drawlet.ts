@@ -118,7 +118,6 @@ export interface DrawOs {
   saveRect(layer: number, x: number, y: number, w: number, h: number): void;
   afterExecute(): void;
   setTransform(translateX: number, translateY: number, scale: number): void;
-  toDataUrl(): string;
 }
 
 export type Snapshot = {
@@ -157,7 +156,6 @@ export type DrawletInstance<Mode extends object> = {
   setScale(scale: number): void;
   addLayer(): void;
   addGoto(cursor: number): void;
-  getImageDataUrl(): void;
   setPlaying(playing: boolean): void;
   seekTo(cursor: number): void;
   subscribe(): () => void;
