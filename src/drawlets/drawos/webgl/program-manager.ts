@@ -2,13 +2,13 @@ import { Program } from './program';
 
 export default class ProgramManager {
   private readonly gl: WebGLRenderingContext;
-  private currentProgram: Program | null;
+  private currentProgram: Program<string, string> | null;
   constructor(gl: WebGLRenderingContext) {
     this.gl = gl;
     this.currentProgram = null;
   }
 
-  use(program: Program): void {
+  use(program: Program<string, string>): void {
     if (this.currentProgram === program) {
       return;
     }

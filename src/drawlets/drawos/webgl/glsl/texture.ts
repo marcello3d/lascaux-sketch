@@ -1,6 +1,8 @@
 import glsl from 'babel-plugin-glsl/macro';
+import { ShaderDescription } from '../program';
 
-export const textureVertexShader = glsl`
+export const textureShader = new ShaderDescription(
+  glsl`
   attribute vec4 aPosition;
 
   uniform mat4 uMVMatrix;
@@ -11,9 +13,8 @@ export const textureVertexShader = glsl`
     gl_Position = uMVMatrix * vec4(aPosition.xy, 0, 1);
     vTextureCoord = aPosition.zw;
   }
-`;
-
-export const textureFragmentShader = glsl`
+`,
+  glsl`
   precision mediump float;
 
   varying vec2 vTextureCoord;
@@ -21,6 +22,9 @@ export const textureFragmentShader = glsl`
   uniform sampler2D uSampler;
 
   void main() {
-    gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+    gl_FragColor = texture2D(uSampler, vTextureCoord.st);
   }
-`;
+`,
+  ['aPosition'],
+  ['uMVMatrix'],
+);
