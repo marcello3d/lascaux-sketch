@@ -18,7 +18,8 @@ type PointerData = {
       clientY: number;
       movementX: number;
       movementY: number;
-      fractional: boolean;
+      fractional: boolean | undefined;
+      coalesced: boolean | undefined;
       buttons: number;
       pressure: number;
       minPressure: number;
@@ -38,6 +39,17 @@ type PointerData = {
     }
   >;
 };
+
+let events = 0;
+let hertz = 0;
+let maxHertz = 0;
+setInterval(() => {
+  hertz = events;
+  events = 0;
+  if (maxHertz < hertz) {
+    maxHertz = hertz;
+  }
+}, 1000);
 
 export default function Diagnostics() {
   const system = useMemo((): Row[] => {
@@ -71,25 +83,27 @@ export default function Diagnostics() {
     pointers: {},
   });
   const handlePointerEvent = useCallback(
-    ({
-      type,
-      clientX,
-      clientY,
-      movementX,
-      movementY,
-      pageX,
-      pageY,
-      screenX,
-      screenY,
-      buttons,
-      pressure,
-      tiltX,
-      tiltY,
-      pointerId,
-      pointerType,
-      width,
-      height,
-    }: React.PointerEvent) => {
+    (event: React.PointerEvent) => {
+      const {
+        type,
+        clientX,
+        clientY,
+        movementX,
+        movementY,
+        buttons,
+        pressure,
+        tiltX,
+        tiltY,
+        pointerId,
+        pointerType,
+        width,
+        height,
+      } = event;
+      events++;
+      event.preventDefault();
+      event.stopPropagation();
+      event.nativeEvent.preventDefault();
+      event.nativeEvent.stopImmediatePropagation();
       setData(
         produce(data, (draft) => {
           draft.types[type.replace(/^pointer/, '')] = true;
@@ -97,6 +111,11 @@ export default function Diagnostics() {
           const pointer = draft.pointers[pointerType];
           const fractional =
             clientX !== Math.floor(clientX) || clientY !== Math.floor(clientY);
+          const coalesced =
+            event.nativeEvent.getCoalescedEvents &&
+            type === 'move' &&
+            event.nativeEvent.getCoalescedEvents().length > 1;
+
           if (!pointer) {
             draft.pointers[pointerType] = {
               clientX,
@@ -104,6 +123,7 @@ export default function Diagnostics() {
               movementX,
               movementY,
               fractional,
+              coalesced,
               buttons,
               pressure,
               minPressure: pressure,
@@ -134,6 +154,9 @@ export default function Diagnostics() {
             pointer.height = height;
             if (fractional) {
               pointer.fractional = true;
+            }
+            if (coalesced) {
+              pointer.coalesced = true;
             }
             if (pointer.minPressure > pressure) {
               pointer.minPressure = pressure;
@@ -183,6 +206,7 @@ export default function Diagnostics() {
             ? `, ... (${pointerIdKeys.length} total)`
             : ''),
       ],
+      ['Pointers per second', `${hertz} (max ${maxHertz.toFixed(0)})`],
     ];
     for (const type of Object.keys(pointers)) {
       const {
@@ -191,6 +215,7 @@ export default function Diagnostics() {
         movementX,
         movementY,
         fractional,
+        coalesced,
         buttons,
         pressure,
         minPressure,
@@ -210,10 +235,24 @@ export default function Diagnostics() {
       } = pointers[type];
       rows.push(
         [`Cursor ${type}`],
-        [`Buttons`, buttons],
+        [
+          `Buttons`,
+          buttons
+            .toString(2)
+            .split('')
+            .reverse()
+            .map((value, index) =>
+              value === '1' ? `Button #${index + 1} Pressed` : undefined,
+            )
+            .filter((x) => x)
+            .join(', '),
+        ],
         [`Client X/Y`, `${clientX.toFixed(2)}, ${clientY.toFixed(2)}`],
         [`Movement X/Y`, `${movementX.toFixed(2)}, ${movementY.toFixed(2)}`],
-        [`Fractional position`, fractional],
+        [`Supports Fractional X/Y`, fractional],
+        coalesced !== undefined
+          ? [`Got Coalesced`, coalesced]
+          : [`Supports Coalesced`, false],
         [
           `Pressure`,
           `${pressure.toFixed(3)} (min: ${minPressure.toFixed(
@@ -264,7 +303,7 @@ export default function Diagnostics() {
       <Table
         rows={[
           ...system,
-          ['PointerEvents'],
+          ['PointerEvents - click/drag/tap here to compute…'],
           ['Polyfill', PEPJS.PointerEvent === window.PointerEvent],
           ...dataRows,
           ['WebGL'],
@@ -284,6 +323,9 @@ function renderValue(value: boolean | string | ReactNode) {
   if (value === false) {
     return <strong>No</strong>;
   }
+  if (value === undefined) {
+    return <em>Unknown</em>;
+  }
   if (Array.isArray(value)) {
     return <strong>{value.join(', ')}</strong>;
   }
@@ -298,8 +340,9 @@ type Row = [string, boolean | string | ReactNode] | [string];
 function Table({ rows }: { rows: Row[] }) {
   return (
     <pre>
-      {rows.map(([name, value], index) => {
-        if (value === undefined) {
+      {rows.map((arr, index) => {
+        const [name, value] = arr;
+        if (arr.length === 1) {
           return (
             <React.Fragment key={index}>
               {'\n'}
