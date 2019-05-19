@@ -1,37 +1,47 @@
-import { createProgram } from './util';
+import { createProgram, getOrThrow } from './util';
 
-export class Program {
+export class ShaderDescription<
+  AttributeKey extends string,
+  UniformKey extends string
+> {
+  constructor(
+    public readonly vertexShader: string,
+    public readonly fragmentShader: string,
+    public readonly attributeKeys: AttributeKey[],
+    public readonly uniformKeys: UniformKey[],
+  ) {}
+}
+
+export type ProgramOf<
+  T extends ShaderDescription<string, string>
+> = T extends ShaderDescription<infer A, infer U> ? Program<A, U> : never;
+
+export class Program<AttributeKey extends string, UniformKey extends string> {
   private readonly program: WebGLProgram;
-  public readonly attributes: Record<string, GLint> = {};
-  public readonly uniforms: Record<string, WebGLUniformLocation> = {};
+  public readonly attributes = {} as Record<AttributeKey, GLint>;
+  public readonly uniforms = {} as Record<UniformKey, WebGLUniformLocation>;
   constructor(
     private readonly gl: WebGLRenderingContext,
-    private readonly vertexShader: WebGLShader,
-    private readonly fragmentShader: WebGLShader,
-    private readonly name: string,
+    private readonly description: ShaderDescription<AttributeKey, UniformKey>,
   ) {
-    this.program = createProgram(gl, vertexShader, fragmentShader);
-  }
-
-  attribute(name: string): GLint {
-    let a = this.attributes[name];
-    if (!a) {
-      a = this.attributes[name] = this.gl.getAttribLocation(this.program, name);
-    }
-    return a;
-  }
-
-  uniform(name: string): WebGLUniformLocation {
-    const u = this.uniforms[name];
-    if (u) {
-      return u;
-    }
-    const u2 = this.gl.getUniformLocation(this.program, name);
-    if (!u2) {
-      throw new Error(`Could not get WebGLUniformLocation ${name}`);
-    }
-    this.uniforms[name] = u2;
-    return u2;
+    this.program = createProgram(
+      gl,
+      description.vertexShader,
+      description.fragmentShader,
+    );
+    description.attributeKeys.forEach((name) => {
+      const loc = gl.getAttribLocation(this.program, name);
+      if (loc === -1) {
+        throw new Error('getAttribLocation returned -1');
+      }
+      this.attributes[name] = loc;
+    });
+    description.uniformKeys.forEach((name) => {
+      this.uniforms[name] = getOrThrow(
+        gl.getUniformLocation(this.program, name),
+        'getUniformLocation',
+      );
+    });
   }
 
   use(): void {
@@ -39,13 +49,13 @@ export class Program {
   }
 
   enable(): void {
-    Object.keys(this.attributes).forEach((attribute) => {
+    this.description.attributeKeys.forEach((attribute) => {
       this.gl.enableVertexAttribArray(this.attributes[attribute]);
     });
   }
 
   disable(): void {
-    Object.keys(this.attributes).forEach((attribute) => {
+    this.description.attributeKeys.forEach((attribute) => {
       this.gl.disableVertexAttribArray(this.attributes[attribute]);
     });
   }

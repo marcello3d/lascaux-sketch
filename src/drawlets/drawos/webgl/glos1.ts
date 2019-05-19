@@ -5,6 +5,7 @@ import {
   checkRenderTargetSupport,
   createFrameBuffer,
   FrameBuffer,
+  getOrThrow,
   setDrawingMatrix,
   setViewportMatrix,
 } from './util';
@@ -12,7 +13,7 @@ import {
 import ProgramManager from './program-manager';
 import md5 from 'md5';
 import { Dna } from '../dna';
-import { Program } from './program';
+import { Program, ProgramOf } from './program';
 
 import {
   DrawingContext,
@@ -24,10 +25,10 @@ import {
   Snapshot,
   Tiles,
 } from '../../Drawlet';
-import { ellipseFragmentShader, ellipseVertexShader } from './glsl/ellipse';
-import { textureFragmentShader, textureVertexShader } from './glsl/texture';
-import { lineFragmentShader, lineVertexShader } from './glsl/line';
-import { rectFragmentShader, rectVertexShader } from './glsl/rect';
+import { ellipseShader } from './glsl/ellipse';
+import { textureShader } from './glsl/texture';
+import { lineShader } from './glsl/line';
+import { rectShader } from './glsl/rect';
 
 function makeTextureVertexArray(
   x1: number,
@@ -42,13 +43,6 @@ function makeTextureVertexArray(
     x1, y2, 0, 1,
     x2, y2, 1, 1
   ])
-}
-
-function getOrThrow<T>(value: T | null, type: string): T {
-  if (value === null) {
-    throw new Error(`gl.${type} failed`);
-  }
-  return value;
 }
 
 function getTileKey(layer: number, tilex: number, tiley: number): string {
@@ -89,11 +83,11 @@ export default class GlOS1 implements DrawOs {
 
   private _mainTextureVertexArray: Float32Array;
   private readonly _programManager: ProgramManager;
-  private readonly _mainProgram: Program;
-  private readonly _textureProgram: Program;
-  private readonly _ellipseProgram: Program;
-  private readonly _rectProgram: Program;
-  private readonly _lineProgram: Program;
+  private readonly _mainProgram: ProgramOf<typeof textureShader>;
+  private readonly _textureProgram: ProgramOf<typeof textureShader>;
+  private readonly _ellipseProgram: ProgramOf<typeof ellipseShader>;
+  private readonly _rectProgram: ProgramOf<typeof rectShader>;
+  private readonly _lineProgram: ProgramOf<typeof lineShader>;
   private readonly _mainVertexBuffer: WebGLBuffer;
   private readonly _drawingVertexBuffer: WebGLBuffer;
   private readonly _drawingVertexBuffer2: WebGLBuffer;
@@ -217,7 +211,7 @@ export default class GlOS1 implements DrawOs {
         this._programManager.use(this._mainProgram);
         setViewportMatrix(
           gl,
-          this._mainProgram.uniform('uMVMatrix'),
+          this._mainProgram.uniforms.uMVMatrix,
           gl.drawingBufferWidth / this.pixelRatio,
           gl.drawingBufferHeight / this.pixelRatio,
         );
@@ -538,7 +532,7 @@ export default class GlOS1 implements DrawOs {
   }
 
   private _drawTexture(
-    program: Program,
+    program: ProgramOf<typeof textureShader>,
     texture: WebGLTexture,
     textureVertexArray: Float32Array,
   ) {
@@ -571,14 +565,8 @@ export default class GlOS1 implements DrawOs {
   }
 
   private _createMainGlProgram(gl: WebGLRenderingContext) {
-    const program = new Program(
-      gl,
-      textureVertexShader,
-      textureFragmentShader,
-      'main',
-    );
+    const program = new Program(gl, textureShader);
     this._programManager.use(program);
-    program.attribute('aPosition');
     program.enable();
     return program;
   }
@@ -588,15 +576,9 @@ export default class GlOS1 implements DrawOs {
     width: number,
     height: number,
   ) {
-    const program = new Program(
-      gl,
-      textureVertexShader,
-      textureFragmentShader,
-      'texture',
-    );
+    const program = new Program(gl, textureShader);
     this._programManager.use(program);
-    program.attribute('aPosition');
-    setDrawingMatrix(gl, program.uniform('uMVMatrix'), width, height);
+    setDrawingMatrix(gl, program.uniforms.uMVMatrix, width, height);
     return program;
   }
 
@@ -605,17 +587,9 @@ export default class GlOS1 implements DrawOs {
     width: number,
     height: number,
   ) {
-    const program = new Program(
-      gl,
-      ellipseVertexShader,
-      ellipseFragmentShader,
-      'ellipse',
-    );
+    const program = new Program(gl, ellipseShader);
     this._programManager.use(program);
-    program.attribute('aPosition');
-    program.attribute('aRect');
-    program.uniform('uColor');
-    setDrawingMatrix(gl, program.uniform('uMVMatrix'), width, height);
+    setDrawingMatrix(gl, program.uniforms.uMVMatrix, width, height);
     return program;
   }
 
@@ -624,18 +598,9 @@ export default class GlOS1 implements DrawOs {
     width: number,
     height: number,
   ) {
-    const program = new Program(
-      gl,
-      lineVertexShader,
-      lineFragmentShader,
-      'line',
-    );
+    const program = new Program(gl, lineShader);
     this._programManager.use(program);
-    program.attribute('aPosition');
-    program.uniform('uColor');
-    program.uniform('uPos1');
-    program.uniform('uPos2');
-    setDrawingMatrix(gl, program.uniform('uMVMatrix'), width, height);
+    setDrawingMatrix(gl, program.uniforms.uMVMatrix, width, height);
     return program;
   }
 
@@ -644,16 +609,9 @@ export default class GlOS1 implements DrawOs {
     width: number,
     height: number,
   ) {
-    const program = new Program(
-      gl,
-      rectVertexShader,
-      rectFragmentShader,
-      'rect',
-    );
+    const program = new Program(gl, rectShader);
     this._programManager.use(program);
-    program.attribute('aPosition');
-    program.uniform('uColor');
-    setDrawingMatrix(gl, program.uniform('uMVMatrix'), width, height);
+    setDrawingMatrix(gl, program.uniforms.uMVMatrix, width, height);
     return program;
   }
 
@@ -661,45 +619,6 @@ export default class GlOS1 implements DrawOs {
     const { gl } = this;
     this._bindFrameBuffer(this._layers[layer].frameBuffer);
     gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
-  }
-
-  private _fillEllipse(
-    layer: number,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    r: number,
-    g: number,
-    b: number,
-    a: number = 1,
-  ) {
-    const gl = this.gl;
-
-    this.saveRect(layer, x, y, w, h);
-    this._prepareToDraw(layer);
-    this._programManager.use(this._ellipseProgram);
-
-    gl.uniform4f(this._ellipseProgram.uniforms.uColor, r, g, b, a);
-    gl.uniform4f(this._ellipseProgram.uniforms.uRect, x, y, w, h);
-
-    const x2 = x + w;
-    const y2 = y + h;
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._drawingVertexBuffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([x, y, x2, y, x, y2, x2, y2]),
-      gl.STATIC_DRAW,
-    );
-    gl.vertexAttribPointer(
-      this._ellipseProgram.attributes.aPosition,
-      2,
-      gl.FLOAT,
-      false,
-      0,
-      0,
-    );
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
   private _drawLine(
@@ -1008,7 +927,7 @@ export default class GlOS1 implements DrawOs {
           return;
         }
         const { layer, red, green, blue } = state;
-        os._fillEllipse(layer, x, y, w, h, red, green, blue, 1);
+        os._fillEllipses(layer, [[x, y, w, h]], red, green, blue, 1);
       },
 
       fillEllipses(ellipses: Rects) {

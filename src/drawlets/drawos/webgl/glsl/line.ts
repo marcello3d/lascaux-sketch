@@ -1,6 +1,8 @@
 import glsl from 'babel-plugin-glsl/macro';
+import { ShaderDescription } from '../program';
 
-export const lineVertexShader = glsl`
+export const lineShader = new ShaderDescription(
+  glsl`
   attribute vec4 aPosition;
 
   uniform mat4 uMVMatrix;
@@ -10,9 +12,8 @@ export const lineVertexShader = glsl`
   void main() {
     gl_Position = uMVMatrix * aPosition;
   }
-`;
-
-export const lineFragmentShader = glsl`
+`,
+  glsl`
   precision mediump float;
 
   uniform vec4 uColor;
@@ -43,4 +44,7 @@ export const lineFragmentShader = glsl`
     }
     gl_FragColor = uColor;
   }
-`;
+`,
+  ['aPosition'],
+  ['uColor', 'uPos1', 'uPos2', 'uMVMatrix'],
+);

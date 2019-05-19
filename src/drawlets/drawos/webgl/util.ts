@@ -97,7 +97,6 @@ export function createProgram(
 
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
     const info = gl.getProgramInfoLog(program);
-    console.error('Could not compile WebGL program. \n\n' + info);
     throw new Error('Could not compile WebGL program. \n\n' + info);
   }
   return program;
@@ -254,4 +253,11 @@ export function checkError(gl: WebGLRenderingContext) {
     case gl.NO_ERROR:
       return;
   }
+}
+
+export function getOrThrow<T>(value: T | null | 0, type: string): T {
+  if (value === null || value === 0) {
+    throw new Error(`${type} failed`);
+  }
+  return value;
 }
