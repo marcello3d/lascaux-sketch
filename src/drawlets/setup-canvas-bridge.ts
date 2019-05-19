@@ -184,10 +184,6 @@ export default function setupHtmlCanvasBridge<
       addStroke(GOTO_EVENT, cursor);
     },
 
-    getImageDataUrl() {
-      return canvas.toDataUrl();
-    },
-
     setPlaying(_playing: boolean) {
       if (playing !== _playing) {
         togglePlaying();

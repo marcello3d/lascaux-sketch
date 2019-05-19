@@ -17,6 +17,7 @@ import { makeFiverCanvas } from './drawlets/fiver/gl';
 import { UpdateObject } from './drawlets/Drawlet';
 import { FiverMode } from './drawlets/fiver/fiver';
 import { preventDefault } from './preventDefault';
+import { Button } from './ui/Button';
 
 const colors: readonly string[] = [
   '#ffffff', // white
@@ -72,16 +73,11 @@ export default function DrawletApp({
   const colorButtons = useMemo(
     () =>
       colors.map((color, index) => {
-        const onClick = (event: React.MouseEvent | React.TouchEvent) => {
-          event.preventDefault();
-          canvasInstance.setMode('color', color);
-        };
         const selected = color === updateObject.mode.color;
         return (
-          <button
+          <Button
             key={index}
-            onTouchStart={onClick}
-            onClick={onClick}
+            onClick={() => canvasInstance.setMode('color', color)}
             className={styles.colorButton}
             style={{
               backgroundColor: color,
@@ -102,13 +98,9 @@ export default function DrawletApp({
   const togglePlay = useCallback(() => {
     canvasInstance.setPlaying(!updateObject.playing);
   }, [canvasInstance, updateObject.playing]);
-  const addLayer = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault();
-      canvasInstance.addLayer();
-    },
-    [canvasInstance],
-  );
+  const addLayer = useCallback(() => {
+    canvasInstance.addLayer();
+  }, [canvasInstance]);
   const undo = useCallback(() => {
     if (updateObject.undo) {
       canvasInstance.addGoto(updateObject.undo);
@@ -164,18 +156,16 @@ export default function DrawletApp({
     const array: React.ReactNode[] = [];
     for (let i = updateObject.mode.layers - 1; i >= 0; i--) {
       const layer = i;
-      const onClick = () => canvasInstance.setMode('layer', layer);
       array.push(
-        <button
+        <Button
           key={i}
           className={classnames(styles.layer, {
             [styles.layerSelected]: updateObject.mode.layer === layer,
           })}
-          onClick={onClick}
-          onTouchStart={onClick}
+          onClick={() => canvasInstance.setMode('layer', layer)}
         >
           Layer #{i + 1}
-        </button>,
+        </Button>,
       );
     }
     return array;
@@ -187,28 +177,16 @@ export default function DrawletApp({
       onTouchStart={preventDefault}
     >
       <div className={styles.tools} onTouchStart={preventDefault}>
-        <button
-          onTouchStart={preventDefault}
-          disabled={updateObject.strokeCount === 0}
-          onClick={togglePlay}
-        >
+        <Button disabled={updateObject.strokeCount === 0} onClick={togglePlay}>
           {updateObject.playing ? 'Pause' : 'Play'}
-        </button>
+        </Button>
         {playbackSlider}
-        <button
-          onTouchStart={preventDefault}
-          disabled={updateObject.undo === undefined}
-          onClick={undo}
-        >
+        <Button disabled={updateObject.undo === undefined} onClick={undo}>
           Undo
-        </button>
-        <button
-          onTouchStart={preventDefault}
-          disabled={updateObject.redo === undefined}
-          onClick={redo}
-        >
+        </Button>
+        <Button disabled={updateObject.redo === undefined} onClick={redo}>
           Redo
-        </button>
+        </Button>
       </div>
       <div className={styles.left}>
         <label className={styles.toolLabel}>Color</label>
@@ -232,7 +210,7 @@ export default function DrawletApp({
         {zoomSlider}
         <label className={styles.toolLabel}>Layers</label>
         <label className={styles.layers}>{layers}</label>
-        <button onClick={addLayer}>Add Layer</button>
+        <Button onClick={addLayer}>Add Layer</Button>
       </div>
       <div
         ref={drawletContainerRef}
