@@ -2,7 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 
 import styles from './App.module.css';
 import useEventEffect from './react-hooks/useEventEffect';
-import { StoreContext, useDispatch, useMappedState } from 'redux-react-hook';
+import { Provider, useDispatch, useSelector } from 'react-redux';
 import { getCurrentPage, getDrawing } from './app/selectors';
 import { AppState } from './app/state';
 import { navigateToPage, newDrawing } from './app/actions';
@@ -29,7 +29,7 @@ export function App() {
   );
 
   return (
-    <StoreContext.Provider value={store}>
+    <Provider store={store}>
       <div className={styles.root}>
         <header className={styles.head}>
           Sketchperiment 3 by{' '}
@@ -39,12 +39,12 @@ export function App() {
           <Router />
         </main>
       </div>
-    </StoreContext.Provider>
+    </Provider>
   );
 }
 
 function Router() {
-  const page = useMappedState(getCurrentPage);
+  const page = useSelector(getCurrentPage);
   switch (page.type) {
     case 'drawing':
       return <DrawingPage id={page.drawingId} />;
@@ -56,8 +56,8 @@ function Router() {
 }
 
 function DrawingPage({ id }: { id: string }) {
-  const drawing = useMappedState(
-    useCallback((state) => getDrawing(state, id), [id]),
+  const drawing = useSelector(
+    useCallback((state: AppState) => getDrawing(state, id), [id]),
   );
   if (drawing === undefined) {
     throw new Error('Drawing not found');
@@ -67,7 +67,9 @@ function DrawingPage({ id }: { id: string }) {
 }
 
 function Drawings() {
-  const drawings = useMappedState((state: AppState) => state.drawings);
+  const drawings = useSelector(
+    useCallback((state: AppState) => state.drawings, []),
+  );
   const dispatch = useDispatch();
   const items = useMemo(
     () =>
