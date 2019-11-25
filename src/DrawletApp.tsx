@@ -10,7 +10,6 @@ import styles from './DrawletApp.module.css';
 import { useAppendChild } from './react-hooks/useAppendChild';
 import classnames from 'classnames';
 import 'rc-slider/assets/index.css';
-import 'rc-tooltip/assets/bootstrap.css';
 import Slider from 'rc-slider';
 import DrawingModel from './drawlets/file-format/DrawingModel';
 import { makeFiverCanvas } from './drawlets/fiver/gl';
