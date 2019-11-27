@@ -64,7 +64,7 @@ type ChangedTile = [
   // x
   number,
   // y
-  number
+  number,
 ];
 export default class GlOS1 implements DrawOs {
   public readonly dna: Dna;
@@ -315,15 +315,14 @@ export default class GlOS1 implements DrawOs {
     const {
       tileSize,
       _tileSaveContext,
-      _tileSaveCanvas,
       _tiles,
       _readBuffer,
       _layers,
       gl,
     } = this;
-    const { length: length1 } = _layers;
+    const { length: layerCount } = _layers;
     let changedTiles = 0;
-    for (let layer = 0; layer < length1; layer++) {
+    for (let layer = 0; layer < layerCount; layer++) {
       const { changed } = _layers[layer];
       if (!changed) {
         continue;
@@ -339,10 +338,10 @@ export default class GlOS1 implements DrawOs {
       for (const key of tileKeys) {
         const [x, y] = tiles[key];
         _tileSaveContext.putImageData(imageData, minX - x, minY - y);
-        const dataUri = _tileSaveCanvas.toDataURL();
-        const link = md5(dataUri);
+        const image = _tileSaveContext.getImageData(0, 0, tileSize, tileSize);
+        const link = md5((image.data.buffer as unknown) as Array<number>);
         _tiles[key] = { layer, x, y, link };
-        links[link] = dataUri;
+        links[link] = image;
         changedTiles++;
       }
       delete _layers[layer].changed;
@@ -351,6 +350,7 @@ export default class GlOS1 implements DrawOs {
       snapshot: {
         tileSize,
         tiles: { ..._tiles },
+        layers: layerCount,
       },
       links,
     };
@@ -363,12 +363,12 @@ export default class GlOS1 implements DrawOs {
   }
 
   loadSnapshot(
-    { tiles, tileSize }: Snapshot,
+    { tiles, tileSize, layers }: Snapshot,
     getLink: GetLinkFn,
     callback: (error?: Error) => void,
   ) {
-    if (tileSize !== this.tileSize) {
-      throw new Error(`unexpected tileSize: ${tileSize} vs ${this.tileSize}`);
+    while (layers > this._layers.length) {
+      this._addLayer();
     }
     const keys = Object.keys(tiles);
     if (keys.length === 0) {
@@ -397,15 +397,15 @@ export default class GlOS1 implements DrawOs {
         next();
       } else {
         // Get tile
-        getLink(link, (error: Error | undefined, dataUri: string) => {
-          if (error || !dataUri) {
+        getLink(link, (error: Error | undefined, image?: ImageData) => {
+          if (error || !image) {
             next(error);
           } else {
             this._tiles[key] = tiles[key];
             if (layerInfo.changed) {
               delete layerInfo.changed.tiles[key];
             }
-            this._putTile(layer, x, y, dataUri, next);
+            this._putTile(layer, x, y, image, next);
           }
         });
       }
@@ -461,30 +461,26 @@ export default class GlOS1 implements DrawOs {
     layer: number,
     x: number,
     y: number,
-    dataUri: string,
+    image: ImageData,
     callback: (error?: Error) => void,
   ) {
-    const { _loadImage, gl } = this;
-    _loadImage.onload = () => {
-      this._prepareToDraw(layer);
-      gl.bindTexture(gl.TEXTURE_2D, this._layers[layer].frameBuffer.texture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texSubImage2D(
-        gl.TEXTURE_2D,
-        0,
-        x,
-        y,
-        this._frameBufferFormat,
-        this._frameBufferType,
-        _loadImage,
-      );
-      callback();
-    };
-    _loadImage.onerror = (error) => callback(new Error(String(error)));
-    _loadImage.src = dataUri;
+    const { gl } = this;
+    this._prepareToDraw(layer);
+    gl.bindTexture(gl.TEXTURE_2D, this._layers[layer].frameBuffer.texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      x,
+      y,
+      this._frameBufferFormat,
+      this._frameBufferType,
+      image,
+    );
+    callback();
   }
 
   afterExecute() {
@@ -500,16 +496,6 @@ export default class GlOS1 implements DrawOs {
     );
     this._redraw();
   }
-
-  private _getDataUrl(
-    layer: number,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    type?: string,
-    options?: any,
-  ) {}
 
   private _redraw() {
     if (!this._mainProgram) {

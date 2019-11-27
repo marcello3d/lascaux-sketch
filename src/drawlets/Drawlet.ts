@@ -46,12 +46,12 @@ export type DrawletCursorEventPayload = {
 export type DrawletDrawEvent = [
   DrawletDrawEventType,
   number,
-  DrawletDrawEventPayload
+  DrawletDrawEventPayload,
 ];
 export type DrawletCursorEvent = [
   typeof CURSOR_EVENT,
   number,
-  DrawletCursorEventPayload
+  DrawletCursorEventPayload,
 ];
 export type DrawletEvent = DrawletDrawEvent | DrawletCursorEvent;
 
@@ -96,7 +96,7 @@ export type DrawletHandleFn<
 
 export type GetLinkFn = (
   link: string,
-  callback: (error: Error | undefined, dataUri: string) => void,
+  callback: (error: Error | undefined, data: ImageData | undefined) => void,
 ) => void;
 
 export type Snap = {
@@ -123,8 +123,9 @@ export interface DrawOs {
 export type Snapshot = {
   tiles: Tiles;
   tileSize: number;
+  layers: number;
 };
-export type Links = Record<string, string>;
+export type Links = Record<string, ImageData>;
 export type Tile = {
   layer: number;
   x: number;
