@@ -10,7 +10,9 @@ export type RangeMetadata = {
 };
 
 export interface StorageModel {
-  getRangeMetadata(callback: (error: Error | undefined, rangeMetadata: RangeMetadata) => void): void;
+  getRangeMetadata(
+    callback: (error: Error | undefined, rangeMetadata: RangeMetadata) => void,
+  ): void;
 
   addStroke(type: string, time: number, payload: object): void;
 
@@ -22,15 +24,11 @@ export interface StorageModel {
     ) => void,
   ): void;
 
-  addSnapshot(
-    index: number,
-    snapshot: Snap,
-    callback: ReadyCallbackFn,
-  ): void;
+  addSnapshot(index: number, snapshot: Snap, callback: ReadyCallbackFn): void;
 
   addSnapshotLink(
     link: string,
-    dataUri: string,
+    image: ImageData | undefined,
     callback: ReadyCallbackFn,
   ): void;
 
@@ -41,7 +39,7 @@ export interface StorageModel {
 
   getSnapshotLink(
     link: string,
-    callback: (error: Error | undefined, dataUri: string) => void,
+    callback: (error: Error | undefined, image: ImageData | undefined) => void,
   ): void;
 
   flush(callback: ReadyCallbackFn): void;
