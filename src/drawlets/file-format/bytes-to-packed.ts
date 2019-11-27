@@ -1,16 +1,26 @@
-import { Inflate, Z_SYNC_FLUSH, Z_FINISH } from 'pako';
+import { Data, FlushValues, Inflate } from 'pako';
 
-import { Decoder } from 'msgpack-lite/lib/decoder';
+import { Decoder } from 'msgpack-lite';
 
 export class BytesToPackedEventStream {
-  constructor({ onEvent, onEnd, onError }) {
+  _decoder: Decoder;
+
+  constructor({
+    onEvent,
+    onEnd,
+    onError,
+  }: {
+    onEvent: (event: object) => void;
+    onEnd: () => void;
+    onError: (error: Error) => void;
+  }) {
     this._decoder = new Decoder();
     this._decoder.on('data', onEvent);
     this._decoder.on('end', onEnd);
     this._decoder.on('error', onError);
   }
 
-  supply(bytes) {
+  supply(bytes: any) {
     this._decoder.decode(bytes);
   }
 
@@ -20,7 +30,20 @@ export class BytesToPackedEventStream {
 }
 
 export class DeflatedToPackedEventStream {
-  constructor({ onEvent, onEnd, onError }) {
+  _inflate: Inflate;
+  _decoder: Decoder;
+  _onError: (error: Error) => void;
+
+  constructor({
+    onEvent,
+    onEnd,
+    onError,
+  }: {
+    onEvent: (event: object) => void;
+    onEnd: () => void;
+    onError: (error: Error) => void;
+    flush: boolean;
+  }) {
     this._inflate = new Inflate({ raw: true });
     this._onError = onError;
     this._decoder = new Decoder();
@@ -37,38 +60,20 @@ export class DeflatedToPackedEventStream {
     this._decoder.on('end', onEnd);
   }
 
-  supply(bytes) {
-    this._inflate.push(bytes, Z_SYNC_FLUSH);
+  supply(bytes: Data | ArrayBuffer) {
+    this._inflate.push(bytes, FlushValues.Z_SYNC_FLUSH);
     this._checkError();
   }
 
   end() {
-    this._inflate.push(new Uint8Array([]), Z_FINISH);
+    this._inflate.push(new Uint8Array([]), FlushValues.Z_FINISH);
     this._checkError();
     this._decoder.end();
   }
 
   _checkError() {
     if (this._inflate.err) {
-      this._onError(new Error(this._inflate.err));
+      this._onError(new Error(`inflate error ${this._inflate.err}`));
     }
   }
-}
-
-export function bytesToPackedEvents(strokeData) {
-  const results = [];
-  const stream = new DeflatedToPackedEventStream({
-    onEvent(event) {
-      results.push(event);
-    },
-    onError(error) {
-      results.push(error);
-    },
-    onEnd() {
-      results.push('end');
-    },
-    flush: false,
-  });
-  strokeData.forEach((data) => stream.supply(data));
-  return results;
 }

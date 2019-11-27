@@ -6,12 +6,49 @@ import {
   isKeyframeEvent,
   getNormalizedModePayload,
 } from './events';
+import { Callback } from './types';
+import { RangeMetadata } from './StorageModel';
 
-function rangeKey([start, end]) {
+function rangeKey([start, end]: [number, number]) {
   return `${start}-${end}`;
 }
 
+export type StorageOptions = {
+  rangeCacheSize?: number;
+  rangeMaxTime?: number;
+  rangeMaxCount?: number;
+  snapshotCacheSize?: number;
+  snapshotLinkCacheSize?: number;
+  getRangeMetadata: (callback: Callback<RangeMetadata>) => void;
+  uploadRange: () => void;
+  downloadRange: () => void;
+  uploadSnapshot: () => void;
+  downloadSnapshot: () => void;
+  uploadSnapshotLink: () => void;
+  downloadSnapshotLink: () => void;
+};
 export default class RemoteStorageModel {
+  _rangeCache: LRU<string, Stroke[]>;
+  _snapshotCache: LRU;
+  _snapshotLinkCache: LRU;
+  _initializing = true;
+  _pendingRangeMetadataGets = [];
+  _pendingRangeGets = [];
+  _uploadRange = uploadRange;
+  _downloadRange = downloadRange;
+  _rangeMaxTime = rangeMaxTime;
+  _rangeMaxCount = rangeMaxCount;
+  _uploadSnapshot = uploadSnapshot;
+  _downloadSnapshot = downloadSnapshot;
+  _uploadSnapshotLink = uploadSnapshotLink;
+  _downloadSnapshotLink = downloadSnapshotLink;
+  _nextRange: number | undefined;
+  _strokes: Stroke[] | undefined = undefined;
+  _gotos = null;
+  _modes = null;
+  _keys = null;
+  _strokeTimeout: number | undefined;
+
   constructor({
     rangeCacheSize = 50,
     rangeMaxTime = 10000,
@@ -25,7 +62,7 @@ export default class RemoteStorageModel {
     downloadSnapshot,
     uploadSnapshotLink,
     downloadSnapshotLink,
-  }) {
+  }: StorageOptions) {
     // TODO: item-size based cache size?
     this._rangeCache = new LRU(rangeCacheSize);
     this._snapshotCache = new LRU(snapshotCacheSize);
@@ -116,7 +153,10 @@ export default class RemoteStorageModel {
     }
     if (!this._strokes) {
       this._strokes = [];
-      this._strokeTimeout = setTimeout(() => this.flush(), this._rangeMaxTime);
+      this._strokeTimeout = window.setTimeout(
+        () => this.flush(),
+        this._rangeMaxTime,
+      );
       this._gotos = [];
       this._modes = [];
       this._keys = [];
@@ -230,7 +270,7 @@ export default class RemoteStorageModel {
         this._keys,
         callback,
       );
-      clearTimeout(this._strokeTimeout);
+      window.clearTimeout(this._strokeTimeout);
     } else {
       callback();
     }

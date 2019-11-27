@@ -1,13 +1,17 @@
-import RemoteStorageModel from './RemoteStorageModel';
+import RemoteStorageModel, { StorageOptions } from './RemoteStorageModel';
 
 import { bytesToStrokes, strokesToBytes } from './CompressUtils';
 
-function rangeKey(start, end) {
+function rangeKey(start: number, end: number) {
   return `${start}-${end}`;
 }
 
 export default class MemoryStorageModel extends RemoteStorageModel {
-  constructor(options, initialRangeMetadata = null) {
+  private snapshots = {};
+  private snapshotLinks = {};
+  private ranges = {};
+  private size = 0;
+  constructor(options: StorageOptions, initialRangeMetadata = null) {
     super({
       ...options,
       getRangeMetadata: (callback) => callback(null, initialRangeMetadata),
@@ -51,9 +55,5 @@ export default class MemoryStorageModel extends RemoteStorageModel {
         }
       },
     });
-    this.snapshots = {};
-    this.snapshotLinks = {};
-    this.ranges = {};
-    this.size = 0;
   }
 }
