@@ -180,6 +180,7 @@ export default function pointerEventsBridge(
     const { type } = event;
     const eventType = POINTER_EVENT_TYPE_MAP[type];
     const toEvent = ({
+      pointerType,
       clientX,
       clientY,
       timeStamp,
@@ -192,7 +193,7 @@ export default function pointerEventsBridge(
       {
         x: (clientX + dx) / scale,
         y: (clientY + dy) / scale,
-        pressure,
+        pressure: pointerType === 'mouse' && pressure === 0 ? 0.5 : pressure,
         tiltX,
         tiltY,
       },
