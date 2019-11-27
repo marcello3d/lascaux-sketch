@@ -1,4 +1,7 @@
-function findSkipRange(skips, index) {
+type Skip = [number, number];
+export type Skips = Skip[];
+
+function findSkipRange(skips: Skips, index: number) {
   // binary search skips
   let min = 0;
   let max = skips.length - 1;
@@ -16,7 +19,7 @@ function findSkipRange(skips, index) {
   return null;
 }
 
-export function isSkipped(skips, index) {
+export function isSkipped(skips: Skips, index: number) {
   // TODO: this could be done with binary search
   for (let i = 0; i < skips.length; i++) {
     const skip = skips[i];
@@ -32,8 +35,17 @@ export function isSkipped(skips, index) {
   return false;
 }
 
+type EncodedGotos = {
+  gotos: any[];
+  keys: number[];
+};
+type GotoPlan = {
+  revert?: number;
+  skips: Skips;
+};
+
 export default class GotoMap {
-  static deserialize({ gotos, keys }) {
+  static deserialize({ gotos, keys }: EncodedGotos) {
     const map = new GotoMap();
     for (let i = 0; i < gotos.length; ) {
       map.addGoto(gotos[i++], gotos[i++]);
@@ -42,20 +54,19 @@ export default class GotoMap {
     return map;
   }
 
-  constructor() {
-    this._gotos = [];
-    this._gotoMap = {};
-    this._keyframes = [];
-    this._skipMap = {};
-    this._lastStrokeIndex = -1;
-    this._previousSkips = [];
-  }
+  private _gotos: number[] = [];
+  private _gotoMap: Record<number, number> = {};
+  private _keyframes: number[] = [];
+  private _skipMap: Record<number, Skips> = {};
+  private _lastStrokeIndex: number = -1;
+  private _previousSkips: Skips = [];
+  constructor() {}
 
-  getGotoIndexes() {
+  getGotoIndexes(): number[] {
     return this._gotos;
   }
 
-  serialize() {
+  serialize(): EncodedGotos {
     // Everything can be recomputed from the gotos list
     const gotos = [];
     for (const source of this._gotos) {
@@ -70,7 +81,7 @@ export default class GotoMap {
   /**
    * returns stroke index, dereferencing gotos
    */
-  dereference(index) {
+  dereference(index: number): number {
     const gotoTargetStrokeIndex = index - 1;
     if (gotoTargetStrokeIndex in this._gotoMap) {
       return this._gotoMap[gotoTargetStrokeIndex];
@@ -78,14 +89,14 @@ export default class GotoMap {
     return index;
   }
 
-  addKeyframe(strokeIndex) {
+  addKeyframe(strokeIndex: number): void {
     if (strokeIndex <= this._keyframes[this._keyframes.length - 1]) {
       throw new Error('keyframes must be added in order');
     }
     this._keyframes.push(strokeIndex);
   }
 
-  addGoto(strokeIndex, targetCursor) {
+  addGoto(strokeIndex: number, targetCursor: number): number {
     if (targetCursor >= strokeIndex) {
       console.error('target >= source');
       return targetCursor;
@@ -97,7 +108,7 @@ export default class GotoMap {
     targetCursor = this.dereference(targetCursor);
     this._gotos.push(strokeIndex);
     this._gotoMap[strokeIndex] = targetCursor;
-    const newSkips = [];
+    const newSkips: Skips = [];
     for (const skip of this._previousSkips) {
       if (skip[1] < targetCursor) {
         newSkips.push(skip);
@@ -109,7 +120,7 @@ export default class GotoMap {
     return targetCursor;
   }
 
-  _getSkips(index) {
+  _getSkips(index: number): Skips {
     const gotos = this._gotos;
     // binary search gotos map
     let min = 0;
@@ -134,7 +145,7 @@ export default class GotoMap {
    * @param end
    * @returns {Array}
    */
-  planGoto(start, end) {
+  planGoto(start: number, end: number): GotoPlan {
     if (start === end) {
       throw new Error('cannot goto self');
     }
@@ -144,7 +155,9 @@ export default class GotoMap {
     if (this.dereference(end) !== end) {
       throw new Error('invalid end');
     }
-    const steps = {};
+    const steps: GotoPlan = {
+      skips: this._getSkips(end - 1),
+    };
     const inEndSkip = findSkipRange(this._getSkips(end), start);
     // Cursor is currently a region that will be canceled,
     // so we must go back to the start of the cancelled region before skipping over it
@@ -160,11 +173,10 @@ export default class GotoMap {
         steps.revert = end;
       }
     }
-    steps.skips = this._getSkips(end - 1);
     return steps;
   }
 
-  computeUndo(from) {
+  computeUndo(from: number) {
     from = this.dereference(from);
     const skips = this._getSkips(from);
     const keyframes = this._keyframes;
@@ -178,7 +190,7 @@ export default class GotoMap {
     return undefined;
   }
 
-  computeRedo(from) {
+  computeRedo(from: number): number | undefined {
     const gotos = this._gotos;
     if (gotos.length === 0) {
       return undefined;
@@ -194,16 +206,14 @@ export default class GotoMap {
     const gotoMap = this._gotoMap;
     if (from !== gotoMap[lastGotoStrokeIndex]) {
       throw new Error(
-        `unexpected computeRedo from ${from}, expected ${
-          gotoMap[lastGotoStrokeIndex]
-        }`,
+        `unexpected computeRedo from ${from}, expected ${gotoMap[lastGotoStrokeIndex]}`,
       );
     }
 
     // We look at all the gotos at the end of the stroke list
     // We find the original goto that took us to our current spot
     // Work backwards to find the first goto in the last consecutive block of gotos
-    let gotoStrokeIndex;
+    let gotoStrokeIndex: number | undefined;
     for (let i = gotos.length; --i >= 0; ) {
       const gotoSource = gotos[i];
       const priorGotoSource = gotos[i - 1];
@@ -217,11 +227,13 @@ export default class GotoMap {
         break;
       }
     }
-    if (gotoStrokeIndex - 1 in gotoMap) {
-      gotoStrokeIndex = gotoMap[gotoStrokeIndex - 1];
-    }
-    if (gotoStrokeIndex > from) {
-      return gotoStrokeIndex;
+    if (gotoStrokeIndex !== undefined) {
+      if (gotoStrokeIndex - 1 in gotoMap) {
+        gotoStrokeIndex = gotoMap[gotoStrokeIndex - 1];
+      }
+      if (gotoStrokeIndex > from) {
+        return gotoStrokeIndex;
+      }
     }
     return undefined;
   }

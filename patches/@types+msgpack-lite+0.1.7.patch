@@ -1,0 +1,41 @@
+diff --git a/node_modules/@types/msgpack-lite/index.d.ts b/node_modules/@types/msgpack-lite/index.d.ts
+index cb01aab..2027ea9 100644
+--- a/node_modules/@types/msgpack-lite/index.d.ts
++++ b/node_modules/@types/msgpack-lite/index.d.ts
+@@ -67,7 +67,9 @@ export interface Codec {
+   addExtUnpacker<T>(etype: number, unpacker: (data: Buffer | Uint8Array) => T): void;
+ }
+ 
+-export interface Encoder {
++export class Encoder extends EventEmitter {
++  constructor(options?: EncoderOptions);
++
+   bufferish: any;
+   maxBufferSize: number;
+   minBufferSize: number;
+@@ -82,12 +84,13 @@ export interface Encoder {
+   reserve(length: number): number;
+   send(buffer: Buffer): void;
+   encode(chunk: any): void;
+-  end(chunk: any): void;
++  end(chunk?: any): void;
+ }
+ 
+-export function Decoder(options?: DecoderOptions): Decoder;
+ 
+-export interface Decoder extends EventEmitter {
++export class Decoder extends EventEmitter {
++  constructor(options?: DecoderOptions);
++
+   bufferish: any;
+   offset: number;
+   fetch(): void;
+@@ -98,7 +101,7 @@ export interface Decoder extends EventEmitter {
+   reserve(length: number): number;
+   decode(chunk: any): void;
+   push(chunk: any): void;
+-  end(chunk: any): void;
++  end(chunk?: any): void;
+ }
+ 
+ export interface EncodeStream extends stream.Transform {

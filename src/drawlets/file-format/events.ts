@@ -15,17 +15,17 @@ export const DRAW_START_EVENT = 'start';
 export const DRAW_EVENT = 'draw';
 export const DRAW_END_EVENT = 'end';
 
-export function isModeEvent(eventType) {
+export function isModeEvent(eventType: string) {
   return MODE_EVENT_REGEX.test(eventType);
 }
-export function isKeyframeEvent(eventType) {
+export function isKeyframeEvent(eventType: string) {
   return eventType === DRAW_START_EVENT;
 }
-export function getNormalizedModePayload(eventType, payload) {
+export function getNormalizedModePayload(eventType: string, payload: any) {
   if (eventType === MODE_EVENT) {
     return payload;
   }
-  const field = MODE_EVENT_REGEX.exec(eventType)[1];
+  const field = MODE_EVENT_REGEX.exec(eventType)![1];
   return {
     [field]: payload,
   };

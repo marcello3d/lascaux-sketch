@@ -1,11 +1,19 @@
-import { isSkipped } from './GotoMap';
+import { isSkipped, Skips } from './GotoMap';
+import { StorageModel } from './StorageModel';
+import { Snap } from '../Drawlet';
+import { Callback } from './types';
+
 export default class SnapshotMap {
-  constructor(storageModel, indexes = []) {
-    this._storageModel = storageModel;
+  private _indexes: number[];
+  constructor(readonly _storageModel: StorageModel, indexes: number[] = []) {
     this._indexes = indexes;
   }
 
-  addSnapshot(index, { state, snapshot, links }, callback) {
+  addSnapshot(
+    index: number,
+    { state, snapshot, links }: Snap,
+    callback: Callback<void>,
+  ) {
     if (!callback) throw new Error('callback required');
     this._indexes.push(index);
     if (index < this._indexes[this._indexes.length - 1]) {
@@ -13,12 +21,16 @@ export default class SnapshotMap {
     }
 
     const done = () => {
-      this._storageModel.addSnapshot(index, { state, snapshot }, callback);
+      this._storageModel.addSnapshot(
+        index,
+        { state, links, snapshot },
+        callback,
+      );
     };
 
     let uploaded = 0;
     let needUpload = 0;
-    function onUpload(error) {
+    function onUpload(error?: Error) {
       if (error) {
         uploaded = Infinity;
         return callback(error);
@@ -42,7 +54,7 @@ export default class SnapshotMap {
     }
   }
 
-  getNearestSnapshotIndex(targetIndex, skips) {
+  getNearestSnapshotIndex(targetIndex: number, skips: Skips): number {
     const indexes = this._indexes;
     // binary search mode map
     let min = 0;

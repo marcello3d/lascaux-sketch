@@ -5,7 +5,7 @@ import {
   isModeEvent,
 } from './events';
 
-import GotoMap, { isSkipped } from './GotoMap';
+import GotoMap, { isSkipped, Skips } from './GotoMap';
 import ModeMap from './ModeMap';
 import SnapshotMap from './SnapshotMap';
 
@@ -22,8 +22,9 @@ import {
   DrawOs,
   DrawOsConstructor,
 } from '../Drawlet';
-import { ReadyCallbackFn, StorageModel } from './StorageModel';
+import { StorageModel } from './StorageModel';
 import { FiverDna, FiverMode, FiverState } from '../fiver/fiver';
+import { VoidCallback } from './types';
 
 function getRandomFn(dna: Dna, cursor: number) {
   let random: () => number;
@@ -53,7 +54,7 @@ export default class DrawingModel<
   State extends object = FiverState
 > {
   readonly _storageModel: StorageModel;
-  private _loadedCallbacks: ReadyCallbackFn[] | undefined = [];
+  private _loadedCallbacks: VoidCallback[] | undefined = [];
   readonly _dna: DrawletDna;
   private readonly _DrawOs: DrawOsConstructor;
   private readonly _initializeCommand: DrawletInitializeFn<DrawletDna, Mode>;
@@ -62,7 +63,7 @@ export default class DrawingModel<
     eventType: string;
     time: number;
     payload: object;
-    callback?: ReadyCallbackFn;
+    callback?: VoidCallback;
   }> = [];
   _strokeCount: number = 0;
   private _drawingCursor: number = 0;
@@ -142,7 +143,7 @@ export default class DrawingModel<
     return initializeCommand(getInitializeContext(this._dna), canvas);
   }
 
-  onceLoaded(callback: ReadyCallbackFn) {
+  onceLoaded(callback: VoidCallback) {
     if (this._loadedCallbacks) {
       this._loadedCallbacks.push(callback);
     } else {
@@ -176,7 +177,7 @@ export default class DrawingModel<
     this._strokesSinceSnapshot = 0;
   }
 
-  flush(callback: ReadyCallbackFn) {
+  flush(callback: VoidCallback) {
     this._storageModel.flush(callback);
   }
 
@@ -192,7 +193,7 @@ export default class DrawingModel<
     eventType: string,
     time: number,
     payload: Object,
-    callback?: ReadyCallbackFn,
+    callback?: VoidCallback,
   ) {
     if (this._loadedCallbacks) {
       throw new Error('cannot add stroke before loaded');
@@ -277,7 +278,7 @@ export default class DrawingModel<
   _planGoto(
     start: number,
     end: number,
-  ): { target?: number; revert?: number; skips?: [number, number][] } {
+  ): { target?: number; revert?: number; skips?: Skips } {
     end = this._gotoMap.dereference(
       Math.max(0, Math.min(end, this._strokeCount)),
     );
@@ -352,7 +353,7 @@ export class CanvasModel<
     cursor: number,
     eventType: string,
     payload: any,
-    callback: ReadyCallbackFn,
+    callback: VoidCallback,
   ) {
     this._targetCursor = cursor;
     if (eventType === GOTO_EVENT) {
@@ -395,7 +396,7 @@ export class CanvasModel<
     };
   }
 
-  gotoEnd(callback: ReadyCallbackFn) {
+  gotoEnd(callback: VoidCallback) {
     this.goto(this.strokeCount, callback);
   }
 
@@ -403,12 +404,12 @@ export class CanvasModel<
     this._drawos.afterExecute();
   }
 
-  goto(targetCursor: number, callback: ReadyCallbackFn) {
+  goto(targetCursor: number, callback: VoidCallback) {
     this._targetCursor = targetCursor;
     return this._goto(targetCursor, callback);
   }
 
-  _goto(targetCursor: number, callback: ReadyCallbackFn) {
+  _goto(targetCursor: number, callback: VoidCallback) {
     const done = (error?: Error) => {
       this._inGoto = false;
       if (callback) {
