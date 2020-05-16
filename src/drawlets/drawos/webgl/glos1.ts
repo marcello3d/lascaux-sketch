@@ -879,6 +879,7 @@ export class GlOS1 implements DrawOs {
       red: 0,
       green: 0,
       blue: 0,
+      alpha: 1,
       layer: 0,
     };
     os._prepareToDraw(0);
@@ -898,27 +899,31 @@ export class GlOS1 implements DrawOs {
         state.blue = color[2] / 255;
       },
 
+      setAlpha(alpha: number) {
+        state.alpha = alpha;
+      },
+
       fillRect(x: number, y: number, w: number, h: number) {
-        const { layer, red, green, blue } = state;
-        os._fillRects(layer, [[x, y, w, h]], red, green, blue, 1);
+        const { layer, red, green, blue, alpha } = state;
+        os._fillRects(layer, [[x, y, w, h]], red, green, blue, alpha);
       },
 
       fillRects(rects: Rects) {
-        const { layer, red, green, blue } = state;
-        os._fillRects(layer, rects, red, green, blue, 1);
+        const { layer, red, green, blue, alpha } = state;
+        os._fillRects(layer, rects, red, green, blue, alpha);
       },
 
       fillEllipse(x: number, y: number, w: number, h: number) {
         if (w * h === 0) {
           return;
         }
-        const { layer, red, green, blue } = state;
-        os._fillEllipses(layer, [[x, y, w, h]], red, green, blue, 1);
+        const { layer, red, green, blue, alpha } = state;
+        os._fillEllipses(layer, [[x, y, w, h]], red, green, blue, alpha);
       },
 
       fillEllipses(ellipses: Rects) {
-        const { layer, red, green, blue } = state;
-        os._fillEllipses(layer, ellipses, red, green, blue, 1);
+        const { layer, red, green, blue, alpha } = state;
+        os._fillEllipses(layer, ellipses, red, green, blue, alpha);
       },
 
       drawLine(
@@ -929,7 +934,7 @@ export class GlOS1 implements DrawOs {
         y2: number,
         size2: number,
       ) {
-        const { layer, red, green, blue } = state;
+        const { layer, red, green, blue, alpha } = state;
         os._drawLine(
           layer,
           x1,
@@ -941,7 +946,7 @@ export class GlOS1 implements DrawOs {
           red,
           green,
           blue,
-          1,
+          alpha,
           true,
         );
       },

@@ -59,6 +59,16 @@ export default function DrawletApp({
   const [tempBrushSize, setTempBrushSize] = useState<number | undefined>(
     updateObject.mode.size,
   );
+  const setBrushAlpha = useCallback(
+    (alpha) => {
+      canvasInstance.setMode('alpha', alpha);
+      setTempBrushAlpha(undefined);
+    },
+    [canvasInstance],
+  );
+  const [tempBrushAlpha, setTempBrushAlpha] = useState<number | undefined>(
+    updateObject.mode.alpha,
+  );
   const setBrushSize = useCallback(
     (size) => {
       canvasInstance.setMode('size', size);
@@ -111,8 +121,7 @@ export default function DrawletApp({
     }
   }, [canvasInstance, updateObject.redo]);
 
-  const brushSize =
-    tempBrushSize === undefined ? updateObject.mode.size : tempBrushSize;
+  const brushSize = tempBrushSize ?? updateObject.mode.size;
   const sizeSlider = useMemo(
     () => (
       <Slider
@@ -124,6 +133,20 @@ export default function DrawletApp({
       />
     ),
     [brushSize, setBrushSize],
+  );
+  const brushAlpha = tempBrushAlpha ?? updateObject.mode.alpha;
+  const alphaSlider = useMemo(
+    () => (
+      <Slider
+        min={0.01}
+        max={1.0}
+        step={0.01}
+        value={brushAlpha}
+        onChange={setTempBrushAlpha}
+        onAfterChange={setBrushAlpha}
+      />
+    ),
+    [brushAlpha, setBrushAlpha],
   );
   const zoomSlider = useMemo(
     () => (
@@ -200,6 +223,11 @@ export default function DrawletApp({
           Size <span className={styles.value}>{brushSize}</span>
         </label>
         {sizeSlider}
+        <label className={styles.toolLabel}>
+          Opacity{' '}
+          <span className={styles.value}>{(brushAlpha * 100).toFixed(0)}%</span>
+        </label>
+        {alphaSlider}
         <label className={styles.toolLabel}>
           Zoom{' '}
           <span className={styles.value}>

@@ -16,6 +16,7 @@ export default class ModeMap<Mode extends object> {
   private _lastStrokeIndex = -1;
   constructor(initialMode?: Mode) {
     if (initialMode) {
+      this._lastStrokeIndex = -2;
       this.addMode(-1, initialMode);
     }
   }
