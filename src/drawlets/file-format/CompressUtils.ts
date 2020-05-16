@@ -4,7 +4,6 @@ import { DeflatedToPackedEventStream } from './bytes-to-packed';
 import { UnpackEventStream } from './packed-to-unpacked';
 import { Callback } from './types';
 import { Stroke } from './StorageModel';
-import { Data } from 'pako';
 
 export function strokesToBytes(
   strokes: Stroke[],
@@ -32,14 +31,18 @@ export function strokesToBytes(
       callback(error);
     },
   });
-  const mapper = new PackEventStream((event: object) => stream.supply(event), [
-    'x',
-    'y',
-    'force',
-    'radius',
-    'altitude',
-    'azimuth',
-  ]);
+  type PackedEvent = {
+    x: number;
+    y: number;
+    force: number;
+    radius: number;
+    altitude: number;
+    azimuth: number;
+  };
+  const mapper = new PackEventStream<PackedEvent>(
+    (event: PackedEvent) => stream.supply(event),
+    ['x', 'y', 'force', 'radius', 'altitude', 'azimuth'],
+  );
   for (const { type, time, payload } of strokes) {
     mapper.supply(type, time, payload);
   }

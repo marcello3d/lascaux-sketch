@@ -10,19 +10,18 @@ import {
 /**
  * Take a
  */
-export class PackEventStream {
-  constructor(consume, possibleFields = [], deltaFields = true) {
-    this._consume = consume;
-    this._possibleFields = possibleFields;
-    this._fields = null;
-    this._deltaFields = deltaFields;
-    this._lastEventType = null;
-    this._lastValues = null;
-    this._time = 0;
-  }
+export class PackEventStream<T extends object> {
+  _fields: string[] | undefined;
+  _lastType: string | undefined;
+  _lastValues: Float32Array | undefined;
+  constructor(
+    private _consume: (t: T) => void,
+    private _possibleFields: (keyof T)[] = [],
+    private _deltaFields = true,
+  ) {}
 
-  supply(eventType, time, payload) {
-    const object = {};
+  supply(eventType: string, time: number | null | undefined, payload: object) {
+    const object: any = {};
     object[EVENT_TYPE_KEY] = eventType;
     if (time !== null && time !== undefined) {
       object[TIME_KEY] = time;

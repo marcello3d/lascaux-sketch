@@ -8,9 +8,9 @@ import {
   initializeCommand,
 } from './fiver';
 import DrawingModel from '../file-format/DrawingModel';
-import GlOS1 from '../drawos/webgl/glos1';
-import MemoryStorageModel from '../file-format/MemoryStorageModel';
+import { GlOS1 } from '../drawos/webgl/glos1';
 import { UpdateObject } from '../Drawlet';
+import { SimpleStorageModel } from '../file-format/SimpleStorageModel';
 
 export function makeFiverCanvas(
   drawingModel: DrawingModel<FiverDna, FiverMode, FiverState>,
@@ -28,7 +28,7 @@ export function makeFiverModel(
     editable: true,
     DrawOs: GlOS1,
     snapshotStrokeCount: 250,
-    storageModel: new MemoryStorageModel(),
+    storageModel: new SimpleStorageModel(),
     initializeCommand,
     handleCommand,
   });

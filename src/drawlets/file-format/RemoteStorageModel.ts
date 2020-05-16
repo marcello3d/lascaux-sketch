@@ -1,13 +1,18 @@
 import LRU from 'lru-cache';
 
 import {
-  GOTO_EVENT,
-  isModeEvent,
-  isKeyframeEvent,
   getNormalizedModePayload,
+  GOTO_EVENT,
+  isKeyframeEvent,
+  isModeEvent,
 } from './events';
-import { Callback } from './types';
-import { RangeMetadata } from './StorageModel';
+import {
+  GetRangeMetadataCallback,
+  RangeMetadata,
+  Stroke, StrokePayload,
+} from './StorageModel';
+import GotoMap from './GotoMap';
+import { Snapshot } from '../Drawlet';
 
 function rangeKey([start, end]: [number, number]) {
   return `${start}-${end}`;
@@ -19,35 +24,24 @@ export type StorageOptions = {
   rangeMaxCount?: number;
   snapshotCacheSize?: number;
   snapshotLinkCacheSize?: number;
-  getRangeMetadata: (callback: Callback<RangeMetadata>) => void;
-  uploadRange: () => void;
-  downloadRange: () => void;
-  uploadSnapshot: () => void;
-  downloadSnapshot: () => void;
-  uploadSnapshotLink: () => void;
-  downloadSnapshotLink: () => void;
 };
-export default class RemoteStorageModel {
-  _rangeCache: LRU<string, Stroke[]>;
-  _snapshotCache: LRU;
-  _snapshotLinkCache: LRU;
-  _initializing = true;
-  _pendingRangeMetadataGets = [];
-  _pendingRangeGets = [];
-  _uploadRange = uploadRange;
-  _downloadRange = downloadRange;
-  _rangeMaxTime = rangeMaxTime;
-  _rangeMaxCount = rangeMaxCount;
-  _uploadSnapshot = uploadSnapshot;
-  _downloadSnapshot = downloadSnapshot;
-  _uploadSnapshotLink = uploadSnapshotLink;
-  _downloadSnapshotLink = downloadSnapshotLink;
-  _nextRange: number | undefined;
-  _strokes: Stroke[] | undefined = undefined;
-  _gotos = null;
-  _modes = null;
-  _keys = null;
-  _strokeTimeout: number | undefined;
+
+export default abstract class RemoteStorageModel {
+  private _rangeCache: LRU<string, Stroke[]>;
+  private _snapshotCache: LRU<string, Snapshot>;
+  private _snapshotLinkCache: LRU<string, string>;
+  private _initializing = true;
+  private _pendingRangeMetadataGets = [];
+  private _pendingRangeGets = [];
+  private _rangeError: Error | undefined;
+  private _rangeMaxTime: number;
+  private _rangeMaxCount: number;
+  private _nextRange: number | undefined;
+  private _strokes: Stroke[] | undefined;
+  private _gotos = null;
+  private _modes = null;
+  private _keys = null;
+  private _strokeTimeout: number | undefined;
 
   constructor({
     rangeCacheSize = 50,
@@ -55,13 +49,6 @@ export default class RemoteStorageModel {
     rangeMaxCount = 500,
     snapshotCacheSize = 50,
     snapshotLinkCacheSize = 50,
-    getRangeMetadata,
-    uploadRange,
-    downloadRange,
-    uploadSnapshot,
-    downloadSnapshot,
-    uploadSnapshotLink,
-    downloadSnapshotLink,
   }: StorageOptions) {
     // TODO: item-size based cache size?
     this._rangeCache = new LRU(rangeCacheSize);
@@ -70,15 +57,9 @@ export default class RemoteStorageModel {
     this._initializing = true;
     this._pendingRangeMetadataGets = [];
     this._pendingRangeGets = [];
-    this._uploadRange = uploadRange;
-    this._downloadRange = downloadRange;
     this._rangeMaxTime = rangeMaxTime;
     this._rangeMaxCount = rangeMaxCount;
-    this._uploadSnapshot = uploadSnapshot;
-    this._downloadSnapshot = downloadSnapshot;
-    this._uploadSnapshotLink = uploadSnapshotLink;
-    this._downloadSnapshotLink = downloadSnapshotLink;
-    getRangeMetadata((error, rangeMetadata) => {
+    this._getRangeMetadata((error, rangeMetadata) => {
       this._initializing = false;
       if (error) {
         this._rangeError = error;
@@ -104,31 +85,43 @@ export default class RemoteStorageModel {
     });
   }
 
-  getRangeMetadata(callback) {
+  protected abstract _getRangeMetadata(
+    callback: (error: any, rangeMetadata: RangeMetadata) => {},
+  ): void;
+
+  getRangeMetadata(callback: GetRangeMetadataCallback) {
     if (this._initializing) {
       this._pendingRangeMetadataGets.push(callback);
     } else {
       callback(this._rangeError, this._rangeMetadata);
     }
   }
+  abstract _uploadRange({ start, end, strokes, gotos, modes, keys }: {
+    start: number,
+    end: number;
+    strokes: Stroke[];
+    gotos: EncodedGotos;
+    modes: Modes[];
+    keys: number[];
+  }, callback);
 
-  _addRange(strokes, gotos, modes, keys, callback) {
+  _addRange(strokes: Stroke[], gotos: GotoMap, modes, keys, callback) {
     const ranges = this._ranges;
     const start = this._nextRange;
     const end = start + strokes.length - 1;
     const range = [start, end];
     ranges.push(range);
     this._nextRange = end + 1;
-    this._strokes = null;
-    this._gotos = null;
-    this._modes = null;
-    this._keys = null;
+    this._strokes = undefined;
+    this._gotos = undefined;
+    this._modes = undefined;
+    this._keys = undefined;
     const key = rangeKey(range);
     this._uploadRange({ start, end, strokes, gotos, modes, keys }, callback);
     this._rangeCache.set(key, strokes);
   }
 
-  _findRange(index) {
+  _findRange(index: number) {
     const ranges = this._ranges;
     // binary search ranges map
     let min = 0;
@@ -147,7 +140,7 @@ export default class RemoteStorageModel {
     return null;
   }
 
-  addStroke(type, time, payload) {
+  addStroke(type: string, time: number, payload: StrokePayload) {
     if (this._initializing) {
       throw new Error('cannot add stroke before get');
     }

@@ -66,7 +66,7 @@ type ChangedTile = [
   // y
   number,
 ];
-export default class GlOS1 implements DrawOs {
+export class GlOS1 implements DrawOs {
   public readonly dna: Dna;
   public readonly pixelWidth: number;
   public readonly pixelHeight: number;
