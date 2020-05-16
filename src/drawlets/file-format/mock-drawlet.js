@@ -32,14 +32,14 @@ export class DrawOs extends BaseDrawOs {
         const width = Math.abs(x1 - x2) + 1;
         const height = Math.abs(y1 - y2) + 1;
 
-        this.saveRect(minx, miny, width, height);
+        this.saveRect(0, minx, miny, width, height);
       },
     };
   }
 
   _setPixel(x, y, color) {
     if (this.canvas.setPixel(x, y, color)) {
-      this.saveRect(x, y, 1, 1);
+      this.saveRect(0, x, y, 1, 1);
     }
   }
 

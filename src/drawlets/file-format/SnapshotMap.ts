@@ -30,7 +30,7 @@ export default class SnapshotMap {
 
     let uploaded = 0;
     let needUpload = 0;
-    function onUpload(error?: Error) {
+    function onUpload(error?: Error | null) {
       if (error) {
         uploaded = Infinity;
         return callback(error);

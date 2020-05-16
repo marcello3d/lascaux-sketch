@@ -62,14 +62,14 @@ export default class DrawingModel<
   private readonly _queue: Array<{
     eventType: string;
     time: number;
-    payload: object;
+    payload: any;
     callback?: VoidCallback;
   }> = [];
   _strokeCount: number = 0;
   private _drawingCursor: number = 0;
   private _loadError: Error | undefined;
   _snapshotMap!: SnapshotMap;
-  _modeMap!: ModeMap;
+  _modeMap!: ModeMap<Mode>;
   private _gotoMap!: GotoMap;
   private _snapshotStrokeCount: number = 0;
   private _strokesSinceSnapshot: number = 0;
@@ -424,7 +424,7 @@ export class CanvasModel<
       this._cursor,
       targetCursor,
     );
-    if (target === undefined) {
+    if (target === undefined || skips === undefined) {
       return done();
     }
 
@@ -437,7 +437,7 @@ export class CanvasModel<
       }
       let async: null | boolean = null;
       this._drawing._storageModel.getStroke(this._cursor, (error, stroke) => {
-        if (error) {
+        if (error || !stroke) {
           console.error(
             `execution error ${error &&
               (error.message || JSON.stringify(error))}`,
@@ -472,7 +472,7 @@ export class CanvasModel<
         waitForSnapshotLoad = true;
         const storageModel = this._drawing._storageModel;
         storageModel.getSnapshot(index, (error, snap) => {
-          if (error) {
+          if (error || !snap) {
             return done(error);
           }
           const { state, snapshot } = snap;

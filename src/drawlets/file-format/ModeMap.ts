@@ -1,10 +1,9 @@
-export type ModeSet = Record<string, any>;
-export default class ModeMap {
-  static deserialize(modes: any[], initialMode?: ModeSet) {
+export default class ModeMap<Mode extends object> {
+  static deserialize<Mode extends object>(modes: any[], initialMode?: Mode) {
     const hasInitialMode = modes[0] === -1;
     const map = hasInitialMode
-      ? new ModeMap(modes[1])
-      : new ModeMap(initialMode);
+      ? new ModeMap<Mode>(modes[1])
+      : new ModeMap<Mode>(initialMode);
     for (let i = hasInitialMode ? 2 : 0; i < modes.length; ) {
       map.addMode(modes[i++], modes[i++]);
     }
@@ -13,9 +12,9 @@ export default class ModeMap {
 
   private _indexes: number[] = [];
   private _rawModes: any[] = [];
-  private _modeMap: Record<number, ModeSet> = {};
+  private _modeMap: Record<number, Mode> = {};
   private _lastStrokeIndex = -1;
-  constructor(initialMode?: ModeSet) {
+  constructor(initialMode?: Mode) {
     if (initialMode) {
       this.addMode(-1, initialMode);
     }
@@ -40,7 +39,7 @@ export default class ModeMap {
     this._lastStrokeIndex = strokeIndex;
   }
 
-  getMode(strokeIndex: number): ModeSet {
+  getMode(strokeIndex: number): Mode {
     const modes = this._indexes;
     // binary search mode map
     let min = 0;
@@ -56,6 +55,6 @@ export default class ModeMap {
         return this._modeMap[modeIndex];
       }
     }
-    return {};
+    return {} as Mode;
   }
 }
