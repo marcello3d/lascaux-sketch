@@ -35,6 +35,7 @@ export type FiverMode = {
   layer: number;
   color: string;
   size: number;
+  alpha: number;
 };
 export type FiverState = {
   size: number;
@@ -60,6 +61,7 @@ export function initializeCommand(
     layer: 0,
     color: colors[(bg + 1) % colors.length],
     size: 8,
+    alpha: 1,
   };
 }
 
@@ -91,6 +93,7 @@ export function handleCommand(
       const dsize = (rad > 0 ? Math.log(rad) : 0) * mode.size;
       let i = 0;
       canvas.setFillStyle(mode.color);
+      canvas.setAlpha(mode.alpha);
       canvas.setLayer(mode.layer);
       const rects = new Array(100);
       let j = 0;

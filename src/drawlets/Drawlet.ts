@@ -63,6 +63,7 @@ export interface DrawingContext {
 
   setLayer(layer: number): void;
   setFillStyle(fillStyle: string): void;
+  setAlpha(alpha: number): void;
 
   fillRect(x: number, y: number, w: number, h: number): void;
   fillRects(rects: Rects): void;
