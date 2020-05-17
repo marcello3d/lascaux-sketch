@@ -37,7 +37,7 @@ export const ellipseShader = new ShaderDescription(
         discard;
       }
     
-      gl_FragColor = vec4(uColor.rgb, (1.0 - inEllipse) * 0.2);
+      gl_FragColor = vec4(uColor.rgb, (1.0 - inEllipse) * 0.2 * uColor.a);
     }
   `,
   ['aPosition', 'aRect'],
