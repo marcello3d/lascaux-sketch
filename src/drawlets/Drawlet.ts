@@ -1,4 +1,5 @@
 import { Dna } from './drawos/dna';
+import { RgbaImage } from './drawos/webgl/util';
 
 export type DrawletInitContext<DrawletDna extends Dna> = {
   dna: DrawletDna;
@@ -97,7 +98,7 @@ export type DrawletHandleFn<
 
 export type GetLinkFn = (
   link: string,
-  callback: (error: Error | undefined, data: ImageData | undefined) => void,
+  callback: (error: Error | undefined, data: RgbaImage | undefined) => void,
 ) => void;
 
 export type Snap = {
@@ -126,7 +127,7 @@ export type Snapshot = {
   tileSize: number;
   layers: number;
 };
-export type Links = Record<string, ImageData>;
+export type Links = Record<string, RgbaImage>;
 export type Tile = {
   layer: number;
   x: number;

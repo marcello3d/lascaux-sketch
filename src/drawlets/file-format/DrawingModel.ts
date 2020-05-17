@@ -14,6 +14,7 @@ import seedrandom from 'seedrandom';
 import jsonCopy from './json-copy';
 import { Dna } from '../drawos/dna';
 import {
+  DRAW_END_EVENT,
   DrawingContext,
   DrawletHandleContext,
   DrawletHandleFn,
@@ -184,7 +185,10 @@ export default class DrawingModel<
   _recordStroke(eventType: string, time: number, payload: any) {
     this._storageModel.addStroke(eventType, time, payload);
     this._strokesSinceSnapshot++;
-    if (this._strokesSinceSnapshot >= this._snapshotStrokeCount) {
+    if (
+      eventType === DRAW_END_EVENT &&
+      this._strokesSinceSnapshot >= this._snapshotStrokeCount
+    ) {
       this.snapshot();
     }
   }
@@ -439,8 +443,9 @@ export class CanvasModel<
       this._drawing._storageModel.getStroke(this._cursor, (error, stroke) => {
         if (error || !stroke) {
           console.error(
-            `execution error ${error &&
-              (error.message || JSON.stringify(error))}`,
+            `execution error ${
+              error && (error.message || JSON.stringify(error))
+            }`,
           );
           return done(error);
         }

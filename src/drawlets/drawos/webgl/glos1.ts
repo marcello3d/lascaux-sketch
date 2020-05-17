@@ -3,11 +3,13 @@ import parseColor from '../parse-color';
 import {
   checkError,
   checkRenderTargetSupport,
+  copyRgbaPixels,
   createFrameBuffer,
   FrameBuffer,
   getOrThrow,
   setDrawingMatrix,
   setViewportMatrix,
+  RgbaImage,
 } from './util';
 
 import ProgramManager from './program-manager';
@@ -97,10 +99,7 @@ export class GlOS1 implements DrawOs {
   private readonly _frameBufferType: GLenum;
   private readonly _frameBufferFormat: GLenum;
 
-  private readonly _readBuffer: Uint8Array;
-  private readonly _loadImage = new Image();
-  private readonly _tileSaveCanvas: HTMLCanvasElement;
-  private readonly _tileSaveContext: CanvasRenderingContext2D;
+  private readonly _readBuffer: Uint8Array | Uint16Array | Float32Array;
 
   constructor(dna: Dna, scale: number = 1, tileSize: number = 64) {
     this.dna = dna;
@@ -112,17 +111,6 @@ export class GlOS1 implements DrawOs {
     const pixelHeight = Math.ceil(this.dna.height * scale);
     this.pixelWidth = pixelWidth;
     this.pixelHeight = pixelHeight;
-
-    this._readBuffer = new Uint8Array(pixelWidth * pixelHeight * 4);
-
-    this._tileSaveCanvas = document.createElement('canvas');
-    this._tileSaveCanvas.width = tileSize;
-    this._tileSaveCanvas.height = tileSize;
-    this._tileSaveContext = getOrThrow(
-      this._tileSaveCanvas.getContext('2d'),
-      'tile save canvas',
-    );
-    // this._tileSaveImageData = this._tileSaveContext.createImageData(tileSize, tileSize);
 
     const canvas = document.createElement('canvas');
 
@@ -170,6 +158,7 @@ export class GlOS1 implements DrawOs {
     ) {
       console.log('using full float RGBA textures');
       this._frameBufferType = gl.FLOAT;
+      this._readBuffer = new Float32Array(pixelWidth * pixelHeight * 4);
     } else if (
       this._OES_texture_half_float &&
       checkRenderTargetSupport(
@@ -180,9 +169,11 @@ export class GlOS1 implements DrawOs {
     ) {
       console.log('using half float RGBA textures');
       this._frameBufferType = this._OES_texture_half_float.HALF_FLOAT_OES;
+      this._readBuffer = new Uint16Array(pixelWidth * pixelHeight * 4);
     } else {
       console.log('using unsigned byte RGBA textures');
       this._frameBufferType = gl.UNSIGNED_BYTE;
+      this._readBuffer = new Uint8Array(pixelWidth * pixelHeight * 4);
     }
 
     console.log(`using RGBA textures`);
@@ -312,14 +303,7 @@ export class GlOS1 implements DrawOs {
   getSnapshot(): Snap {
     const links: Links = {};
     const start = Date.now();
-    const {
-      tileSize,
-      _tileSaveContext,
-      _tiles,
-      _readBuffer,
-      _layers,
-      gl,
-    } = this;
+    const { tileSize, _tiles, _readBuffer, _layers, gl } = this;
     const { length: layerCount } = _layers;
     let changedTiles = 0;
     for (let layer = 0; layer < layerCount; layer++) {
@@ -330,18 +314,33 @@ export class GlOS1 implements DrawOs {
       const { tiles, maxX, minY, minX, maxY } = changed;
       const tileKeys = Object.keys(tiles);
       this._prepareToDraw(layer);
-      const w = maxX - minX;
-      const h = maxY - minY;
-      const imageData = _tileSaveContext.createImageData(w, h);
-      gl.readPixels(minX, minY, w, h, gl.RGBA, gl.UNSIGNED_BYTE, _readBuffer);
-      imageData.data.set(_readBuffer.subarray(0, imageData.data.length));
+      const bufferW = maxX - minX;
+      const bufferH = maxY - minY;
+      const start1 = Date.now();
+      gl.readPixels(
+        minX,
+        minY,
+        bufferW,
+        bufferH,
+        this._frameBufferFormat,
+        this._frameBufferType,
+        _readBuffer,
+      );
+      console.log(`get pixels in ${Date.now() - start1} ms`);
       for (const key of tileKeys) {
         const [x, y] = tiles[key];
-        _tileSaveContext.putImageData(imageData, minX - x, minY - y);
-        const image = _tileSaveContext.getImageData(0, 0, tileSize, tileSize);
-        const link = md5((image.data.buffer as unknown) as Array<number>);
+        const tile = copyRgbaPixels(
+          { pixels: _readBuffer, width: bufferW, height: bufferH },
+          x - minX,
+          y - minY,
+          tileSize,
+          tileSize,
+        );
+        const link = md5((tile as unknown) as Array<number>);
         _tiles[key] = { layer, x, y, link };
-        links[link] = image;
+        if (!links[link]) {
+          links[link] = tile;
+        }
         changedTiles++;
       }
       delete _layers[layer].changed;
@@ -397,7 +396,7 @@ export class GlOS1 implements DrawOs {
         next();
       } else {
         // Get tile
-        getLink(link, (error: Error | undefined, image?: ImageData) => {
+        getLink(link, (error: Error | undefined, image?: RgbaImage) => {
           if (error || !image) {
             next(error);
           } else {
@@ -461,7 +460,7 @@ export class GlOS1 implements DrawOs {
     layer: number,
     x: number,
     y: number,
-    image: ImageData,
+    image: RgbaImage,
     callback: (error?: Error) => void,
   ) {
     const { gl } = this;
@@ -476,9 +475,11 @@ export class GlOS1 implements DrawOs {
       0,
       x,
       y,
+      image.width,
+      image.height,
       this._frameBufferFormat,
       this._frameBufferType,
-      image,
+      image.pixels,
     );
     callback();
   }

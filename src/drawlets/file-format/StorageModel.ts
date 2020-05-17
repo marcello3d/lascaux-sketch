@@ -1,7 +1,9 @@
 import { Snap } from '../Drawlet';
 import { VoidCallback } from './types';
+import { RgbaImage } from '../drawos/webgl/util';
 
 export type EncodedRange = [number, number];
+
 export type EncodedSnap = number;
 export type RangeMetadata = {
   gotos: object[];
@@ -33,7 +35,7 @@ export type GetSnapshotCallback = (
 
 export type GetSnapshotLinkCallback = (
   error: OptionalError,
-  image?: ImageData,
+  image?: RgbaImage,
 ) => void;
 
 export interface StorageModel {
@@ -43,7 +45,7 @@ export interface StorageModel {
   addSnapshot(index: number, snapshot: Snap, callback: VoidCallback): void;
   addSnapshotLink(
     link: string,
-    image: ImageData | undefined,
+    image: RgbaImage | undefined,
     callback: VoidCallback,
   ): void;
   getSnapshot(index: number, callback: GetSnapshotCallback): void;
