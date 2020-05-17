@@ -261,3 +261,33 @@ export function getOrThrow<T>(value: T | null | 0, type: string): T {
   }
   return value;
 }
+
+export type RgbaImage = {
+  pixels: Uint8Array | Uint16Array | Float32Array;
+  width: number;
+  height: number;
+};
+export function copyRgbaPixels(
+  src: RgbaImage,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): RgbaImage {
+  const TypedArrayType =
+    src.pixels instanceof Uint8Array
+      ? Uint8Array
+      : src.pixels instanceof Uint16Array
+      ? Uint16Array
+      : Float32Array;
+  const pixels = new TypedArrayType(width * height * 4);
+  const xx = x * 4;
+  const rowWidth = src.width * 4;
+  for (let yy = 0; yy < height; yy++) {
+    pixels.set(
+      src.pixels.subarray(xx + (y + yy) * rowWidth, rowWidth),
+      yy * width * 4,
+    );
+  }
+  return { pixels, width, height };
+}

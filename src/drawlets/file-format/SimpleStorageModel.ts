@@ -10,10 +10,11 @@ import {
 } from './StorageModel';
 import { Snap } from '../Drawlet';
 import { VoidCallback } from './types';
+import { RgbaImage } from '../drawos/webgl/util';
 
 export class SimpleStorageModel implements StorageModel {
   private snapshots: Record<number, Snap> = {};
-  private snapshotLinks: Record<string, ImageData> = {};
+  private snapshotLinks: Record<string, RgbaImage> = {};
   private strokes: Stroke[] = [];
 
   constructor(private readonly initialRangeMetadata?: RangeMetadata) {}
@@ -25,7 +26,7 @@ export class SimpleStorageModel implements StorageModel {
 
   addSnapshotLink(
     link: string,
-    image: ImageData | undefined,
+    image: RgbaImage | undefined,
     callback: VoidCallback,
   ): void {
     if (image) {
