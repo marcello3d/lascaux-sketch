@@ -238,6 +238,10 @@ export default function DrawletApp({
         <label className={styles.toolLabel}>Layers</label>
         <label className={styles.layers}>{layers}</label>
         <Button onClick={addLayer}>Add Layer</Button>
+        <label className={styles.toolLabel}>
+          <a href="/diag">Diagnostics</a>
+        </label>
+        <label className={styles.diagInfo}>{canvasInstance.getInfo()}</label>
       </div>
       <div
         ref={drawletContainerRef}

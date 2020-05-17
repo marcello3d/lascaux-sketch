@@ -349,7 +349,7 @@ export default function pointerEventsBridge(
 
   function onWheelEvent(event: WheelEvent) {
     if (event.deltaMode === WheelEvent.DOM_DELTA_PIXEL) {
-      if (event.ctrlKey) {
+      if (event.altKey || spacebar) {
         setClampedTranslateScale(
           transform.translateX,
           transform.translateY,

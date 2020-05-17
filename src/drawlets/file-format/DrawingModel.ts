@@ -139,6 +139,10 @@ export default class DrawingModel<
     }
   }
 
+  getInfo() {
+    return this._editCanvas?._drawos.getInfo();
+  }
+
   _initialize(canvas?: DrawingContext) {
     const initializeCommand = this._initializeCommand;
     return initializeCommand(getInitializeContext(this._dna), canvas);

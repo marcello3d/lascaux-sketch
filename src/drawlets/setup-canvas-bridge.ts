@@ -158,6 +158,10 @@ export default function setupHtmlCanvasBridge<
 
     getUpdateObject,
 
+    getInfo() {
+      return drawingModel.getInfo();
+    },
+
     flush() {
       return drawingModel.flush(() => {});
     },

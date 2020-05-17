@@ -120,6 +120,7 @@ export interface DrawOs {
   saveRect(layer: number, x: number, y: number, w: number, h: number): void;
   afterExecute(): void;
   setTransform(translateX: number, translateY: number, scale: number): void;
+  getInfo(): string | undefined;
 }
 
 export type Snapshot = {
@@ -162,6 +163,7 @@ export type DrawletInstance<Mode extends object> = {
   setPlaying(playing: boolean): void;
   seekTo(cursor: number): void;
   subscribe(): () => void;
+  getInfo(): string | undefined;
 };
 export type DrawOsConstructor = new (
   dna: Dna,

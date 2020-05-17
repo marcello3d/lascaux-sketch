@@ -11,6 +11,9 @@
     'status status status';
   user-select: none;
 }
+.root a {
+  color: #fff;
+}
 .canvasContainer {
   grid-row: 1 / 4;
   grid-column: 1 / 4;
@@ -64,6 +67,9 @@
 .toolLabel {
   margin-top: 10px;
   margin-bottom: 3px;
+}
+.diagInfo {
+  font-size: 0.7em;
 }
 .value {
   float: right;

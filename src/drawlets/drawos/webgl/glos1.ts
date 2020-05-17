@@ -67,6 +67,9 @@ type ChangedTile = [
   // y
   number,
 ];
+
+const ENABLE_HALF_FLOAT_SUPPORT = false;
+
 export class GlOS1 implements DrawOs {
   public readonly dna: Dna;
   public readonly pixelWidth: number;
@@ -96,6 +99,7 @@ export class GlOS1 implements DrawOs {
   private readonly _drawingVertexIndexBuffer: WebGLBuffer;
   private readonly _OES_texture_float: OES_texture_float_linear | null;
   private readonly _OES_texture_half_float: OES_texture_half_float | null;
+  private readonly _frameBufferTypeString: string;
   private readonly _frameBufferType: GLenum;
   private readonly _frameBufferFormat: GLenum;
 
@@ -132,10 +136,10 @@ export class GlOS1 implements DrawOs {
     resizeCanvas();
 
     const gl = canvas.getContext('webgl', {
-      preserveDrawingBuffer: false,
-      alpha: false,
+      preserveDrawingBuffer: true,
+      alpha: true,
       depth: false,
-      stencil: false,
+      stencil: true,
       antialias: false,
       premultipliedAlpha: false,
     });
@@ -158,8 +162,10 @@ export class GlOS1 implements DrawOs {
     ) {
       console.log('using full float RGBA textures');
       this._frameBufferType = gl.FLOAT;
+      this._frameBufferTypeString = 'float32';
       this._readBuffer = new Float32Array(pixelWidth * pixelHeight * 4);
     } else if (
+      ENABLE_HALF_FLOAT_SUPPORT &&
       this._OES_texture_half_float &&
       checkRenderTargetSupport(
         gl,
@@ -169,14 +175,16 @@ export class GlOS1 implements DrawOs {
     ) {
       console.log('using half float RGBA textures');
       this._frameBufferType = this._OES_texture_half_float.HALF_FLOAT_OES;
+      this._frameBufferTypeString = 'float16';
       this._readBuffer = new Uint16Array(pixelWidth * pixelHeight * 4);
     } else {
       console.log('using unsigned byte RGBA textures');
       this._frameBufferType = gl.UNSIGNED_BYTE;
+
+      this._frameBufferTypeString = 'uint8';
       this._readBuffer = new Uint8Array(pixelWidth * pixelHeight * 4);
     }
 
-    console.log(`using RGBA textures`);
     this._frameBufferFormat = gl.RGBA;
 
     gl.enable(gl.BLEND);
@@ -372,7 +380,6 @@ export class GlOS1 implements DrawOs {
       `snapshot generated in ${Date.now() - start} ms: ${
         Object.keys(_tiles).length
       } tile(s), ${changedTiles} changed, ${Object.keys(links).length} links`,
-      _tiles,
     );
     return snapshot;
   }
@@ -901,6 +908,14 @@ export class GlOS1 implements DrawOs {
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, vertexIndexArray, gl.STATIC_DRAW);
       gl.drawElements(gl.TRIANGLES, usedRectCount * 6, gl.UNSIGNED_SHORT, 0);
     }
+  }
+
+  getInfo(): string {
+    return `WebGL ${this._frameBufferTypeString} (${
+      this._readBuffer.BYTES_PER_ELEMENT * 8 * 4
+    } bit): ${this.pixelWidth}x${this.pixelHeight} (${
+      Object.keys(this._tiles).length
+    } tiles)`;
   }
 
   getDrawingContext(): DrawingContext {

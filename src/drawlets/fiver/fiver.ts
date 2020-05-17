@@ -25,9 +25,7 @@ export function newDna(width: number = 512, height: number = 512): FiverDna {
     // Should mode-changing options be managed by drawlet os?
     colors: ['#497aa6', '#f2c063', '#f2dbce', '#a6654e', '#f2695c'],
     // TODO: move
-    randomseed: Math.random()
-      .toString(36)
-      .slice(2),
+    randomseed: Math.random().toString(36).slice(2),
   };
 }
 export type FiverMode = {
@@ -105,7 +103,7 @@ export function handleCommand(
         }
         state.x += state.vx;
         state.y += state.vy;
-        state.size -= (state.size - dsize) / 100;
+        state.size -= (state.size - dsize) / 10;
         dx = dragx - state.x;
         dy = dragy - state.y;
         rad = Math.sqrt(dy * dy + dx * dx);
