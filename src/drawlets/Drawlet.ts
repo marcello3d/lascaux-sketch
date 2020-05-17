@@ -132,7 +132,7 @@ export type Tile = {
   layer: number;
   x: number;
   y: number;
-  link: string;
+  link: string | null;
 };
 export type Tiles = Record<string, Tile>;
 

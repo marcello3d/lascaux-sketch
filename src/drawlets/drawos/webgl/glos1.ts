@@ -7,13 +7,12 @@ import {
   createFrameBuffer,
   FrameBuffer,
   getOrThrow,
+  RgbaImage,
   setDrawingMatrix,
   setViewportMatrix,
-  RgbaImage,
 } from './util';
 
 import ProgramManager from './program-manager';
-import md5 from 'md5';
 import { Dna } from '../dna';
 import { Program, ProgramOf } from './program';
 
@@ -286,6 +285,8 @@ export class GlOS1 implements DrawOs {
       pixelHeight,
       _frameBufferType,
       _frameBufferFormat,
+      tileSize,
+      _tiles,
     } = this;
     const frameBuffer = createFrameBuffer(
       gl,
@@ -294,11 +295,21 @@ export class GlOS1 implements DrawOs {
       _frameBufferType,
       _frameBufferFormat,
     );
+    const layer = _layers.length;
     _layers.push({ frameBuffer });
     this._bindFrameBuffer(frameBuffer);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    this.saveRect(_layers.length - 1, 0, 0, pixelWidth, pixelHeight);
+    const tilex2 = Math.floor(this.pixelWidth / tileSize - 1);
+    const tiley2 = Math.floor(this.pixelHeight / tileSize - 1);
+    for (let tiley = 0; tiley <= tiley2; tiley++) {
+      for (let tilex = 0; tilex <= tilex2; tilex++) {
+        const key = getTileKey(layer, tilex, tiley);
+        const x = tilex * tileSize;
+        const y = tiley * tileSize;
+        _tiles[key] = { layer, x, y, link: null };
+      }
+    }
   }
 
   getSnapshot(): Snap {
@@ -317,6 +328,11 @@ export class GlOS1 implements DrawOs {
       this._prepareToDraw(layer);
       const bufferW = maxX - minX;
       const bufferH = maxY - minY;
+      const savedBuffer = {
+        pixels: _readBuffer.subarray(0, bufferW * bufferH * 4),
+        width: bufferW,
+        height: bufferH,
+      };
       const start1 = Date.now();
       gl.readPixels(
         minX,
@@ -325,13 +341,13 @@ export class GlOS1 implements DrawOs {
         bufferH,
         this._frameBufferFormat,
         this._frameBufferType,
-        _readBuffer,
+        savedBuffer.pixels,
       );
       console.log(`get pixels in ${Date.now() - start1} ms`);
       for (const key of tileKeys) {
         const [x, y] = tiles[key];
         const tile = copyRgbaPixels(
-          { pixels: _readBuffer, width: bufferW, height: bufferH },
+          savedBuffer,
           x - minX,
           y - minY,
           tileSize,
@@ -356,6 +372,7 @@ export class GlOS1 implements DrawOs {
       `snapshot generated in ${Date.now() - start} ms: ${
         Object.keys(_tiles).length
       } tile(s), ${changedTiles} changed, ${Object.keys(links).length} links`,
+      _tiles,
     );
     return snapshot;
   }
@@ -391,6 +408,10 @@ export class GlOS1 implements DrawOs {
         this._tiles[key].link === link
       ) {
         // Already have this tile loaded
+        this._tiles[key] = tiles[key];
+        next();
+      } else if (link === null) {
+        this._clearTile(layer, x, y);
         this._tiles[key] = tiles[key];
         next();
       } else {
@@ -481,6 +502,15 @@ export class GlOS1 implements DrawOs {
       image.pixels,
     );
     callback();
+  }
+  private _clearTile(layer: number, x: number, y: number) {
+    const { gl, tileSize } = this;
+    this._prepareToDraw(layer);
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(x, y, tileSize, tileSize);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.SCISSOR_TEST);
   }
 
   afterExecute() {

@@ -60,7 +60,6 @@ export default class GotoMap {
   private _skipMap: Record<number, Skips> = {};
   private _lastStrokeIndex: number = -1;
   private _previousSkips: Skips = [];
-  constructor() {}
 
   getGotoIndexes(): number[] {
     return this._gotos;
