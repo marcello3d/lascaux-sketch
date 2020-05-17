@@ -282,11 +282,13 @@ export function copyRgbaPixels(
       : Float32Array;
   const pixels = new TypedArrayType(width * height * 4);
   const xx = x * 4;
-  const rowWidth = src.width * 4;
+  const srcRowWidth = src.width * 4;
+  const destRowWidth = width * 4;
   for (let yy = 0; yy < height; yy++) {
+    const start = xx + (yy + y) * srcRowWidth;
     pixels.set(
-      src.pixels.subarray(xx + (y + yy) * rowWidth, rowWidth),
-      yy * width * 4,
+      src.pixels.subarray(start, start + destRowWidth),
+      yy * destRowWidth,
     );
   }
   return { pixels, width, height };
