@@ -79,6 +79,7 @@ export class GlOS1 implements DrawOs {
 
   private readonly _layers: Array<Layer> = [];
   private _tiles: Tiles = {};
+  private _links: Links = {};
   private readonly gl: WebGLRenderingContext;
   private pixelRatio: number = 1;
   private _framebuffer: FrameBuffer | undefined;
@@ -336,11 +337,9 @@ export class GlOS1 implements DrawOs {
           tileSize,
           tileSize,
         );
-        const link = md5((tile as unknown) as Array<number>);
+        const link = Math.random().toString(36).slice(3);
         _tiles[key] = { layer, x, y, link };
-        if (!links[link]) {
-          links[link] = tile;
-        }
+        links[link] = tile;
         changedTiles++;
       }
       delete _layers[layer].changed;
@@ -398,7 +397,7 @@ export class GlOS1 implements DrawOs {
         // Get tile
         getLink(link, (error: Error | undefined, image?: RgbaImage) => {
           if (error || !image) {
-            next(error);
+            next(error || new Error('image not found'));
           } else {
             this._tiles[key] = tiles[key];
             if (layerInfo.changed) {
