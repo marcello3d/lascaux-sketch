@@ -808,6 +808,11 @@ export class GlOS1 implements DrawOs {
       if (x2 < 0 || y2 < 0 || x1 > width || y1 > height) {
         continue;
       }
+      // Add margin for antialiasing
+      x1 -= 1;
+      y1 -= 1;
+      x2 += 1;
+      x2 += 1;
       if (x1 < 0) {
         x1 = 0;
       }

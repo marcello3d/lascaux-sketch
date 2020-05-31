@@ -193,7 +193,7 @@ export default function pointerEventsBridge(
       {
         x: (clientX + dx) / scale,
         y: (clientY + dy) / scale,
-        pressure: pointerType === 'mouse' && pressure === 0 ? 0.5 : pressure,
+        pressure: pointerType === 'pen' ? pressure : undefined,
         tiltX,
         tiltY,
       },

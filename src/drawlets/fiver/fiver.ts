@@ -95,6 +95,7 @@ export function handleCommand(
       canvas.setLayer(mode.layer);
       const rects = new Array(100);
       let j = 0;
+      const pressure = payload.pressure ?? 1;
       do {
         i++;
         if (rad > 0) {
@@ -107,10 +108,7 @@ export function handleCommand(
         dx = dragx - state.x;
         dy = dragy - state.y;
         rad = Math.sqrt(dy * dy + dx * dx);
-        const size2 = Math.max(
-          1,
-          state.size * (payload.pressure !== undefined ? payload.pressure : 1),
-        );
+        const size2 = Math.max(1, state.size * pressure);
         if (size2 > 0) {
           rects[j++] = [state.x - size2 / 2, state.y - size2 / 2, size2, size2];
         }
