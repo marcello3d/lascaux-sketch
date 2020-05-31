@@ -4,13 +4,13 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 import { App } from './App';
-import Diagnostics from './Diagnostics';
 
+// Hackity hack to get sub-pixel precision on iPad
 // const pixelRatio = window.devicePixelRatio;
-// if (pixelRatio > 1) {
+// if (pixelRatio > 1 && 'standalone' in navigator) {
 //   const meta = document.querySelector('meta[name="viewport"]');
 //   if (meta) {
-//     const deviceWidth = window.innerWidth > 0 ? window.innerWidth : screen.width;
+//     const deviceWidth = window.innerWidth;
 //     const scale = 1 / (pixelRatio * 2);
 //     meta.setAttribute(
 //       'content',
@@ -21,12 +21,10 @@ import Diagnostics from './Diagnostics';
 //         `maximum-scale=${scale}`,
 //       ].join(','),
 //     );
+//     document.body.style.transform = `scale(${1 / scale})`;
+//     document.body.style.transformOrigin = 'top left';
 //   }
 // }
 
-if (document.location.pathname === '/diag') {
-  ReactDOM.render(<Diagnostics />, document.getElementById('root'));
-  document.body.classList.add('diagnostics');
-} else {
-  ReactDOM.render(<App />, document.getElementById('root'));
-}
+ReactDOM.render(<App />, document.getElementById('root'));
+document.body.classList.add('diagnostics');

@@ -37,11 +37,7 @@ const colors: readonly string[] = [
   '#006666', // dark blue-ish green
 ];
 
-export default function DrawletApp({
-  drawingModel,
-}: {
-  drawingModel: DrawingModel;
-}) {
+export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
   const drawletContainerRef = useRef<HTMLDivElement>(null);
   const [updateObjectState, setUpdateObject] = useState<UpdateObject<
     FiverMode

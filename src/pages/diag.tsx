@@ -4,9 +4,10 @@ import * as React from 'react';
 import { ReactNode, useCallback, useMemo, useState } from 'react';
 import Bowser from 'bowser';
 
-import styles from './Diagnostics.module.css';
-import { checkRenderTargetSupport } from './drawlets/drawos/webgl/util';
+import styles from './diag.module.css';
+import { checkRenderTargetSupport } from '../drawlets/drawos/webgl/util';
 import produce from 'immer';
+import { RouteComponentProps } from '@reach/router';
 
 type PointerData = {
   types: Record<string, boolean>;
@@ -51,7 +52,7 @@ setInterval(() => {
   }
 }, 1000);
 
-export default function Diagnostics() {
+export function Diag(props: RouteComponentProps) {
   const system = useMemo((): Row[] => {
     const { browser, os, platform, engine } = Bowser.parse(
       window.navigator.userAgent,
