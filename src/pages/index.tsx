@@ -1,19 +1,20 @@
-import { useDispatch, useSelector } from 'react-redux';
-import React, { useCallback, useMemo } from 'react';
-import { AppState } from '../app/state';
-import { newDrawing } from '../app/actions';
+import React, { Suspense, useMemo } from 'react';
 import { Link, RouteComponentProps } from '@reach/router';
 import styles from './page.module.css';
+import { db } from '../db/db';
+import { newDate, newId } from '../db/fields';
+import { useDexieArray } from '../db/useDexie';
+import { newDna } from '../drawlets/fiver/fiver';
 
+const sortedDrawings = db.drawings.orderBy('createdAt');
 function Drawings() {
-  const drawings = useSelector(
-    useCallback((state: AppState) => state.drawings, []),
-  );
+  const drawings = useDexieArray(db.drawings, sortedDrawings);
   const items = useMemo(
     () =>
-      Object.entries(drawings).map(([drawingId, { width, height }]) => (
-        <li key={drawingId}>
-          <Link to={`drawings/${drawingId}`}>{drawingId}</Link>
+      drawings.map(({ id, createdAt }) => (
+        <li key={id}>
+          <Link to={`drawings/${id}`}>{id}</Link> -{' '}
+          {new Date(createdAt).toLocaleString()}
         </li>
       )),
     [drawings],
@@ -23,13 +24,20 @@ function Drawings() {
 }
 
 export function IndexPage(props: RouteComponentProps) {
-  const dispatch = useDispatch();
-  const addDrawing = () => dispatch(newDrawing({ width: 500, height: 500 }));
+  const addDrawing = () => {
+    db.drawings.add({
+      id: newId(),
+      createdAt: newDate(),
+      dna: newDna(),
+    });
+  };
 
   return (
     <div className={styles.root}>
       <h2>Index page</h2>
-      <Drawings />
+      <Suspense fallback={<p>Loading…</p>}>
+        <Drawings />
+      </Suspense>
       <p>
         <button onClick={addDrawing}>New Drawing</button>
       </p>
