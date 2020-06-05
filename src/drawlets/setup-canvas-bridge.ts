@@ -46,11 +46,7 @@ export default function setupHtmlCanvasBridge<
     );
   };
 
-  drawingModel.onceLoaded(() => {
-    console.log(`drawingModel loaded: ${canvas.strokeCount}`);
-    loaded = true;
-    canvas.gotoEnd(requestRepaint);
-  });
+  canvas.gotoEnd(requestRepaint);
 
   function requestRepaint() {
     if (!requestedAnimation) {

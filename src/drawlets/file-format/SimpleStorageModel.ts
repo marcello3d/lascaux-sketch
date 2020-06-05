@@ -1,15 +1,6 @@
-import {
-  GetRangeMetadataCallback,
-  GetSnapshotCallback,
-  GetSnapshotLinkCallback,
-  GetStrokeCallback,
-  RangeMetadata,
-  StorageModel,
-  Stroke,
-  StrokePayload,
-} from './StorageModel';
+import { Metadata, StorageModel, Stroke, StrokePayload } from './StorageModel';
 import { Snap } from '../Drawlet';
-import { VoidCallback } from './types';
+import { Callback, VoidCallback } from './types';
 import { RgbaImage } from '../drawos/webgl/util';
 
 export class SimpleStorageModel implements StorageModel {
@@ -17,7 +8,7 @@ export class SimpleStorageModel implements StorageModel {
   private snapshotLinks: Record<string, RgbaImage> = {};
   private strokes: Stroke[] = [];
 
-  constructor(private readonly initialRangeMetadata?: RangeMetadata) {}
+  constructor(private readonly initialMetadata: Metadata) {}
 
   addSnapshot(index: number, snapshot: Snap, callback: VoidCallback): void {
     this.snapshots[index] = snapshot;
@@ -45,11 +36,11 @@ export class SimpleStorageModel implements StorageModel {
     callback();
   }
 
-  getRangeMetadata(callback: GetRangeMetadataCallback): void {
-    callback(undefined, this.initialRangeMetadata);
+  getMetadata(): Metadata {
+    return this.initialMetadata;
   }
 
-  getSnapshot(index: number, callback: GetSnapshotCallback): void {
+  getSnapshot(index: number, callback: Callback<Snap | undefined>): void {
     const snapshot = this.snapshots[index];
     if (snapshot) {
       callback(undefined, snapshot);
@@ -58,7 +49,10 @@ export class SimpleStorageModel implements StorageModel {
     }
   }
 
-  getSnapshotLink(link: string, callback: GetSnapshotLinkCallback): void {
+  getSnapshotLink(
+    link: string,
+    callback: Callback<RgbaImage | undefined>,
+  ): void {
     const snapshotLink = this.snapshotLinks[link];
     if (snapshotLink) {
       callback(undefined, snapshotLink);
@@ -67,7 +61,7 @@ export class SimpleStorageModel implements StorageModel {
     }
   }
 
-  getStroke(index: number, callback: GetStrokeCallback): void {
+  getStroke(index: number, callback: Callback<Stroke | undefined>): void {
     const stroke = this.strokes[index];
     if (stroke) {
       callback(undefined, stroke);

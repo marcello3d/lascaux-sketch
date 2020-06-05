@@ -1,17 +1,16 @@
 import { Snap } from '../Drawlet';
-import { VoidCallback } from './types';
+import { Callback, VoidCallback } from './types';
 import { RgbaImage } from '../drawos/webgl/util';
+import SnapshotMap from './SnapshotMap';
+import GotoMap from './GotoMap';
+import { PromiseOrValue } from 'promise-or-value';
+import ModeMap from './ModeMap';
 
-export type EncodedRange = [number, number];
-
-export type EncodedSnap = number;
-export type RangeMetadata = {
-  gotos: object[];
-  keys: number[];
-  modes: Array<number | object>;
-  strokes: number;
-  ranges: EncodedRange[];
-  snapshots: EncodedSnap[];
+export type Metadata = {
+  gotoMap: GotoMap;
+  modeMap: ModeMap<any>;
+  strokeCount: number;
+  snapshotMap: SnapshotMap;
 };
 export type StrokePayload = object;
 export type Stroke = {
@@ -19,36 +18,21 @@ export type Stroke = {
   time: number;
   payload: StrokePayload;
 };
-export type OptionalError = Error | undefined;
-
-export type GetRangeMetadataCallback = (
-  error: OptionalError,
-  rangeMetadata?: RangeMetadata,
-) => void;
-
-export type GetStrokeCallback = (error: OptionalError, stroke?: Stroke) => void;
-
-export type GetSnapshotCallback = (
-  error: OptionalError,
-  snapshot?: Snap,
-) => void;
-
-export type GetSnapshotLinkCallback = (
-  error: OptionalError,
-  image?: RgbaImage,
-) => void;
 
 export interface StorageModel {
-  getRangeMetadata(callback: GetRangeMetadataCallback): void;
+  getMetadata(initialMode: object): PromiseOrValue<Metadata>;
   addStroke(type: string, time: number, payload: StrokePayload): void;
-  getStroke(index: number, callback: GetStrokeCallback): void;
+  getStroke(index: number, callback: Callback<Stroke | undefined>): void;
   addSnapshot(index: number, snapshot: Snap, callback: VoidCallback): void;
   addSnapshotLink(
     link: string,
     image: RgbaImage | undefined,
     callback: VoidCallback,
   ): void;
-  getSnapshot(index: number, callback: GetSnapshotCallback): void;
-  getSnapshotLink(link: string, callback: GetSnapshotLinkCallback): void;
+  getSnapshot(index: number, callback: Callback<Snap | undefined>): void;
+  getSnapshotLink(
+    link: string,
+    callback: Callback<RgbaImage | undefined>,
+  ): void;
   flush(callback: VoidCallback): void;
 }

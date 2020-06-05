@@ -23,7 +23,7 @@ import {
   DrawOs,
   DrawOsConstructor,
 } from '../Drawlet';
-import { StorageModel } from './StorageModel';
+import { Metadata, StorageModel } from './StorageModel';
 import { FiverDna, FiverMode, FiverState } from '../fiver/fiver';
 import { VoidCallback } from './types';
 
@@ -37,7 +37,7 @@ function getRandomFn(dna: Dna, cursor: number) {
     return random();
   };
 }
-function getInitializeContext<DrawletDna extends Dna>(
+export function getInitializeContext<DrawletDna extends Dna>(
   dna: DrawletDna,
 ): DrawletInitContext<DrawletDna> {
   return {
@@ -47,7 +47,7 @@ function getInitializeContext<DrawletDna extends Dna>(
 }
 
 /**
- * Manages all the strokes and goto for a drawing, using external storage
+ * Manages all the strokeCount and goto for a drawing, using external storage
  */
 export default class DrawingModel<
   DrawletDna extends Dna = FiverDna,
@@ -55,7 +55,6 @@ export default class DrawingModel<
   State extends object = FiverState
 > {
   readonly _storageModel: StorageModel;
-  private _loadedCallbacks: VoidCallback[] | undefined = [];
   readonly _dna: DrawletDna;
   private readonly _DrawOs: DrawOsConstructor;
   private readonly _initializeCommand: DrawletInitializeFn<DrawletDna, Mode>;
@@ -68,7 +67,6 @@ export default class DrawingModel<
   }> = [];
   _strokeCount: number = 0;
   private _drawingCursor: number = 0;
-  private _loadError: Error | undefined;
   _snapshotMap!: SnapshotMap;
   _modeMap!: ModeMap<Mode>;
   private _gotoMap!: GotoMap;
@@ -83,6 +81,7 @@ export default class DrawingModel<
     storageModel,
     initializeCommand,
     handleCommand,
+    metadata,
     snapshotStrokeCount = 1000,
   }: {
     dna: DrawletDna;
@@ -91,10 +90,10 @@ export default class DrawingModel<
     storageModel: StorageModel;
     initializeCommand: DrawletInitializeFn<DrawletDna, Mode>;
     handleCommand: DrawletHandleFn<DrawletDna, Mode, State>;
+    metadata: Metadata;
     snapshotStrokeCount: number;
   }) {
     this._storageModel = storageModel;
-    this._loadedCallbacks = [];
     this._dna = dna;
     this._DrawOs = DrawOs;
     this._initializeCommand = initializeCommand;
@@ -102,36 +101,17 @@ export default class DrawingModel<
     this._queue = [];
     this._strokeCount = 0;
     this._drawingCursor = 0;
-    storageModel.getRangeMetadata((error, metadata) => {
-      if (error) {
-        console.log('error getting range metadata: ' + error.message);
-        this._loadError = error;
-      } else {
-        if (metadata) {
-          const { ranges, gotos, keys, modes, snapshots } = metadata;
-          this._gotoMap = GotoMap.deserialize({
-            gotos,
-            keys,
-          });
-          this._snapshotMap = new SnapshotMap(storageModel, snapshots);
-          this._modeMap = ModeMap.deserialize(modes, this._initialize());
-          if (ranges.length > 0) {
-            this._strokeCount = ranges[ranges.length - 1][1] + 1;
-            this._drawingCursor = this._gotoMap.dereference(this._strokeCount);
-          }
-        } else {
-          this._gotoMap = new GotoMap();
-          this._snapshotMap = new SnapshotMap(storageModel);
-          this._modeMap = new ModeMap(this._initialize());
-        }
-      }
-      if (this._loadedCallbacks) {
-        for (const callback of this._loadedCallbacks) {
-          callback(error);
-        }
-        this._loadedCallbacks = undefined;
-      }
-    });
+    if (!metadata) {
+      throw new Error('unexpected state');
+    }
+    const { strokeCount, gotoMap, modeMap, snapshotMap } = metadata;
+    this._gotoMap = gotoMap;
+    this._snapshotMap = snapshotMap;
+    if (strokeCount > 0) {
+      this._strokeCount = strokeCount;
+      this._drawingCursor = this._gotoMap.dereference(strokeCount);
+    }
+    this._modeMap = modeMap;
     if (editable) {
       this._snapshotStrokeCount = snapshotStrokeCount;
       this._strokesSinceSnapshot = 0;
@@ -146,14 +126,6 @@ export default class DrawingModel<
   _initialize(canvas?: DrawingContext) {
     const initializeCommand = this._initializeCommand;
     return initializeCommand(getInitializeContext(this._dna), canvas);
-  }
-
-  onceLoaded(callback: VoidCallback) {
-    if (this._loadedCallbacks) {
-      this._loadedCallbacks.push(callback);
-    } else {
-      callback(this._loadError);
-    }
   }
 
   get editCanvas() {
@@ -203,12 +175,6 @@ export default class DrawingModel<
     payload: Object,
     callback?: VoidCallback,
   ) {
-    if (this._loadedCallbacks) {
-      throw new Error('cannot add stroke before loaded');
-    }
-    if (this._loadError) {
-      throw this._loadError;
-    }
     this._queue.push({
       eventType,
       time,
@@ -296,14 +262,6 @@ export default class DrawingModel<
     return {
       target: end,
       ...this._gotoMap.planGoto(start, end),
-    };
-  }
-
-  getMetadata() {
-    return {
-      ...this._gotoMap.serialize(),
-      modes: this._modeMap.serialize(),
-      strokes: this._strokeCount,
     };
   }
 }
