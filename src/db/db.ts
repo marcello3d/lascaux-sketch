@@ -1,6 +1,7 @@
 import 'dexie-observable';
 import Dexie, { Table } from 'dexie';
 import { Dna } from '../drawlets/drawos/dna';
+import { Stroke } from '../drawlets/file-format/StorageModel';
 
 export type DbDrawing = {
   id: string;
@@ -8,9 +9,9 @@ export type DbDrawing = {
   dna: Dna;
 };
 export type DbStroke = {
-  id: number;
   drawingId: string;
-};
+  index: number;
+} & Stroke;
 
 class Db extends Dexie {
   drawings: Table<DbDrawing, string>;
@@ -18,9 +19,9 @@ class Db extends Dexie {
 
   constructor() {
     super('buckwheat3');
-    this.version(3).stores({
+    this.version(4).stores({
       drawings: 'id,createdAt',
-      strokes: '++id,drawingId',
+      strokes: '[drawingId+index]',
     });
     this.drawings = this.table('drawings');
     this.strokes = this.table('strokes');

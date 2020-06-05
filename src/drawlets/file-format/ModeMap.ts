@@ -1,17 +1,5 @@
 export default class ModeMap<Mode extends object> {
-  static deserialize<Mode extends object>(modes: any[], initialMode?: Mode) {
-    const hasInitialMode = modes[0] === -1;
-    const map = hasInitialMode
-      ? new ModeMap<Mode>(modes[1])
-      : new ModeMap<Mode>(initialMode);
-    for (let i = hasInitialMode ? 2 : 0; i < modes.length; ) {
-      map.addMode(modes[i++], modes[i++]);
-    }
-    return map;
-  }
-
   private _indexes: number[] = [];
-  private _rawModes: any[] = [];
   private _modeMap: Record<number, Mode> = {};
   private _lastStrokeIndex = -1;
   constructor(initialMode?: Mode) {
@@ -21,15 +9,10 @@ export default class ModeMap<Mode extends object> {
     }
   }
 
-  serialize(): any[] {
-    return this._rawModes;
-  }
-
   addMode(strokeIndex: number, payload: any): void {
     if (strokeIndex <= this._lastStrokeIndex) {
       throw new Error('modes must be added in order');
     }
-    this._rawModes.push(strokeIndex, payload);
 
     const modes = this._indexes;
     const lastMode = this._modeMap[modes[modes.length - 1]] || {};

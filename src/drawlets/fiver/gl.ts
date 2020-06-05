@@ -7,10 +7,12 @@ import {
   handleCommand,
   initializeCommand,
 } from './fiver';
-import DrawingModel from '../file-format/DrawingModel';
+import DrawingModel, {
+  getInitializeContext,
+} from '../file-format/DrawingModel';
 import { GlOS1 } from '../drawos/webgl/glos1';
 import { UpdateObject } from '../Drawlet';
-import { SimpleStorageModel } from '../file-format/SimpleStorageModel';
+import { StorageModel } from '../file-format/StorageModel';
 
 export function makeFiverCanvas(
   drawingModel: DrawingModel<FiverDna, FiverMode, FiverState>,
@@ -20,15 +22,20 @@ export function makeFiverCanvas(
   return setupHtmlCanvasBridge(drawingModel, onUpdate, editable);
 }
 
-export function makeFiverModel(
+export async function makeFiverModel(
   dna: FiverDna,
-): DrawingModel<FiverDna, FiverMode, FiverState> {
+  storageModel: StorageModel,
+): Promise<DrawingModel<FiverDna, FiverMode, FiverState>> {
+  // This is convoluted
+  const initialMode = initializeCommand(getInitializeContext(dna));
+  const metadata = await storageModel.getMetadata(initialMode);
   return new DrawingModel({
     dna,
     editable: true,
     DrawOs: GlOS1,
     snapshotStrokeCount: 250,
-    storageModel: new SimpleStorageModel(),
+    storageModel,
+    metadata,
     initializeCommand,
     handleCommand,
   });
