@@ -1,5 +1,4 @@
 import { Snap } from '../Drawlet';
-import { Callback, VoidCallback } from './types';
 import { RgbaImage } from '../drawos/webgl/util';
 import SnapshotMap from './SnapshotMap';
 import GotoMap from './GotoMap';

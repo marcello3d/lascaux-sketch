@@ -1,8 +1,6 @@
 import { Metadata, StorageModel, Stroke, StrokePayload } from './StorageModel';
 import { Snap } from '../Drawlet';
-import { Callback, VoidCallback } from './types';
 import { RgbaImage } from '../drawos/webgl/util';
-import { PromiseOrValue } from 'promise-or-value';
 import { orThrow } from '../util/promise-or-value';
 
 export class SimpleStorageModel implements StorageModel {

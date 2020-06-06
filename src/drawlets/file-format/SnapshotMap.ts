@@ -1,7 +1,7 @@
 import { isSkipped, Skips } from './GotoMap';
 import { StorageModel } from './StorageModel';
 import { Snap } from '../Drawlet';
-import { all, PromiseOrValue, then } from 'promise-or-value';
+import { PromiseOrValue } from 'promise-or-value';
 import { waitAll } from '../util/promise-or-value';
 
 export default class SnapshotMap {
