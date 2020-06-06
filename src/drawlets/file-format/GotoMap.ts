@@ -175,7 +175,7 @@ export default class GotoMap {
     return steps;
   }
 
-  computeUndo(from: number) {
+  computeUndo(from: number): number | undefined {
     from = this.dereference(from);
     const skips = this._getSkips(from);
     const keyframes = this._keyframes;

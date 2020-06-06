@@ -25,7 +25,7 @@ import {
 } from '../Drawlet';
 import { Metadata, StorageModel } from './StorageModel';
 import { FiverDna, FiverMode, FiverState } from '../fiver/fiver';
-import { VoidCallback } from './types';
+import { PromiseOrValue, then } from 'promise-or-value';
 
 function getRandomFn(dna: Dna, cursor: number) {
   let random: () => number;
@@ -63,7 +63,6 @@ export default class DrawingModel<
     eventType: string;
     time: number;
     payload: any;
-    callback?: VoidCallback;
   }> = [];
   _strokeCount: number = 0;
   private _drawingCursor: number = 0;
@@ -143,19 +142,19 @@ export default class DrawingModel<
     return new CanvasModel(this, new this._DrawOs(this._dna));
   }
 
-  snapshot(callback = () => {}) {
+  snapshot() {
     const cursor = this._strokeCount;
     if (!this._editCanvas || !this._snapshotMap) {
       throw new Error('canvas not editable');
     }
     const { snapshot, links } = this._editCanvas._drawos.getSnapshot();
     const state = jsonCopy(this._editCanvas._state);
-    this._snapshotMap.addSnapshot(cursor, { snapshot, links, state }, callback);
     this._strokesSinceSnapshot = 0;
+    return this._snapshotMap.addSnapshot(cursor, { snapshot, links, state });
   }
 
-  flush(callback: VoidCallback) {
-    this._storageModel.flush(callback);
+  flush() {
+    return this._storageModel.flush();
   }
 
   _recordStroke(eventType: string, time: number, payload: any) {
@@ -173,29 +172,20 @@ export default class DrawingModel<
     eventType: string,
     time: number,
     payload: Object,
-    callback?: VoidCallback,
-  ) {
+  ): PromiseOrValue<void> {
     this._queue.push({
       eventType,
       time,
       payload,
-      callback,
     });
-    this._runQueue();
+    return this._runQueue();
   }
 
-  _runQueue() {
+  _runQueue(): PromiseOrValue<void> {
     if (this._queue.length === 0) {
       return;
     }
-    const { eventType, time, payload, callback } = this._queue.shift()!;
-
-    const finished = () => {
-      if (callback) {
-        callback();
-      }
-      this._runQueue();
-    };
+    const { eventType, time, payload } = this._queue.shift()!;
 
     if (this._editCanvas) {
       const targetCursor = this._editCanvas.targetCursor;
@@ -228,13 +218,15 @@ export default class DrawingModel<
       this._drawingCursor = this._strokeCount;
     }
     if (this._editCanvas) {
-      this._editCanvas._execute(this._strokeCount, eventType, payload, () => {
-        this._recordStroke(eventType, time, payload);
-        finished();
-      });
-    } else {
-      finished();
+      return then(
+        this._editCanvas._execute(this._strokeCount, eventType, payload),
+        () => {
+          this._recordStroke(eventType, time, payload);
+          this._runQueue();
+        },
+      );
     }
+    return this._runQueue();
   }
 
   getGotoIndexes() {
@@ -319,19 +311,17 @@ export class CanvasModel<
     cursor: number,
     eventType: string,
     payload: any,
-    callback: VoidCallback,
-  ) {
+  ): PromiseOrValue<void> {
     this._targetCursor = cursor;
     if (eventType === GOTO_EVENT) {
-      return this._goto(payload, callback);
+      return this._goto(payload);
     }
     this._cursor = cursor;
     if (isModeEvent(eventType)) {
-      return callback();
+      return;
     }
     this._executeRaw(eventType, payload);
     this._drawos.afterExecute();
-    callback();
   }
 
   _executeRaw(eventType: string, payload: any) {
@@ -362,28 +352,22 @@ export class CanvasModel<
     };
   }
 
-  gotoEnd(callback: VoidCallback) {
-    this.goto(this.strokeCount, callback);
+  gotoEnd(): PromiseOrValue<void> {
+    return this.goto(this.strokeCount);
   }
 
   redraw() {
     this._drawos.afterExecute();
   }
 
-  goto(targetCursor: number, callback: VoidCallback) {
+  goto(targetCursor: number): PromiseOrValue<void> {
     this._targetCursor = targetCursor;
-    return this._goto(targetCursor, callback);
+    return this._goto(targetCursor);
   }
 
-  _goto(targetCursor: number, callback: VoidCallback) {
-    const done = (error?: Error) => {
-      this._inGoto = false;
-      if (callback) {
-        callback(error);
-      }
-    };
+  async _goto(targetCursor: number): Promise<void> {
     if (this._inGoto) {
-      return callback();
+      return;
     }
 
     const { revert, skips, target } = this._drawing._planGoto(
@@ -391,76 +375,31 @@ export class CanvasModel<
       targetCursor,
     );
     if (target === undefined || skips === undefined) {
-      return done();
+      return;
     }
 
     this._inGoto = true;
 
-    const runLoop = () => {
-      if (this._cursor >= target) {
-        this._drawos.afterExecute();
-        return done();
-      }
-      let async: null | boolean = null;
-      this._drawing._storageModel.getStroke(this._cursor, (error, stroke) => {
-        if (error || !stroke) {
-          console.error(
-            `execution error ${
-              error && (error.message || JSON.stringify(error))
-            }`,
-          );
-          return done(error);
-        }
-        if (async === true) {
-          // not immediate
-        } else {
-          // immediate
-          async = false;
-        }
-        const { type, payload } = stroke;
-        if (!isSkipped(skips, this._cursor++)) {
-          this._executeRaw(type, payload);
-        }
-        runLoop();
-      });
-      if (async === null) {
-        this._drawos.afterExecute();
-        async = true;
-      }
-    };
-
-    let waitForSnapshotLoad = false;
     // console.log(`goto ${this._cursor} -> ${targetCursor}: revert ${revert}, target ${target}, skips: ${skips.map(x => '[' + x + ']')}`)
     // Revert back to nearest snapshot
-    const loadSnapshot = (index: number) => {
+    const loadSnapshot = async (index: number) => {
       if (index === 0) {
         this._initialize();
       } else {
-        waitForSnapshotLoad = true;
         const storageModel = this._drawing._storageModel;
-        storageModel.getSnapshot(index, (error, snap) => {
-          if (error || !snap) {
-            return done(error);
-          }
-          const { state, snapshot } = snap;
-          this._drawos.loadSnapshot(
-            snapshot,
-            storageModel.getSnapshotLink.bind(storageModel),
-            (error) => {
-              if (error) {
-                return done(error);
-              }
-              this._cursor = index;
-              this._state = jsonCopy(state);
-              runLoop();
-            },
-          );
-        });
+        const snap = await storageModel.getSnapshot(index);
+        const { state, snapshot } = snap;
+        await this._drawos.loadSnapshot(
+          snapshot,
+          storageModel.getSnapshotLink.bind(storageModel),
+        );
+        this._cursor = index;
+        this._state = jsonCopy(state);
       }
     };
     // Do we need to rewind?
     if (revert !== undefined) {
-      loadSnapshot(
+      await loadSnapshot(
         this._drawing._snapshotMap.getNearestSnapshotIndex(revert, skips),
       );
     } else {
@@ -476,11 +415,19 @@ export class CanvasModel<
         nearestSnapshotIndex !== 0 &&
         nearestSnapshotIndex > this._cursor + MIN_STEP_SKIP
       ) {
-        loadSnapshot(nearestSnapshotIndex);
+        await loadSnapshot(nearestSnapshotIndex);
       }
     }
-    if (!waitForSnapshotLoad) {
-      runLoop();
+
+    while (this._cursor < target) {
+      const stroke = await this._drawing._storageModel.getStroke(this._cursor);
+      const { type, payload } = stroke;
+      if (!isSkipped(skips, this._cursor++)) {
+        this._executeRaw(type, payload);
+      }
     }
+
+    this._drawos.afterExecute();
+    this._inGoto = false;
   }
 }

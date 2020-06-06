@@ -1,5 +1,6 @@
 import { Dna } from './drawos/dna';
 import { RgbaImage } from './drawos/webgl/util';
+import { PromiseOrValue } from 'promise-or-value';
 
 export type DrawletInitContext<DrawletDna extends Dna> = {
   dna: DrawletDna;
@@ -96,10 +97,7 @@ export type DrawletHandleFn<
   payload: any,
 ) => void;
 
-export type GetLinkFn = (
-  link: string,
-  callback: (error: Error | undefined, data: RgbaImage | undefined) => void,
-) => void;
+export type GetLinkFn = (link: string) => PromiseOrValue<RgbaImage | undefined>;
 
 export type Snap = {
   snapshot: Snapshot;
@@ -111,11 +109,7 @@ export interface DrawOs {
   initialize(): void;
   getSnapshot(): Snap;
   getDrawingContext(): DrawingContext;
-  loadSnapshot(
-    snapshot: Snapshot,
-    getLink: GetLinkFn,
-    callback: (error?: Error) => void,
-  ): void;
+  loadSnapshot(snapshot: Snapshot, getLink: GetLinkFn): PromiseOrValue<void>;
   getDom(): HTMLCanvasElement;
   saveRect(layer: number, x: number, y: number, w: number, h: number): void;
   afterExecute(): void;

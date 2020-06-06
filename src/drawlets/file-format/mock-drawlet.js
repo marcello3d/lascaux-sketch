@@ -47,9 +47,8 @@ export class DrawOs extends BaseDrawOs {
     return this.canvas.getPixels(x, y, w, h);
   }
 
-  _putTile(x, y, w, h, data, callback) {
+  _putTile(x, y, w, h, data) {
     this.canvas.putPixels(x, y, w, h, data);
-    callback();
   }
 
   toDataUrl() {

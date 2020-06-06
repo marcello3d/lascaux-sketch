@@ -4,6 +4,7 @@ import { DrawletEvent, DrawletInstance, UpdateObject } from './Drawlet';
 import pointerEventsBridge, { EventBridge } from './pointer-events-bridge';
 import { ADD_LAYER_EVENT, GOTO_EVENT } from './file-format/events';
 import { FiverMode } from './fiver/fiver';
+import { then } from 'promise-or-value';
 
 export default function setupHtmlCanvasBridge<
   DrawletDna extends Dna,
@@ -37,15 +38,13 @@ export default function setupHtmlCanvasBridge<
 
   const handleEvent = (event: DrawletEvent, lastEvent: boolean = true) => {
     const [type, time, payload] = event;
-    drawingModel.addStroke(
-      type,
-      time,
-      payload,
-      lastEvent ? requestRepaint : undefined,
-    );
+    const pov = drawingModel.addStroke(type, time, payload);
+    if (lastEvent) {
+      then(pov, requestRepaint);
+    }
   };
 
-  setTimeout(() => canvas.gotoEnd(requestRepaint), 0);
+  then(canvas.gotoEnd(), requestRepaint);
 
   function requestRepaint() {
     if (!requestedAnimation) {
@@ -111,7 +110,7 @@ export default function setupHtmlCanvasBridge<
       if (targetCursor >= canvas.strokeCount) {
         targetCursor = 0;
         // Rewind to beginning, then play
-        canvas.goto(0, nextPlay);
+        then(canvas.goto(0), nextPlay);
       } else {
         nextPlay();
       }
@@ -130,7 +129,7 @@ export default function setupHtmlCanvasBridge<
     }
 
     let gotoStart = Date.now();
-    canvas.goto(targetCursor, () => {
+    then(canvas.goto(targetCursor), () => {
       notifyRenderDone();
       if (playing) {
         if (targetCursor < canvas.strokeCount) {
@@ -144,7 +143,7 @@ export default function setupHtmlCanvasBridge<
   }
 
   function addStroke(name: string, payload: any = {}) {
-    drawingModel.addStroke(name, Date.now(), payload, notifyRenderDone);
+    then(drawingModel.addStroke(name, Date.now(), payload), notifyRenderDone);
   }
 
   let eventBridge: EventBridge | undefined;
@@ -158,7 +157,7 @@ export default function setupHtmlCanvasBridge<
     },
 
     flush() {
-      return drawingModel.flush(() => {});
+      return drawingModel.flush();
     },
 
     setMode(mode: string, value: any) {
@@ -190,7 +189,7 @@ export default function setupHtmlCanvasBridge<
     },
 
     seekTo(cursor: number) {
-      canvas.goto(cursor, notifyRenderDone);
+      then(canvas.goto(cursor), notifyRenderDone);
     },
 
     subscribe() {
