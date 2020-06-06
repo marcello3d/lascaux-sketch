@@ -7,16 +7,15 @@ import { db } from '../db/db';
 import { makeFiverModel } from '../drawlets/fiver/gl';
 import { FiverDna } from '../drawlets/fiver/fiver';
 import { LocalStorageModel } from '../db/DexieStorageModel';
+import { NotFoundPage } from './404';
 
 type DrawingPageProps = { drawingId?: string } & RouteComponentProps;
 
-export function DrawingPage({ drawingId }: DrawingPageProps) {
-  if (drawingId === undefined) {
-    throw new Error('Drawing not found');
-  }
+export function DrawingPage(props: DrawingPageProps) {
+  const { drawingId } = props;
   const drawing = useDexieItem(db.drawings, drawingId);
-  if (!drawing) {
-    throw new Error('Invalid drawing');
+  if (!drawingId || !drawing) {
+    return <NotFoundPage {...props} />;
   }
   const localStorageModel = new LocalStorageModel(drawingId);
   const drawingModel = getOrMakeDrawingModel(drawingId, () =>
