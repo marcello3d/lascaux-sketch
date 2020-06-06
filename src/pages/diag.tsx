@@ -1,7 +1,7 @@
 // @ts-ignore
 import * as PEPJS from '@marcello/pepjs';
 import * as React from 'react';
-import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useCallback, useMemo, useState } from 'react';
 import Bowser from 'bowser';
 
 import styles from './diag.module.css';

@@ -3,7 +3,7 @@ import React, { Suspense } from 'react';
 import styles from './App.module.css';
 import useEventEffect from './react-hooks/useEventEffect';
 
-import { RouteComponentProps, Router } from '@reach/router';
+import { Link, RouteComponentProps, Router } from '@reach/router';
 import { NotFoundPage } from './pages/404';
 import { IndexPage } from './pages';
 import { DrawingPage } from './pages/drawing';
@@ -26,7 +26,7 @@ export function App() {
   return (
     <div className={styles.root}>
       <header className={styles.head}>
-        Lascaux Sketch 2020 by{' '}
+        <Link to="/">Lascaux Sketch 2</Link> by{' '}
         <a href="https://marcello.cellosoft.com/">marcello</a>
       </header>
       <Suspense fallback={<LoadingPage />}>
