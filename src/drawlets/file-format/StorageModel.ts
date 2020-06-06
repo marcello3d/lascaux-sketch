@@ -22,17 +22,13 @@ export type Stroke = {
 export interface StorageModel {
   getMetadata(initialMode: object): PromiseOrValue<Metadata>;
   addStroke(type: string, time: number, payload: StrokePayload): void;
-  getStroke(index: number, callback: Callback<Stroke | undefined>): void;
-  addSnapshot(index: number, snapshot: Snap, callback: VoidCallback): void;
+  getStroke(index: number): PromiseOrValue<Stroke>;
+  addSnapshot(index: number, snapshot: Snap): PromiseOrValue<void>;
   addSnapshotLink(
     link: string,
     image: RgbaImage | undefined,
-    callback: VoidCallback,
-  ): void;
-  getSnapshot(index: number, callback: Callback<Snap | undefined>): void;
-  getSnapshotLink(
-    link: string,
-    callback: Callback<RgbaImage | undefined>,
-  ): void;
-  flush(callback: VoidCallback): void;
+  ): PromiseOrValue<void>;
+  getSnapshot(index: number): PromiseOrValue<Snap>;
+  getSnapshotLink(link: string): PromiseOrValue<RgbaImage>;
+  flush(): PromiseOrValue<void>;
 }

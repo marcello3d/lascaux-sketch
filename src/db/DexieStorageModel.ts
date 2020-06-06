@@ -5,10 +5,9 @@ import {
   StrokePayload,
 } from '../drawlets/file-format/StorageModel';
 import { Snap } from '../drawlets/Drawlet';
-import { Callback, VoidCallback } from '../drawlets/file-format/types';
+import { VoidCallback } from '../drawlets/file-format/types';
 import { RgbaImage } from '../drawlets/drawos/webgl/util';
 import { db, DbStroke } from './db';
-import { promiseToCallback } from './promise-callback';
 import GotoMap from '../drawlets/file-format/GotoMap';
 import SnapshotMap from '../drawlets/file-format/SnapshotMap';
 import {
@@ -18,6 +17,7 @@ import {
 } from '../drawlets/file-format/events';
 import ModeMap from '../drawlets/file-format/ModeMap';
 import Dexie from 'dexie';
+import { PromiseOrValue } from 'promise-or-value';
 
 export class LocalStorageModel implements StorageModel {
   private snapshots: Record<number, Snap> = {};
@@ -27,26 +27,24 @@ export class LocalStorageModel implements StorageModel {
 
   constructor(private readonly drawingId: string) {}
 
-  addSnapshot(index: number, snapshot: Snap, callback: VoidCallback): void {
+  addSnapshot(index: number, snapshot: Snap): void {
     this.snapshots[index] = snapshot;
-    callback();
   }
 
-  addSnapshotLink(
-    link: string,
-    image: RgbaImage | undefined,
-    callback: VoidCallback,
-  ): void {
+  addSnapshotLink(link: string, image: RgbaImage | undefined): void {
     if (image) {
       this.snapshotLinks[link] = image;
     } else {
       delete this.snapshotLinks[link];
     }
-    callback();
   }
 
-  addStroke(type: string, time: number, payload: StrokePayload): void {
-    db.strokes.add({
+  async addStroke(
+    type: string,
+    time: number,
+    payload: StrokePayload,
+  ): Promise<void> {
+    await db.strokes.add({
       drawingId: this.drawingId,
       index: this.strokeCount++,
       type,
@@ -55,9 +53,7 @@ export class LocalStorageModel implements StorageModel {
     });
   }
 
-  flush(callback: VoidCallback): void {
-    callback();
-  }
+  flush(): void {}
 
   async getMetadata(initialMode: object): Promise<Metadata> {
     let strokeCount = 0;
@@ -88,39 +84,26 @@ export class LocalStorageModel implements StorageModel {
     };
   }
 
-  getSnapshot(index: number, callback: Callback<Snap | undefined>): void {
-    const snapshot = this.snapshots[index];
-    if (snapshot) {
-      callback(undefined, snapshot);
-    } else {
-      callback(new Error('snapshot not found'));
-    }
+  getSnapshot(index: number): Snap {
+    return this.snapshots[index];
   }
 
-  getSnapshotLink(
-    link: string,
-    callback: Callback<RgbaImage | undefined>,
-  ): void {
-    const snapshotLink = this.snapshotLinks[link];
-    if (snapshotLink) {
-      callback(undefined, snapshotLink);
-    } else {
-      callback(new Error('snapshot link not found'));
-    }
+  getSnapshotLink(link: string): RgbaImage {
+    return this.snapshotLinks[link];
   }
 
-  getStroke(index: number, callback: Callback<Stroke | undefined>): void {
+  getStroke(index: number): PromiseOrValue<Stroke> {
     if (this.strokeCache[index]) {
-      return callback(undefined, this.strokeCache[index]);
+      return this.strokeCache[index];
     }
-    promiseToCallback(
-      db.strokes.get({ drawingId: this.drawingId, index }).then((stroke) => {
-        if (stroke) {
-          this.strokeCache[index] = stroke;
+    return db.strokes
+      .get({ drawingId: this.drawingId, index })
+      .then((stroke) => {
+        if (!stroke) {
+          throw new Error(`stroke not found ${this.drawingId}/${index}`);
         }
+        this.strokeCache[index] = stroke;
         return stroke;
-      }),
-      callback,
-    );
+      });
   }
 }

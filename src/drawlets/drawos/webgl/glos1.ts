@@ -30,6 +30,8 @@ import { ellipseShader } from './glsl/ellipse';
 import { textureShader } from './glsl/texture';
 import { lineShader } from './glsl/line';
 import { rectShader } from './glsl/rect';
+import { PromiseOrValue, then } from 'promise-or-value';
+import { waitAll } from '../../util/promise-or-value';
 
 function makeTextureVertexArray(
   x1: number,
@@ -387,56 +389,48 @@ export class GlOS1 implements DrawOs {
   loadSnapshot(
     { tiles, tileSize, layers }: Snapshot,
     getLink: GetLinkFn,
-    callback: (error?: Error) => void,
-  ) {
+  ): PromiseOrValue<void> {
     while (layers > this._layers.length) {
       this._addLayer();
     }
     const keys = Object.keys(tiles);
     if (keys.length === 0) {
-      return callback();
+      return;
     }
 
-    // Async (callback-based) loop
-    const next = (error?: Error) => {
-      if (error) {
-        // Prevent multiple callbacks
-        return callback(error);
-      }
-      const key = keys.pop();
-      if (!key) {
-        return callback();
-      }
-      const { layer, x, y, link } = tiles[key];
-      const layerInfo = this._layers[layer];
-      if (
-        (!layerInfo.changed || !layerInfo.changed.tiles[key]) &&
-        this._tiles[key] &&
-        this._tiles[key].link === link
-      ) {
-        // Already have this tile loaded
-        this._tiles[key] = tiles[key];
-        next();
-      } else if (link === null) {
-        this._clearTile(layer, x, y);
-        this._tiles[key] = tiles[key];
-        next();
-      } else {
-        // Get tile
-        getLink(link, (error: Error | undefined, image?: RgbaImage) => {
-          if (error || !image) {
-            next(error || new Error('image not found'));
-          } else {
+    return waitAll(
+      keys.map(
+        (key): PromiseOrValue<void> => {
+          const { layer, x, y, link } = tiles[key];
+          const layerInfo = this._layers[layer];
+          if (
+            (!layerInfo.changed || !layerInfo.changed.tiles[key]) &&
+            this._tiles[key] &&
+            this._tiles[key].link === link
+          ) {
+            // Already have this tile loaded
+            this._tiles[key] = tiles[key];
+            return undefined;
+          }
+          if (link === null) {
+            this._clearTile(layer, x, y);
+            this._tiles[key] = tiles[key];
+            return undefined;
+          }
+          // Get tile
+          return then(getLink(link), (image) => {
+            if (!image) {
+              return;
+            }
             this._tiles[key] = tiles[key];
             if (layerInfo.changed) {
               delete layerInfo.changed.tiles[key];
             }
-            this._putTile(layer, x, y, image, next);
-          }
-        });
-      }
-    };
-    next();
+            this._putTile(layer, x, y, image);
+          });
+        },
+      ),
+    );
   }
 
   getDom(): HTMLCanvasElement {
@@ -483,13 +477,7 @@ export class GlOS1 implements DrawOs {
     }
   }
 
-  private _putTile(
-    layer: number,
-    x: number,
-    y: number,
-    image: RgbaImage,
-    callback: (error?: Error) => void,
-  ) {
+  private _putTile(layer: number, x: number, y: number, image: RgbaImage) {
     const { gl } = this;
     this._prepareToDraw(layer);
     gl.bindTexture(gl.TEXTURE_2D, this._layers[layer].frameBuffer.texture);
@@ -508,7 +496,6 @@ export class GlOS1 implements DrawOs {
       this._frameBufferType,
       image.pixels,
     );
-    callback();
   }
   private _clearTile(layer: number, x: number, y: number) {
     const { gl, tileSize } = this;
