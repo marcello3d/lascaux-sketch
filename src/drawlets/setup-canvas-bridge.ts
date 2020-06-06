@@ -25,7 +25,6 @@ export default function setupHtmlCanvasBridge<
   let requestedAnimation: number | null = null;
   let newTransform = true;
   let targetCursor = 0;
-  let loaded = false;
   let playing = false;
   let playTimer: number | null = null;
 
@@ -46,7 +45,7 @@ export default function setupHtmlCanvasBridge<
     );
   };
 
-  canvas.gotoEnd(requestRepaint);
+  setTimeout(() => canvas.gotoEnd(requestRepaint), 0);
 
   function requestRepaint() {
     if (!requestedAnimation) {
@@ -203,9 +202,7 @@ export default function setupHtmlCanvasBridge<
         handleEvent,
         () => {
           newTransform = true;
-          if (loaded) {
-            requestRepaint();
-          }
+          requestRepaint();
         },
         maxInitialWidth,
         maxInitialHeight,
