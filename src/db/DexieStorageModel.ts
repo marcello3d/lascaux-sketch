@@ -5,7 +5,6 @@ import {
   StrokePayload,
 } from '../drawlets/file-format/StorageModel';
 import { Snap } from '../drawlets/Drawlet';
-import { VoidCallback } from '../drawlets/file-format/types';
 import { RgbaImage } from '../drawlets/drawos/webgl/util';
 import { db, DbStroke } from './db';
 import GotoMap from '../drawlets/file-format/GotoMap';
