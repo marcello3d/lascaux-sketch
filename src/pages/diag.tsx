@@ -52,11 +52,6 @@ setInterval(() => {
 }, 1000);
 
 export default function Diag() {
-  useEffect(() => {
-    const { classList } = document.body;
-    classList.add('diagnostics');
-    return () => classList.remove('diagnostics');
-  }, []);
   const system = useMemo((): Row[] => {
     const { browser, os, platform, engine } = Bowser.parse(
       window.navigator.userAgent,

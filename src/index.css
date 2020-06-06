@@ -15,9 +15,6 @@ body {
   height: 100vh;
   overflow: hidden;
 }
-body.diagnostics {
-  overflow: auto;
-}
 
 * {
   box-sizing: border-box;
