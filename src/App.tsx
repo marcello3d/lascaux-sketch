@@ -2,7 +2,6 @@ import React, { Suspense } from 'react';
 
 import styles from './App.module.css';
 import useEventEffect from './react-hooks/useEventEffect';
-import { RecoilRoot } from 'recoil';
 
 import { Router } from '@reach/router';
 import { Diag } from './pages/diag';
@@ -22,21 +21,19 @@ export function App() {
   );
 
   return (
-    <RecoilRoot>
-      <div className={styles.root}>
-        <header className={styles.head}>
-          Sketchperiment 3 by{' '}
-          <a href="https://marcello.cellosoft.com/">marcello</a>
-        </header>
-        <Suspense fallback={<div>Twiddling thumbs…</div>}>
-          <Router className={styles.main}>
-            <Diag path="diag" />
-            <IndexPage path="/" />
-            <DrawingPage path="drawings/:drawingId" />
-            <NotFoundPage default />
-          </Router>
-        </Suspense>
-      </div>
-    </RecoilRoot>
+    <div className={styles.root}>
+      <header className={styles.head}>
+        Sketchperiment 3 by{' '}
+        <a href="https://marcello.cellosoft.com/">marcello</a>
+      </header>
+      <Suspense fallback={<div>Twiddling thumbs…</div>}>
+        <Router className={styles.main}>
+          <Diag path="diag" />
+          <IndexPage path="/" />
+          <DrawingPage path="drawings/:drawingId" />
+          <NotFoundPage default />
+        </Router>
+      </Suspense>
+    </div>
   );
 }
