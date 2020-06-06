@@ -30,7 +30,7 @@
 }
 
 button {
-  background: #4a48ff;
+  background: var(--accent-color);
   color: #fff;
   border: none;
   border-radius: 1em;

@@ -7,7 +7,6 @@ import Bowser from 'bowser';
 import styles from './diag.module.css';
 import { checkRenderTargetSupport } from '../drawlets/drawos/webgl/util';
 import produce from 'immer';
-import { RouteComponentProps } from '@reach/router';
 
 type PointerData = {
   types: Record<string, boolean>;
@@ -52,7 +51,7 @@ setInterval(() => {
   }
 }, 1000);
 
-export function Diag(props: RouteComponentProps) {
+export default function Diag() {
   const system = useMemo((): Row[] => {
     const { browser, os, platform, engine } = Bowser.parse(
       window.navigator.userAgent,

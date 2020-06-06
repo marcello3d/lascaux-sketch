@@ -24,12 +24,14 @@ function Drawings() {
 }
 
 export function IndexPage(props: RouteComponentProps) {
-  const addDrawing = () => {
-    db.drawings.add({
-      id: newId(),
+  const addDrawing = async () => {
+    const id = newId();
+    await db.drawings.add({
+      id,
       createdAt: newDate(),
       dna: newDna(),
     });
+    props.navigate?.(`/drawings/${id}`);
   };
 
   return (

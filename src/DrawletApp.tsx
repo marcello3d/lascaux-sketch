@@ -8,9 +8,8 @@ import React, {
 
 import styles from './DrawletApp.module.css';
 import { useAppendChild } from './react-hooks/useAppendChild';
-import classnames from 'classnames';
-import 'rc-slider/assets/index.css';
-import Slider from 'rc-slider';
+import classNames from 'classnames';
+import { Slider } from './ui/Slider';
 import DrawingModel from './drawlets/file-format/DrawingModel';
 import { makeFiverCanvas } from './drawlets/fiver/gl';
 import { UpdateObject } from './drawlets/Drawlet';
@@ -149,7 +148,7 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
       <Slider
         min={0.1}
         step={0.05}
-        marks={{ 1: '' }}
+        marks={[1]}
         max={5}
         value={updateObject.transform.scale}
         onChange={setScale}
@@ -177,7 +176,7 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
       array.push(
         <Button
           key={i}
-          className={classnames(styles.layer, {
+          className={classNames(styles.layer, {
             [styles.layerSelected]: updateObject.mode.layer === layer,
           })}
           onClick={() => canvasInstance.setMode('layer', layer)}

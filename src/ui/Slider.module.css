@@ -1,0 +1,136 @@
+.slider {
+  display: block;
+  width: 100%;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  margin: 0 0;
+  padding: 5px 0;
+}
+.slider:focus {
+  outline: none;
+}
+
+/**
+ Slider track (the line behind the slider)
+ */
+.slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 7px;
+  cursor: pointer;
+  box-shadow: 1px 1px 1px #000000;
+  background: #fff;
+  border-radius: 7px;
+  border: 0.2px solid #010101;
+}
+.slider::-moz-range-track {
+  width: 100%;
+  height: 7px;
+  cursor: pointer;
+  box-shadow: 1px 1px 1px #000000;
+  background: #fff;
+  border-radius: 7px;
+  border: 0.5px solid #010101;
+}
+.slider::-ms-track {
+  width: 100%;
+  height: 8.4px;
+  cursor: pointer;
+  background: transparent;
+  border-color: transparent;
+  border-width: 16px 0;
+  color: transparent;
+}
+.slider::-ms-fill-lower {
+  background: #2a6495;
+  border: 0.2px solid #010101;
+  border-radius: 2.6px;
+  box-shadow: 1px 1px 1px #000000, 0 0 1px #0d0d0d;
+}
+.slider::-ms-fill-upper {
+  background: #3071a9;
+  border: 0.2px solid #010101;
+  border-radius: 2.6px;
+  box-shadow: 1px 1px 1px #000000, 0 0 1px #0d0d0d;
+}
+
+/*
+ Slider thumb (the part you click and drag)
+ */
+.slider::-webkit-slider-thumb {
+  box-shadow: 1px 1px 1px #000000, 0 0 1px #0d0d0d;
+  border: 1px solid #000000;
+  height: 18px;
+  width: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -6px;
+}
+.slider::-moz-range-thumb {
+  box-shadow: 1px 1px 1px #000000, 0 0 1px #0d0d0d;
+  border: 1px solid #000000;
+  height: 18px;
+  width: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -6px;
+}
+.slider::-ms-thumb {
+  box-shadow: 1px 1px 1px #000000, 0 0 1px #0d0d0d;
+  border: 1px solid #000000;
+  height: 36px;
+  width: 16px;
+  border-radius: 3px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+
+/*
+ Tweaks when slider is focused
+ */
+.slider:focus::-webkit-slider-runnable-track {
+  background: var(--accent-color);
+}
+.slider:focus::-moz-range-track {
+  background: var(--accent-color);
+}
+.slider:focus::-ms-fill-lower {
+  background: var(--accent-color);
+}
+.slider:focus::-ms-fill-upper {
+  background: var(--accent-color);
+}
+
+
+/*
+ Tweaks when slider is hovered
+ */
+.slider:hover::-webkit-slider-runnable-track {
+  border: 0.5px solid #ccc;
+}
+.slider:hover::-webkit-slider-thumb {
+  border: 0.5px solid #ccc;
+}
+.slider:hover::-moz-range-track {
+  border: 0.5px solid #ccc;
+}
+.slider:hover::-moz-range-thumb {
+  border: 0.5px solid #ccc;
+}
+.slider:focus:hover::-webkit-slider-runnable-track {
+  border: 0.5px solid var(--accent-color);
+}
+.slider:focus:hover::-webkit-slider-thumb {
+  border: 0.5px solid var(--accent-color);
+}
+.slider:focus:hover::-moz-range-track {
+  border: 0.5px solid var(--accent-color);
+}
+.slider:focus:hover::-moz-range-thumb {
+  border: 0.5px solid var(--accent-color);
+}

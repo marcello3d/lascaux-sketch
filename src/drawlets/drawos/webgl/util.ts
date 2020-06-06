@@ -223,35 +223,40 @@ export function checkRenderTargetSupport(
   }
 }
 
-export function checkError(gl: WebGLRenderingContext) {
+function getErrorString(gl: WebGLRenderingContext): string | undefined {
   switch (gl.getError()) {
+    // An unacceptable value has been specified for an enumerated argument. The command is ignored and the error flag is set.
     case gl.INVALID_ENUM:
-      throw new Error(
-        'INVALID_ENUM: An unacceptable value has been specified for an enumerated argument. The command is ignored and the error flag is set.',
-      );
+      return 'INVALID_ENUM';
+
+    // A numeric argument is out of range. The command is ignored and the error flag is set.
     case gl.INVALID_VALUE:
-      throw new Error(
-        'INVALID_VALUE: A numeric argument is out of range. The command is ignored and the error flag is set.',
-      );
+      return 'INVALID_VALUE';
+
+    // The specified command is not allowed for the current state. The command is ignored and the error flag is set.',
     case gl.INVALID_OPERATION:
-      throw new Error(
-        'INVALID_OPERATION: The specified command is not allowed for the current state. The command is ignored and the error flag is set.',
-      );
+      return 'INVALID_OPERATION';
+
+    // The currently bound framebuffer is not framebuffer complete when trying to render to or to read from it.',
     case gl.INVALID_FRAMEBUFFER_OPERATION:
-      throw new Error(
-        'INVALID_FRAMEBUFFER_OPERATION: The currently bound framebuffer is not framebuffer complete when trying to render to or to read from it.',
-      );
+      return 'INVALID_FRAMEBUFFER_OPERATION';
+
+    // Not enough memory is left to execute the command.',
     case gl.OUT_OF_MEMORY:
-      throw new Error(
-        'OUT_OF_MEMORY: Not enough memory is left to execute the command.',
-      );
+      return 'OUT_OF_MEMORY';
+
+    // If the WebGL context is lost, this error is returned on the first call to getError. Afterwards and until the context has been restored, it returns gl.NO_ERROR.',
     case gl.CONTEXT_LOST_WEBGL:
-      throw new Error(
-        'CONTEXT_LOST_WEBGL: If the WebGL context is lost, this error is returned on the first call to getError. Afterwards and until the context has been restored, it returns gl.NO_ERROR.',
-      );
+      return 'CONTEXT_LOST_WEBGL';
+
     default:
-    case gl.NO_ERROR:
-      return;
+      return undefined;
+  }
+}
+export function checkError(gl: WebGLRenderingContext) {
+  const error = getErrorString(gl);
+  if (error) {
+    throw new Error(`WebGL ` + error);
   }
 }
 
