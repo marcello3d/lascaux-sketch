@@ -8,6 +8,7 @@ import { Diag } from './pages/diag';
 import { NotFoundPage } from './pages/404';
 import { IndexPage } from './pages';
 import { DrawingPage } from './pages/drawing';
+import { LoadingPage } from './pages/loading';
 
 export function App() {
   const target = document.body;
@@ -23,10 +24,10 @@ export function App() {
   return (
     <div className={styles.root}>
       <header className={styles.head}>
-        Sketchperiment 3 by{' '}
+        Lascaux Sketch 2020 by{' '}
         <a href="https://marcello.cellosoft.com/">marcello</a>
       </header>
-      <Suspense fallback={<div>Twiddling thumbs…</div>}>
+      <Suspense fallback={<LoadingPage />}>
         <Router className={styles.main}>
           <Diag path="diag" />
           <IndexPage path="/" />

@@ -1,0 +1,13 @@
+
+.root {
+  display: flex;
+  flex-grow: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon {
+  width: 100px !important;
+  height: 100px !important;
+  color: #cccc;
+}
