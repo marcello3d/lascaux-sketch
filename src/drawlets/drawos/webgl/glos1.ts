@@ -99,6 +99,7 @@ export class GlOS1 implements DrawOs {
   private readonly _drawingVertexBuffer: WebGLBuffer;
   private readonly _drawingVertexBuffer2: WebGLBuffer;
   private readonly _drawingVertexIndexBuffer: WebGLBuffer;
+  private readonly _WEBGL_color_buffer_float: WEBGL_color_buffer_float | null;
   private readonly _OES_texture_float: OES_texture_float_linear | null;
   private readonly _OES_texture_half_float: OES_texture_half_float | null;
   private readonly _frameBufferTypeString: string;
@@ -154,6 +155,9 @@ export class GlOS1 implements DrawOs {
 
     this.gl = gl;
 
+    this._WEBGL_color_buffer_float = gl.getExtension(
+      'WEBGL_color_buffer_float',
+    );
     this._OES_texture_float = gl.getExtension('OES_texture_float');
     this._OES_texture_half_float = gl.getExtension('OES_texture_half_float');
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);

@@ -1,13 +1,12 @@
 // @ts-ignore
 import * as PEPJS from '@marcello/pepjs';
 import * as React from 'react';
-import { ReactNode, useCallback, useMemo, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import Bowser from 'bowser';
 
 import styles from './diag.module.css';
 import { checkRenderTargetSupport } from '../drawlets/drawos/webgl/util';
 import produce from 'immer';
-import { RouteComponentProps } from '@reach/router';
 
 type PointerData = {
   types: Record<string, boolean>;
@@ -52,7 +51,12 @@ setInterval(() => {
   }
 }, 1000);
 
-export function Diag(props: RouteComponentProps) {
+export default function Diag() {
+  useEffect(() => {
+    const { classList } = document.body;
+    classList.add('diagnostics');
+    return () => classList.remove('diagnostics');
+  }, []);
   const system = useMemo((): Row[] => {
     const { browser, os, platform, engine } = Bowser.parse(
       window.navigator.userAgent,
