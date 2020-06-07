@@ -5,6 +5,7 @@ import {
   DrawingContext,
   DrawletHandleContext,
   DrawletInitContext,
+  Rect,
 } from '../Drawlet';
 import { ADD_LAYER_EVENT, DRAW_EVENT } from '../file-format/events';
 
@@ -34,11 +35,11 @@ export type FiverMode = {
   color: string;
   size: number;
   alpha: number;
+  spacing?: number;
 };
 export type FiverState = {
   size: number;
-  vx: number;
-  vy: number;
+  a: number;
   x: number;
   y: number;
 };
@@ -74,50 +75,54 @@ export function handleCommand(
       canvas.addLayer();
       break;
 
-    case DRAW_START_EVENT:
+    case DRAW_START_EVENT: {
       state.size = 0;
-      state.vx = 0;
-      state.vy = 0;
+      state.a = 0;
       state.x = payload.x;
       state.y = payload.y;
       break;
+    }
 
-    case DRAW_EVENT:
-      const dragx = payload.x;
-      const dragy = payload.y;
-      let dx = dragx - state.x;
-      let dy = dragy - state.y;
-      let rad = Math.sqrt(dy * dy + dx * dx);
-      const dsize = (rad > 0 ? Math.log(rad) : 0) * mode.size;
-      let i = 0;
-      canvas.setFillStyle(mode.color);
-      canvas.setAlpha(mode.alpha);
-      canvas.setLayer(mode.layer);
-      const rects = new Array(100);
-      let j = 0;
-      const pressure = payload.pressure ?? 1;
-      do {
-        i++;
-        if (rad > 0) {
-          state.vx -= (state.vx - dx / rad) / 10;
-          state.vy -= (state.vy - dy / rad) / 10;
+    case DRAW_EVENT: {
+      const { color, layer, spacing = 1 } = mode;
+      canvas.setFillStyle(color);
+      canvas.setLayer(layer);
+      const { x, y, pressure = 1 } = payload;
+      const alpha = mode.alpha;
+      const size = mode.size * pressure;
+
+      canvas.setAlpha(alpha);
+
+      let lastX = state.x;
+      let lastY = state.y;
+      let lastSize = state.size;
+      let dx = x - lastX;
+      let dy = y - lastY;
+      let dSize = size - lastSize;
+      let len = Math.sqrt(dy * dy + dx * dx);
+      const step = Math.max(0.5, spacing * size);
+      if (len >= step) {
+        const rects: Rect[] = [];
+        for (let t = step; t < len; t += step) {
+          const cx = lastX + (dx * t) / len;
+          const cy = lastY + (dy * t) / len;
+          const cSize = lastSize + (dSize * t) / len;
+          if (cSize > 0) {
+            rects.push([cx - cSize / 2, cy - cSize / 2, cSize, cSize]);
+          }
+          state.x = cx;
+          state.y = cy;
         }
-        state.x += state.vx;
-        state.y += state.vy;
-        state.size -= (state.size - dsize) / 10;
-        dx = dragx - state.x;
-        dy = dragy - state.y;
-        rad = Math.sqrt(dy * dy + dx * dx);
-        const size2 = Math.max(1, state.size * pressure);
-        if (size2 > 0) {
-          rects[j++] = [state.x - size2 / 2, state.y - size2 / 2, size2, size2];
+        if (rects.length > 0) {
+          canvas.fillEllipses(rects);
         }
-      } while (dx * dx + dy * dy > 3 * 3 && i < 100);
-      rects.length = j;
-      canvas.fillEllipses(rects);
+      }
+
+      state.size = size;
+      state.a = alpha;
 
       break;
-
+    }
     case DRAW_END_EVENT:
       break;
   }
