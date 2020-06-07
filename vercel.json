@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "name": "2draw-sketchsperiment-3",
-  "alias": "2draw-sketchsperiment-3.now.sh",
+  "name": "lascaux-studio",
+  "alias": "lascaux.studio",
   "builds": [
     {
       "src": "package.json",
@@ -19,12 +19,12 @@
     },
     {
       "src": "/favicon.ico",
-      "headers": { "cache-control": "max-age=3600,s-maxage=3600,immutable" },
+      "headers": { "cache-control": "max-age=3600,s-maxage=3600" },
       "dest": "/favicon.ico"
     },
     {
       "src": "/icon.png",
-      "headers": { "cache-control": "max-age=3600,s-maxage=3600,immutable" },
+      "headers": { "cache-control": "max-age=3600,s-maxage=3600" },
       "dest": "/icon.png"
     },
     {

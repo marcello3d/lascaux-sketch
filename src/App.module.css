@@ -49,6 +49,10 @@ body {
   display: flex;
   overflow: auto;
 }
+.main p {
+  line-height: 1.5;
+  margin: .5em 0;
+}
 
 h1,h2,h3 {
   margin: 0;
