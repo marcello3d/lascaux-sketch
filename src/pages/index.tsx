@@ -71,9 +71,12 @@ export function IndexPage(props: RouteComponentProps) {
         </p>
         <h2>About</h2>
         <p>
-          Lascaux Sketch was originally a Java Applet I wrote back in 2003 used
-          on <a href="https://2draw.net/">2draw.net</a>. This is a new version
-          built from the ground up using web technologies.
+          Lascaux Sketch was originally a Java Applet I wrote back in{' '}
+          <a href="https://web.archive.org/web/20041009175410/http://www.cellosoft.com/sketchstudio/">
+            2002
+          </a>{' '}
+          used on <a href="https://2draw.net/">2draw.net</a>. This is a new
+          version built from the ground up using TypeScript and WebGL.
         </p>
         <h2>Diagnostics</h2>
         <p>
