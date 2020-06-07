@@ -3,9 +3,12 @@
   flex-grow: 1;
   align-items: center;
   justify-content: center;
+  background: #555;
+  color: #fff;
+  flex-direction: column;
 }
 
-.icon {
+.sk-cube-grid {
   width: 100px;
   height: 100px;
   color: #cccc;

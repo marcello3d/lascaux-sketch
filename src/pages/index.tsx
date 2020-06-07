@@ -1,26 +1,40 @@
 import React, { Suspense, useMemo } from 'react';
 import { Link, RouteComponentProps } from '@reach/router';
+
 import styles from './page.module.css';
+import LascauxLogoPath from './lascaux-logo.jpg';
+import IconImagePolaroid from '../icons/fa/image-polaroid.svg';
+
 import { db } from '../db/db';
 import { newDate, newId } from '../db/fields';
 import { useDexieArray } from '../db/useDexie';
 import { newDna } from '../drawlets/fiver/fiver';
 
-const sortedDrawings = db.drawings.orderBy('createdAt');
+const sortedDrawings = db.drawings.orderBy('createdAt').reverse();
 function Drawings() {
   const drawings = useDexieArray(db.drawings, sortedDrawings);
   const items = useMemo(
     () =>
-      drawings.map(({ id, createdAt }) => (
+      drawings.map(({ id, name = 'Untitled drawing', createdAt }) => (
         <li key={id}>
-          <Link to={`drawings/${id}`}>{id}</Link> -{' '}
-          {new Date(createdAt).toLocaleString()}
+          <img
+            src={IconImagePolaroid}
+            width={20}
+            height={20}
+            alt="Drawing icon"
+          />
+          <div>
+            <Link to={`drawings/${id}`}>{name}</Link>
+            <span className={styles.date}>
+              {new Date(createdAt).toLocaleString()}
+            </span>
+          </div>
         </li>
       )),
     [drawings],
   );
 
-  return <ul>{items}</ul>;
+  return <ul className={styles.list}>{items}</ul>;
 }
 
 export function IndexPage(props: RouteComponentProps) {
@@ -36,13 +50,37 @@ export function IndexPage(props: RouteComponentProps) {
 
   return (
     <div className={styles.root}>
-      <h2>Index page</h2>
-      <Suspense fallback={<p>Loading…</p>}>
-        <Drawings />
-      </Suspense>
-      <p>
-        <button onClick={addDrawing}>New Drawing</button>
-      </p>
+      <div className={styles.column}>
+        <h2>Local Drawings</h2>
+        <p>Drawings are saved in your browser's local storage.</p>
+        <p>
+          <button onClick={addDrawing}>New Drawing</button>
+        </p>
+        <Suspense fallback={<p>Retrieving…</p>}>
+          <Drawings />
+        </Suspense>
+      </div>
+      <div className={styles.column}>
+        <p>
+          <img
+            src={LascauxLogoPath}
+            alt="Original Lascaux Sketch logo circa 2002"
+            width={300}
+            height={170}
+          />
+        </p>
+        <h2>About</h2>
+        <p>
+          Lascaux Sketch was originally a Java Applet I wrote back in 2003 used
+          on <a href="https://2draw.net/">2draw.net</a>. This is a new version
+          built from the ground up using web technologies.
+        </p>
+        <h2>Diagnostics</h2>
+        <p>
+          Check out <Link to="/diag">diagnostics</Link> to see how Lascaux
+          Sketch handles your input device (tablet/mouse/touch screen)
+        </p>
+      </div>
     </div>
   );
 }

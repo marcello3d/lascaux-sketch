@@ -10,6 +10,7 @@
     'left canvas right'
     'status status status';
   user-select: none;
+  overflow: hidden;
 }
 .root a {
   color: #fff;

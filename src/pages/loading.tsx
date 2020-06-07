@@ -4,7 +4,7 @@ import React from 'react';
 export function LoadingPage() {
   return (
     <div className={styles.root}>
-      <div className={styles.icon}>
+      <div className={styles['sk-cube-grid']}>
         <div />
         <div />
         <div />
@@ -15,6 +15,7 @@ export function LoadingPage() {
         <div />
         <div />
       </div>
+      <div>Loading…</div>
     </div>
   );
 }

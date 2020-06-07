@@ -2,7 +2,6 @@ import './polyfills';
 
 import React from 'react';
 import ReactDOM from 'react-dom';
-import './index.css';
 import { App } from './App';
 
 // Hackity hack to get sub-pixel precision on iPad

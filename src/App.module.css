@@ -1,7 +1,27 @@
+:root {
+  --accent-color: #4a48ff;
+  --app-height: 100vh;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+  sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #000;
+  color: #000;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 .root {
   width: 100vw;
-  height: 100vh;
-  max-height: 100vh;
+  height: var(--app-height);
   display: grid;
   grid-template-columns: 1fr;
   grid-template-rows: auto 1fr;
@@ -19,14 +39,20 @@
   padding-top: 15px;
 }
 .head a {
-  color: #ddc8ee;
+  color: #fff;
 }
 
 .main {
   grid-area: main;
-  background: #888;
+  background: #fff;
+  color: #000;
   display: flex;
-  overflow: hidden;
+  overflow: auto;
+}
+
+h1,h2,h3 {
+  margin: 0;
+  font-weight: 400;
 }
 
 button {
@@ -41,4 +67,8 @@ button {
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
   margin: 2px;
   vertical-align: middle;
+}
+
+a {
+  color: var(--accent-color);
 }

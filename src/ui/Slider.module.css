@@ -65,7 +65,7 @@
   border-radius: 18px;
   background: #ffffff;
   cursor: pointer;
-  -webkit-appearance: none;
+  appearance: none;
   margin-top: -6px;
 }
 .slider::-moz-range-thumb {
@@ -76,7 +76,7 @@
   border-radius: 18px;
   background: #ffffff;
   cursor: pointer;
-  -webkit-appearance: none;
+  appearance: none;
   margin-top: -6px;
 }
 .slider::-ms-thumb {
