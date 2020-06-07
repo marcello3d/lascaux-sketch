@@ -13,8 +13,8 @@ export function Button({
   style?: CSSProperties;
   className?: string;
 }) {
-  const handler = useCallback(
-    (event: React.MouseEvent | React.TouchEvent) => {
+  const handleClick = useCallback(
+    (event: React.MouseEvent) => {
       event.preventDefault();
       onClick();
     },
@@ -22,8 +22,7 @@ export function Button({
   );
   return (
     <button
-      onClick={handler}
-      onTouchStart={handler}
+      onPointerUp={handleClick}
       className={className}
       style={style}
       disabled={disabled}

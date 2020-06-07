@@ -14,8 +14,8 @@ import DrawingModel from './drawlets/file-format/DrawingModel';
 import { makeFiverCanvas } from './drawlets/fiver/gl';
 import { UpdateObject } from './drawlets/Drawlet';
 import { FiverMode } from './drawlets/fiver/fiver';
-import { preventDefault } from './preventDefault';
 import { Button } from './ui/Button';
+import useEventEffect from './react-hooks/useEventEffect';
 
 const colors: readonly string[] = [
   '#ffffff', // white
@@ -46,6 +46,16 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
     () => makeFiverCanvas(drawingModel, setUpdateObject),
     [drawingModel, setUpdateObject],
   );
+
+  useEventEffect(
+    canvasInstance.dom,
+    'touchmove',
+    (event: MouseEvent) => {
+      event.preventDefault();
+    },
+    { passive: false },
+  );
+
   const updateObject = updateObjectState || canvasInstance.getUpdateObject();
   useLayoutEffect(() => canvasInstance.subscribe(), [canvasInstance]);
 
@@ -188,12 +198,8 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
     return array;
   }, [updateObject.mode.layer, updateObject.mode.layers, canvasInstance]);
   return (
-    <div
-      className={styles.root}
-      touch-action="none"
-      onTouchStart={preventDefault}
-    >
-      <div className={styles.tools} onTouchStart={preventDefault}>
+    <div className={styles.root}>
+      <div className={styles.tools}>
         <Button disabled={updateObject.strokeCount === 0} onClick={togglePlay}>
           {updateObject.playing ? 'Pause' : 'Play'}
         </Button>
@@ -233,9 +239,7 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
         <label className={styles.toolLabel}>Layers</label>
         <label className={styles.layers}>{layers}</label>
         <Button onClick={addLayer}>Add Layer</Button>
-        <label className={styles.toolLabel}>
-          <a href="/diag">Diagnostics</a>
-        </label>
+        <label className={styles.toolLabel}>Diagnostics</label>
         <label className={styles.diagInfo}>{canvasInstance.getInfo()}</label>
       </div>
       <div

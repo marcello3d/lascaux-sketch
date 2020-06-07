@@ -1,7 +1,6 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useMemo } from 'react';
 
 import styles from './App.module.css';
-import useEventEffect from './react-hooks/useEventEffect';
 
 import { Link, RouteComponentProps, Router } from '@reach/router';
 import { NotFoundPage } from './pages/404';
@@ -13,18 +12,17 @@ const LazyDiag = React.lazy(() => import('./pages/diag'));
 const Diag = (_: RouteComponentProps) => <LazyDiag />;
 
 export function App() {
-  const target = document.body;
-  useEventEffect(
-    target,
-    'touchmove',
-    (event: MouseEvent) => {
-      event.preventDefault();
-    },
-    { passive: false },
-  );
-
+  const size = useMemo(() => {
+    if ('standalone' in navigator) {
+      return {
+        // Hack to get around the fact that
+        '--app-height': `${window.innerHeight}px`,
+      } as React.CSSProperties;
+    }
+    return {};
+  }, []);
   return (
-    <div className={styles.root}>
+    <div className={styles.root} style={size}>
       <header className={styles.head}>
         <Link to="/">Lascaux Sketch 2</Link> by{' '}
         <a href="https://marcello.cellosoft.com/">marcello</a>

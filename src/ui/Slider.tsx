@@ -28,18 +28,21 @@ export function Slider({
   const [linkid] = useState(() => shortid());
   const [dragStart, setDragging] = useState<number | undefined>(undefined);
   const scale = 1 / step;
-  const onStartDrag = useCallback(() => setDragging(value), [value]);
-  const onEndDrag = useCallback(() => {
+  const handleStart = useCallback(() => setDragging(value), [value]);
+  const handleEnd = useCallback(() => {
     if (value !== dragStart) {
       onAfterChange?.(value);
     }
     setDragging(undefined);
   }, [value, dragStart, onAfterChange]);
-  const onChangeInternal = useCallback(
+  const handleChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       onChange(parseInt(event.target.value, 10) / scale);
+      if (dragStart === undefined) {
+        onAfterChange?.(value);
+      }
     },
-    [onChange, scale],
+    [dragStart, onAfterChange, onChange, scale, value],
   );
   return (
     <>
@@ -50,9 +53,9 @@ export function Slider({
         max={max * scale}
         step={step * scale}
         value={value * scale}
-        onPointerDown={onStartDrag}
-        onPointerUp={onEndDrag}
-        onChange={onChangeInternal}
+        onPointerDown={handleStart}
+        onPointerUp={handleEnd}
+        onChange={handleChange}
         list={marks ? linkid : undefined}
       />
       {marks && (

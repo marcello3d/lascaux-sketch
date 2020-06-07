@@ -5,6 +5,7 @@ import { Stroke } from '../drawlets/file-format/StorageModel';
 
 export type DbDrawing = {
   id: string;
+  name?: string;
   createdAt: string;
   dna: Dna;
 };

@@ -411,7 +411,7 @@ export default function pointerEventsBridge(
     gesturing = false;
     removeGestureChangeListeners();
   }
-  window.addEventListener(
+  domElement.addEventListener(
     GestureStartEventName,
     onGestureStart as EventListenerOrEventListenerObject,
   );
