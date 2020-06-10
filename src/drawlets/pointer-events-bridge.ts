@@ -187,17 +187,15 @@ export default function pointerEventsBridge(
       pressure,
       tiltX,
       tiltY,
-    }: PointerEvent): DrawletDrawEvent => [
-      eventType,
-      timeStamp,
-      {
-        x: (clientX + dx) / scale,
-        y: (clientY + dy) / scale,
-        pressure: pointerType === 'pen' ? pressure : undefined,
-        tiltX,
-        tiltY,
-      },
-    ];
+    }: PointerEvent): DrawletDrawEvent => {
+      const x = (clientX + dx) / scale;
+      const y = (clientY + dy) / scale;
+      return [
+        eventType,
+        timeStamp,
+        pointerType === 'pen' ? { x, y, pressure, tiltX, tiltY } : { x, y },
+      ];
+    };
     if (type === PointerMoveEventName && event.getCoalescedEvents) {
       const events = event.getCoalescedEvents();
       if (events.length === 0) {
