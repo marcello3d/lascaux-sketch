@@ -5,8 +5,10 @@ import {
   DrawingContext,
   DrawletHandleContext,
   DrawletInitContext,
+  Rect,
 } from '../Drawlet';
 import { ADD_LAYER_EVENT, DRAW_EVENT } from '../file-format/events';
+import parseColor from '../drawos/parse-color';
 
 export const name = 'fiver';
 export const author = 'marcello';
@@ -34,11 +36,12 @@ export type FiverMode = {
   color: string;
   size: number;
   alpha: number;
+  spacing: number;
+  hardness: number;
 };
 export type FiverState = {
   size: number;
-  vx: number;
-  vy: number;
+  a: number;
   x: number;
   y: number;
 };
@@ -51,8 +54,8 @@ export function initializeCommand(
   } = context;
   const bg = Math.floor(context.random() * colors.length);
   if (canvas) {
-    canvas.setFillStyle(colors[bg]);
-    canvas.fillRect(0, 0, width, height);
+    const [r, g, b] = parseColor(colors[bg]);
+    canvas.fillRects([[0, 0, width, height, r, g, b, 1]]);
   }
   return {
     layers: 1,
@@ -60,6 +63,8 @@ export function initializeCommand(
     color: colors[(bg + 1) % colors.length],
     size: 8,
     alpha: 1,
+    spacing: 0.05,
+    hardness: 1,
   };
 }
 
@@ -74,50 +79,80 @@ export function handleCommand(
       canvas.addLayer();
       break;
 
-    case DRAW_START_EVENT:
-      state.size = 0;
-      state.vx = 0;
-      state.vy = 0;
-      state.x = payload.x;
-      state.y = payload.y;
+    case DRAW_START_EVENT: {
+      const { alpha, hardness = 1, color } = mode;
+      const { x, y, pressure = 1 } = payload;
+      const size = mode.size * pressure;
+      const [r, g, b] = parseColor(color);
+      state.size = size;
+      state.a = alpha;
+      state.x = x;
+      state.y = y;
+
+      canvas.fillEllipses(
+        [[x - size / 2, y - size / 2, size, size, r, g, b, alpha]],
+        hardness,
+      );
       break;
+    }
 
-    case DRAW_EVENT:
-      const dragx = payload.x;
-      const dragy = payload.y;
-      let dx = dragx - state.x;
-      let dy = dragy - state.y;
-      let rad = Math.sqrt(dy * dy + dx * dx);
-      const dsize = (rad > 0 ? Math.log(rad) : 0) * mode.size;
-      let i = 0;
-      canvas.setFillStyle(mode.color);
-      canvas.setAlpha(mode.alpha);
-      canvas.setLayer(mode.layer);
-      const rects = new Array(100);
-      let j = 0;
-      const pressure = payload.pressure ?? 1;
-      do {
-        i++;
-        if (rad > 0) {
-          state.vx -= (state.vx - dx / rad) / 10;
-          state.vy -= (state.vy - dy / rad) / 10;
+    case DRAW_EVENT: {
+      const { color, layer, spacing = 0.05, hardness = 1 } = mode;
+      const [r, g, b] = parseColor(color);
+
+      canvas.setLayer(layer);
+      const { x, y, pressure = 1 } = payload;
+      const alpha = mode.alpha;
+      const size = mode.size * pressure;
+
+      let lastX = state.x;
+      let lastY = state.y;
+      let lastSize = state.size;
+      let lastAlpha = state.a;
+      let dx = x - lastX;
+      let dy = y - lastY;
+      let dSize = size - lastSize;
+      let dAlpha = alpha - lastAlpha;
+      let len = Math.sqrt(dy * dy + dx * dx);
+      const step = Math.max(0.5, spacing * size);
+      if (len >= step) {
+        const rects: Rect[] = [];
+        for (let t = step; t < len; t += step) {
+          const cx = lastX + (dx * t) / len;
+          const cy = lastY + (dy * t) / len;
+          let cSize = lastSize + (dSize * t) / len;
+          let cAlpha = lastAlpha + (dAlpha * t) / len;
+          state.x = cx;
+          state.y = cy;
+          state.size = cSize;
+          state.a = cAlpha;
+          if (cSize > 0) {
+            // Render ~1 pixel brushes using alpha
+            if (cSize < 2) {
+              cAlpha *= cSize / 2;
+              cSize = 2;
+            }
+            rects.push([
+              cx - cSize / 2,
+              cy - cSize / 2,
+              cSize,
+              cSize,
+              r,
+              g,
+              b,
+              cAlpha,
+            ]);
+          }
         }
-        state.x += state.vx;
-        state.y += state.vy;
-        state.size -= (state.size - dsize) / 10;
-        dx = dragx - state.x;
-        dy = dragy - state.y;
-        rad = Math.sqrt(dy * dy + dx * dx);
-        const size2 = Math.max(1, state.size * pressure);
-        if (size2 > 0) {
-          rects[j++] = [state.x - size2 / 2, state.y - size2 / 2, size2, size2];
+        if (rects.length > 0) {
+          canvas.fillEllipses(rects, hardness);
         }
-      } while (dx * dx + dy * dy > 3 * 3 && i < 100);
-      rects.length = j;
-      canvas.fillEllipses(rects);
+      }
+
+      state.a = alpha;
 
       break;
-
+    }
     case DRAW_END_EVENT:
       break;
   }
