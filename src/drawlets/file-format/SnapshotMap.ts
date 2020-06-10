@@ -1,7 +1,7 @@
 import { isSkipped, Skips } from './GotoMap';
 import { StorageModel } from './StorageModel';
 import { Snap } from '../Drawlet';
-import { PromiseOrValue } from 'promise-or-value';
+import { PromiseOrValue, then } from 'promise-or-value';
 import { waitAll } from '../util/promise-or-value';
 
 export default class SnapshotMap {
@@ -32,7 +32,9 @@ export default class SnapshotMap {
       }
     }
 
-    return waitAll(promises);
+    return then(waitAll(promises), () =>
+      this._storageModel.addSnapshot(index, { state, links, snapshot }),
+    );
   }
 
   getNearestSnapshotIndex(targetIndex: number, skips: Skips): number {
