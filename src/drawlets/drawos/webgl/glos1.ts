@@ -1,5 +1,3 @@
-import parseColor from '../parse-color';
-
 import {
   checkError,
   checkRenderTargetSupport,
@@ -96,8 +94,9 @@ export class GlOS1 implements DrawOs {
   private readonly _rectProgram: ProgramOf<typeof rectShader>;
   private readonly _lineProgram: ProgramOf<typeof lineShader>;
   private readonly _mainVertexBuffer: WebGLBuffer;
-  private readonly _drawingVertexBuffer: WebGLBuffer;
-  private readonly _drawingVertexBuffer2: WebGLBuffer;
+  private readonly _positionVertexBuffer: WebGLBuffer;
+  private readonly _rectVertexBuffer: WebGLBuffer;
+  private readonly _colorVertexBuffer: WebGLBuffer;
   private readonly _drawingVertexIndexBuffer: WebGLBuffer;
   private readonly _WEBGL_color_buffer_float: WEBGL_color_buffer_float | null;
   private readonly _OES_texture_float: OES_texture_float_linear | null;
@@ -239,8 +238,9 @@ export class GlOS1 implements DrawOs {
     this._lineProgram = this._createLineProgram(gl, pixelWidth, pixelHeight);
 
     this._mainVertexBuffer = getOrThrow(gl.createBuffer(), 'createBuffer');
-    this._drawingVertexBuffer = getOrThrow(gl.createBuffer(), 'createBuffer');
-    this._drawingVertexBuffer2 = getOrThrow(gl.createBuffer(), 'createBuffer');
+    this._positionVertexBuffer = getOrThrow(gl.createBuffer(), 'createBuffer');
+    this._rectVertexBuffer = getOrThrow(gl.createBuffer(), 'createBuffer');
+    this._colorVertexBuffer = getOrThrow(gl.createBuffer(), 'createBuffer');
     this._drawingVertexIndexBuffer = getOrThrow(
       gl.createBuffer(),
       'createBuffer',
@@ -668,7 +668,7 @@ export class GlOS1 implements DrawOs {
     gl.uniform4f(this._lineProgram.uniforms.uPos1, x1, y1, size1, 1);
     gl.uniform4f(this._lineProgram.uniforms.uPos2, x2, y2, size2, 1);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._drawingVertexBuffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._positionVertexBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
       new Float32Array([minx, miny, maxx, miny, minx, maxy, maxx, maxy]),
@@ -684,101 +684,12 @@ export class GlOS1 implements DrawOs {
     );
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
-  private _fillRects(
+
+  private _fillRectEllipses(
     layer: number,
     rects: Rects,
-    r: number,
-    g: number,
-    b: number,
-    a: number,
-  ) {
-    const { width, height } = this.dna;
-    // Build list of vertices
-    const rectCount = rects.length;
-    if (rectCount === 0) {
-      return;
-    }
-    const vertexArray = new Float32Array(rectCount * 4 * 2);
-    const vertexIndexArray = new Uint16Array(rectCount * 6);
-    let usedRectCount = 0;
-    for (let i = 0, j = 0, k = 0; i < rectCount; i++) {
-      const rect = rects[i];
-      let x1 = rect[0];
-      let y1 = rect[1];
-      let x2 = x1 + rect[2];
-      let y2 = y1 + rect[3];
-      if (x2 < 0 || y2 < 0 || x1 > width || y1 > height) {
-        continue;
-      }
-      if (x1 < 0) {
-        x1 = 0;
-      }
-      if (y1 < 0) {
-        y1 = 0;
-      }
-      if (x2 > width) {
-        x2 = width;
-      }
-      if (y2 > height) {
-        y2 = height;
-      }
-      if (x2 <= x1 || y2 <= y1) {
-        continue;
-      }
-
-      this._prepareToDraw(layer);
-      this.saveRect(layer, rect[0], rect[1], rect[2], rect[3]);
-
-      //  0 --- 1
-      //  |     |
-      //  2 --- 4
-      vertexArray[j++] = x1;
-      vertexArray[j++] = y1;
-      vertexArray[j++] = x2;
-      vertexArray[j++] = y1;
-      vertexArray[j++] = x1;
-      vertexArray[j++] = y2;
-      vertexArray[j++] = x2;
-      vertexArray[j++] = y2;
-
-      const indexBase = i * 4;
-      vertexIndexArray[k++] = indexBase;
-      vertexIndexArray[k++] = indexBase + 1;
-      vertexIndexArray[k++] = indexBase + 2;
-
-      vertexIndexArray[k++] = indexBase + 1;
-      vertexIndexArray[k++] = indexBase + 2;
-      vertexIndexArray[k++] = indexBase + 3;
-      usedRectCount++;
-    }
-    if (usedRectCount > 0) {
-      const gl = this.gl;
-      this._programManager.use(this._rectProgram);
-      gl.uniform4f(this._rectProgram.uniforms.uColor, r, g, b, a);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._drawingVertexBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, vertexArray, gl.STATIC_DRAW);
-      gl.vertexAttribPointer(
-        this._rectProgram.attributes.aPosition,
-        2,
-        gl.FLOAT,
-        false,
-        0,
-        0,
-      );
-
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._drawingVertexIndexBuffer);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, vertexIndexArray, gl.STATIC_DRAW);
-      gl.drawElements(gl.TRIANGLES, usedRectCount * 6, gl.UNSIGNED_SHORT, 0);
-    }
-  }
-  private _fillEllipses(
-    layer: number,
-    rects: Rects,
-    r: number,
-    g: number,
-    b: number,
-    a: number,
+    ellipse: boolean,
+    hardness: number,
   ) {
     const { width, height } = this.dna;
     // Build list of vertices
@@ -787,15 +698,18 @@ export class GlOS1 implements DrawOs {
       return;
     }
     const vertexPosArray = new Float32Array(rectCount * 4 * 2);
-    const vertexRectArray = new Float32Array(rectCount * 4 * 4);
+    const vertexRectArray = ellipse
+      ? new Float32Array(rectCount * 4 * 4)
+      : undefined;
+    const vertexColorArray = new Float32Array(rectCount * 4 * 4);
     const vertexIndexArray = new Uint16Array(rectCount * 6);
-    let usedRectCount = 0;
-    for (let i = 0, j = 0, k = 0, l = 0; i < rectCount; i++) {
-      const rect = rects[i];
-      let x1 = rect[0];
-      let y1 = rect[1];
-      let x2 = x1 + rect[2];
-      let y2 = y1 + rect[3];
+    let actualRects = 0;
+    for (let i = 0, j = 0, k = 0, l = 0, m = 0; i < rectCount; i++) {
+      const [x, y, w, h, r, g, b, a] = rects[i];
+      let x1 = x;
+      let y1 = y;
+      let x2 = x1 + w;
+      let y2 = y1 + h;
       if (x2 < 0 || y2 < 0 || x1 > width || y1 > height) {
         continue;
       }
@@ -821,7 +735,7 @@ export class GlOS1 implements DrawOs {
       }
 
       this._prepareToDraw(layer);
-      this.saveRect(layer, rect[0], rect[1], rect[2], rect[3]);
+      this.saveRect(layer, x, y, w, h);
 
       //  0 --- 1
       //  |     |
@@ -830,38 +744,37 @@ export class GlOS1 implements DrawOs {
       // equation for ellipse: x² / a² + y² / b² = 1 (where a = width/2 and b = height/2)
       // -> x*x / (width*width/4) + y*y / (height*height/4) = 1
       // -> 4*x*x / (width*width) + 4*y*y / (height*height) = 1
-      const rectx = rect[0] + rect[2] * 0.5;
-      const recty = rect[1] + rect[3] * 0.5;
-      const rectz = 4 / (rect[2] * rect[2]);
-      const rectw = 4 / (rect[3] * rect[3]);
+      const rectx = x; //+ w * 0.5;
+      const recty = y; //+ h * 0.5;
+      const rectz = w; //4 / (w * w);
+      const rectw = h; //4 / (h * h);
 
-      // float inEllipse =
-      //  4.0 * uv.x * uv.x / (vRect.z * vRect.z) +
-      //  4.0 * uv.y * uv.y / (vRect.w * vRect.w);
+      // Set 4 coordinates for triangles corners
       vertexPosArray[j++] = x1;
       vertexPosArray[j++] = y1;
-      vertexRectArray[l++] = rectx;
-      vertexRectArray[l++] = recty;
-      vertexRectArray[l++] = rectz;
-      vertexRectArray[l++] = rectw;
+
       vertexPosArray[j++] = x2;
       vertexPosArray[j++] = y1;
-      vertexRectArray[l++] = rectx;
-      vertexRectArray[l++] = recty;
-      vertexRectArray[l++] = rectz;
-      vertexRectArray[l++] = rectw;
+
       vertexPosArray[j++] = x1;
       vertexPosArray[j++] = y2;
-      vertexRectArray[l++] = rectx;
-      vertexRectArray[l++] = recty;
-      vertexRectArray[l++] = rectz;
-      vertexRectArray[l++] = rectw;
+
       vertexPosArray[j++] = x2;
       vertexPosArray[j++] = y2;
-      vertexRectArray[l++] = rectx;
-      vertexRectArray[l++] = recty;
-      vertexRectArray[l++] = rectz;
-      vertexRectArray[l++] = rectw;
+
+      for (let i = 0; i < 4; i++) {
+        if (vertexRectArray) {
+          vertexRectArray[l++] = rectx;
+          vertexRectArray[l++] = recty;
+          vertexRectArray[l++] = rectz;
+          vertexRectArray[l++] = rectw;
+        }
+
+        vertexColorArray[m++] = r;
+        vertexColorArray[m++] = g;
+        vertexColorArray[m++] = b;
+        vertexColorArray[m++] = a;
+      }
 
       const indexBase = i * 4;
       vertexIndexArray[k++] = indexBase;
@@ -871,39 +784,46 @@ export class GlOS1 implements DrawOs {
       vertexIndexArray[k++] = indexBase + 1;
       vertexIndexArray[k++] = indexBase + 2;
       vertexIndexArray[k++] = indexBase + 3;
-      usedRectCount++;
+      actualRects++;
     }
-    if (usedRectCount > 0) {
+    if (actualRects > 0) {
       const gl = this.gl;
-      this._programManager.use(this._ellipseProgram);
-      gl.uniform4f(this._ellipseProgram.uniforms.uColor, r, g, b, a);
+      let attributes;
+      if (ellipse) {
+        this._programManager.use(this._ellipseProgram);
+        attributes = this._ellipseProgram.attributes;
 
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._drawingVertexBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, vertexPosArray, gl.STATIC_DRAW);
-      gl.vertexAttribPointer(
-        this._ellipseProgram.attributes.aPosition,
-        2,
-        gl.FLOAT,
-        false,
-        0,
-        0,
-      );
+        if (vertexRectArray) {
+          gl.bindBuffer(gl.ARRAY_BUFFER, this._rectVertexBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER, vertexRectArray, gl.STREAM_DRAW);
+          gl.vertexAttribPointer(attributes.aRect, 4, gl.FLOAT, false, 0, 0);
+        }
 
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._drawingVertexBuffer2);
-      gl.bufferData(gl.ARRAY_BUFFER, vertexRectArray, gl.STATIC_DRAW);
-      gl.vertexAttribPointer(
-        this._ellipseProgram.attributes.aRect,
-        4,
-        gl.FLOAT,
-        false,
-        0,
-        0,
-      );
+        gl.uniform1f(this._ellipseProgram.uniforms.uHardness, hardness);
+      } else {
+        this._programManager.use(this._rectProgram);
+        attributes = this._rectProgram.attributes;
+      }
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._positionVertexBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, vertexPosArray, gl.STREAM_DRAW);
+      gl.vertexAttribPointer(attributes.aPosition, 2, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._colorVertexBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, vertexColorArray, gl.STREAM_DRAW);
+      gl.vertexAttribPointer(attributes.aColor, 4, gl.FLOAT, false, 0, 0);
 
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._drawingVertexIndexBuffer);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, vertexIndexArray, gl.STATIC_DRAW);
-      gl.drawElements(gl.TRIANGLES, usedRectCount * 6, gl.UNSIGNED_SHORT, 0);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, vertexIndexArray, gl.STREAM_DRAW);
+      gl.drawElements(gl.TRIANGLES, actualRects * 6, gl.UNSIGNED_SHORT, 0);
     }
+  }
+
+  private _fillRects(layer: number, rects: Rects) {
+    this._fillRectEllipses(layer, rects, false, 1);
+  }
+  private _fillEllipses(layer: number, rects: Rects, hardness: number) {
+    this._fillRectEllipses(layer, rects, true, hardness);
   }
 
   getInfo(): string {
@@ -917,14 +837,10 @@ export class GlOS1 implements DrawOs {
   getDrawingContext(): DrawingContext {
     const os = this;
     const state = {
-      red: 0,
-      green: 0,
-      blue: 0,
-      alpha: 1,
       layer: 0,
     };
     os._prepareToDraw(0);
-    return {
+    const context: DrawingContext = {
       setLayer(layer: number) {
         state.layer = layer;
       },
@@ -933,64 +849,34 @@ export class GlOS1 implements DrawOs {
         os._addLayer();
       },
 
-      setFillStyle(fillStyle: string) {
-        const color = parseColor(fillStyle);
-        state.red = color[0] / 255;
-        state.green = color[1] / 255;
-        state.blue = color[2] / 255;
-      },
-
-      setAlpha(alpha: number) {
-        state.alpha = alpha;
-      },
-
-      fillRect(x: number, y: number, w: number, h: number) {
-        const { layer, red, green, blue, alpha } = state;
-        os._fillRects(layer, [[x, y, w, h]], red, green, blue, alpha);
-      },
-
       fillRects(rects: Rects) {
-        const { layer, red, green, blue, alpha } = state;
-        os._fillRects(layer, rects, red, green, blue, alpha);
+        os._fillRects(state.layer, rects);
       },
 
-      fillEllipse(x: number, y: number, w: number, h: number) {
-        if (w * h === 0) {
-          return;
-        }
-        const { layer, red, green, blue, alpha } = state;
-        os._fillEllipses(layer, [[x, y, w, h]], red, green, blue, alpha);
-      },
-
-      fillEllipses(ellipses: Rects) {
-        const { layer, red, green, blue, alpha } = state;
-        os._fillEllipses(layer, ellipses, red, green, blue, alpha);
+      fillEllipses(ellipses: Rects, hardness: number) {
+        os._fillEllipses(state.layer, ellipses, hardness);
       },
 
       drawLine(
         x1: number,
         y1: number,
         size1: number,
+        r1: number,
+        g1: number,
+        b1: number,
+        a1: number,
         x2: number,
         y2: number,
         size2: number,
+        r2: number,
+        g2: number,
+        b2: number,
+        a2: number,
       ) {
-        const { layer, red, green, blue, alpha } = state;
-        os._drawLine(
-          layer,
-          x1,
-          y1,
-          size1,
-          x2,
-          y2,
-          size2,
-          red,
-          green,
-          blue,
-          alpha,
-          true,
-        );
+        const { layer } = state;
+        os._drawLine(layer, x1, y1, size1, x2, y2, size2, r1, g1, b1, a1, true);
       },
     };
+    return context;
   }
 }

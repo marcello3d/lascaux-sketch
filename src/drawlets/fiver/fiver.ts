@@ -8,6 +8,7 @@ import {
   Rect,
 } from '../Drawlet';
 import { ADD_LAYER_EVENT, DRAW_EVENT } from '../file-format/events';
+import parseColor from '../drawos/parse-color';
 
 export const name = 'fiver';
 export const author = 'marcello';
@@ -35,7 +36,8 @@ export type FiverMode = {
   color: string;
   size: number;
   alpha: number;
-  spacing?: number;
+  spacing: number;
+  hardness: number;
 };
 export type FiverState = {
   size: number;
@@ -52,8 +54,8 @@ export function initializeCommand(
   } = context;
   const bg = Math.floor(context.random() * colors.length);
   if (canvas) {
-    canvas.setFillStyle(colors[bg]);
-    canvas.fillRect(0, 0, width, height);
+    const [r, g, b] = parseColor(colors[bg]);
+    canvas.fillRects([[0, 0, width, height, r, g, b, 1]]);
   }
   return {
     layers: 1,
@@ -61,6 +63,8 @@ export function initializeCommand(
     color: colors[(bg + 1) % colors.length],
     size: 8,
     alpha: 1,
+    spacing: 0.05,
+    hardness: 1,
   };
 }
 
@@ -76,29 +80,39 @@ export function handleCommand(
       break;
 
     case DRAW_START_EVENT: {
-      state.size = 0;
-      state.a = 0;
-      state.x = payload.x;
-      state.y = payload.y;
+      const { alpha, hardness = 1, color } = mode;
+      const { x, y, pressure = 1 } = payload;
+      const size = mode.size * pressure;
+      const [r, g, b] = parseColor(color);
+      state.size = size;
+      state.a = alpha;
+      state.x = x;
+      state.y = y;
+
+      canvas.fillEllipses(
+        [[x - size / 2, y - size / 2, size, size, r, g, b, alpha]],
+        hardness,
+      );
       break;
     }
 
     case DRAW_EVENT: {
-      const { color, layer, spacing = 1 } = mode;
-      canvas.setFillStyle(color);
+      const { color, layer, spacing = 0.05, hardness = 1 } = mode;
+      const [r, g, b] = parseColor(color);
+
       canvas.setLayer(layer);
       const { x, y, pressure = 1 } = payload;
       const alpha = mode.alpha;
       const size = mode.size * pressure;
 
-      canvas.setAlpha(alpha);
-
       let lastX = state.x;
       let lastY = state.y;
       let lastSize = state.size;
+      let lastAlpha = state.a;
       let dx = x - lastX;
       let dy = y - lastY;
       let dSize = size - lastSize;
+      let dAlpha = alpha - lastAlpha;
       let len = Math.sqrt(dy * dy + dx * dx);
       const step = Math.max(0.5, spacing * size);
       if (len >= step) {
@@ -107,18 +121,29 @@ export function handleCommand(
           const cx = lastX + (dx * t) / len;
           const cy = lastY + (dy * t) / len;
           const cSize = lastSize + (dSize * t) / len;
+          const cAlpha = lastAlpha + (dAlpha * t) / len;
           if (cSize > 0) {
-            rects.push([cx - cSize / 2, cy - cSize / 2, cSize, cSize]);
+            rects.push([
+              cx - cSize / 2,
+              cy - cSize / 2,
+              cSize,
+              cSize,
+              r,
+              g,
+              b,
+              cAlpha,
+            ]);
           }
           state.x = cx;
           state.y = cy;
+          state.size = cSize;
+          state.a = cAlpha;
         }
         if (rects.length > 0) {
-          canvas.fillEllipses(rects);
+          canvas.fillEllipses(rects, hardness);
         }
       }
 
-      state.size = size;
       state.a = alpha;
 
       break;

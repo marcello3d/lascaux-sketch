@@ -4,22 +4,26 @@ import { ShaderDescription } from '../program';
 export const rectShader = new ShaderDescription(
   glsl`
   attribute vec2 aPosition;
+  attribute vec4 aColor;
 
   uniform mat4 uMVMatrix;
 
+  varying vec4 vColor;
+  
   void main() {
+    vColor = aColor;
     gl_Position = uMVMatrix * vec4(aPosition, 0, 1);
   }
 `,
   glsl`
   precision mediump float;
 
-  uniform vec4 uColor;
+  varying vec4 vColor;
 
   void main() {
-    gl_FragColor = uColor;
+    gl_FragColor = vColor;
   }
 `,
-  ['aPosition'],
-  ['uMVMatrix', 'uColor'],
+  ['aPosition', 'aColor'],
+  ['uMVMatrix'],
 );

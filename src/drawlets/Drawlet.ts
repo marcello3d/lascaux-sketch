@@ -57,29 +57,43 @@ export type DrawletCursorEvent = [
 ];
 export type DrawletEvent = DrawletDrawEvent | DrawletCursorEvent;
 
-export type Rect = readonly [number, number, number, number];
+/** x, y, w, h, r, g, b, a */
+export type Rect = readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
 export type Rects = readonly Rect[];
 
-export interface DrawingContext {
+export type DrawingContext = {
   addLayer(): void;
 
   setLayer(layer: number): void;
-  setFillStyle(fillStyle: string): void;
-  setAlpha(alpha: number): void;
 
-  fillRect(x: number, y: number, w: number, h: number): void;
   fillRects(rects: Rects): void;
-  fillEllipse(x: number, y: number, w: number, h: number): void;
-  fillEllipses(ellipses: Rects): void;
+  fillEllipses(ellipses: Rects, hardness: number): void;
   drawLine(
     x1: number,
     y1: number,
     size1: number,
+    r1: number,
+    g1: number,
+    b1: number,
+    a1: number,
     x2: number,
     y2: number,
     size2: number,
+    r2: number,
+    g2: number,
+    b2: number,
+    a2: number,
   ): void;
-}
+};
 
 export type DrawletInitializeFn<DrawletDna extends Dna, Mode> = (
   context: DrawletInitContext<DrawletDna>,

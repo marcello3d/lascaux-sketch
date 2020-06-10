@@ -12,7 +12,7 @@ import classNames from 'classnames';
 import { Slider } from './ui/Slider';
 import DrawingModel from './drawlets/file-format/DrawingModel';
 import { makeFiverCanvas } from './drawlets/fiver/gl';
-import { UpdateObject } from './drawlets/Drawlet';
+import { DrawletInstance, UpdateObject } from './drawlets/Drawlet';
 import { FiverMode } from './drawlets/fiver/fiver';
 import { Button } from './ui/Button';
 import useEventEffect from './react-hooks/useEventEffect';
@@ -35,6 +35,25 @@ const colors: readonly string[] = [
   '#b00077', // dark magenta-ish red
   '#006666', // dark blue-ish green
 ];
+
+function useUpdateMode<K extends keyof Mode & string, Mode extends object>(
+  canvasInstance: DrawletInstance<Mode>,
+  updateObject: UpdateObject<Mode>,
+  field: K,
+): [Mode[K], (newValue: Mode[K]) => void, (newValue: Mode[K]) => void] {
+  const [tempValue, setTempValue] = useState<Mode[K] | undefined>(
+    updateObject.mode[field],
+  );
+  const setValue = useCallback(
+    (alpha: Mode[K]) => {
+      canvasInstance.setMode(field, alpha);
+      setTempValue(undefined);
+    },
+    [canvasInstance, field],
+  );
+
+  return [tempValue ?? updateObject.mode[field], setTempValue, setValue];
+}
 
 export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
   const drawletContainerRef = useRef<HTMLDivElement>(null);
@@ -61,25 +80,25 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
 
   useAppendChild(drawletContainerRef, drawingModel.editCanvas.dom);
 
-  const [tempBrushSize, setTempBrushSize] = useState<number | undefined>(
-    updateObject.mode.size,
+  const [brushSize, setTempBrushSize, setBrushSize] = useUpdateMode(
+    canvasInstance,
+    updateObject,
+    'size',
   );
-  const setBrushAlpha = useCallback(
-    (alpha) => {
-      canvasInstance.setMode('alpha', alpha);
-      setTempBrushAlpha(undefined);
-    },
-    [canvasInstance],
+  const [brushOpacity, setTempBrushOpacity, setBrushOpacity] = useUpdateMode(
+    canvasInstance,
+    updateObject,
+    'alpha',
   );
-  const [tempBrushAlpha, setTempBrushAlpha] = useState<number | undefined>(
-    updateObject.mode.alpha,
+  const [brushSpacing, setTempBrushSpacing, setBrushSpacing] = useUpdateMode(
+    canvasInstance,
+    updateObject,
+    'spacing',
   );
-  const setBrushSize = useCallback(
-    (size) => {
-      canvasInstance.setMode('size', size);
-      setTempBrushSize(undefined);
-    },
-    [canvasInstance],
+  const [brushHardness, setTempBrushHardness, setBrushHardness] = useUpdateMode(
+    canvasInstance,
+    updateObject,
+    'hardness',
   );
   const setScale = useCallback((scale) => canvasInstance.setScale(scale), [
     canvasInstance,
@@ -126,7 +145,6 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
     }
   }, [canvasInstance, updateObject.redo]);
 
-  const brushSize = tempBrushSize ?? updateObject.mode.size;
   const sizeSlider = useMemo(
     () => (
       <Slider
@@ -137,21 +155,46 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
         onAfterChange={setBrushSize}
       />
     ),
-    [brushSize, setBrushSize],
+    [brushSize, setBrushSize, setTempBrushSize],
   );
-  const brushAlpha = tempBrushAlpha ?? updateObject.mode.alpha;
-  const alphaSlider = useMemo(
+  const opacitySlider = useMemo(
     () => (
       <Slider
         min={0.01}
         max={1.0}
         step={0.01}
-        value={brushAlpha}
-        onChange={setTempBrushAlpha}
-        onAfterChange={setBrushAlpha}
+        value={brushOpacity}
+        onChange={setTempBrushOpacity}
+        onAfterChange={setBrushOpacity}
       />
     ),
-    [brushAlpha, setBrushAlpha],
+    [brushOpacity, setBrushOpacity, setTempBrushOpacity],
+  );
+  const spacingSlider = useMemo(
+    () => (
+      <Slider
+        min={0.005}
+        max={0.25}
+        step={0.005}
+        value={brushSpacing}
+        onChange={setTempBrushSpacing}
+        onAfterChange={setBrushSpacing}
+      />
+    ),
+    [brushSpacing, setBrushSpacing, setTempBrushSpacing],
+  );
+  const hardnessSlider = useMemo(
+    () => (
+      <Slider
+        min={0.0}
+        max={1.0}
+        step={0.01}
+        value={brushHardness}
+        onChange={setTempBrushHardness}
+        onAfterChange={setBrushHardness}
+      />
+    ),
+    [brushHardness, setBrushHardness, setTempBrushHardness],
   );
   const zoomSlider = useMemo(
     () => (
@@ -226,9 +269,23 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
         {sizeSlider}
         <label className={styles.toolLabel}>
           Opacity{' '}
-          <span className={styles.value}>{(brushAlpha * 100).toFixed(0)}%</span>
+          <span className={styles.value}>
+            {(brushOpacity * 100).toFixed(0)}%
+          </span>
         </label>
-        {alphaSlider}
+        {opacitySlider}
+        <label className={styles.toolLabel}>
+          Spacing{' '}
+          <span className={styles.value}>{brushSpacing.toFixed(2)}x</span>
+        </label>
+        {spacingSlider}
+        <label className={styles.toolLabel}>
+          Hardness{' '}
+          <span className={styles.value}>
+            {(brushHardness * 100).toFixed(0)}%
+          </span>
+        </label>
+        {hardnessSlider}
         <label className={styles.toolLabel}>
           Zoom{' '}
           <span className={styles.value}>
