@@ -120,9 +120,18 @@ export function handleCommand(
         for (let t = step; t < len; t += step) {
           const cx = lastX + (dx * t) / len;
           const cy = lastY + (dy * t) / len;
-          const cSize = lastSize + (dSize * t) / len;
-          const cAlpha = lastAlpha + (dAlpha * t) / len;
+          let cSize = lastSize + (dSize * t) / len;
+          let cAlpha = lastAlpha + (dAlpha * t) / len;
+          state.x = cx;
+          state.y = cy;
+          state.size = cSize;
+          state.a = cAlpha;
           if (cSize > 0) {
+            // Render ~1 pixel brushes using alpha
+            if (cSize < 2) {
+              cAlpha *= cSize / 2;
+              cSize = 2;
+            }
             rects.push([
               cx - cSize / 2,
               cy - cSize / 2,
@@ -134,10 +143,6 @@ export function handleCommand(
               cAlpha,
             ]);
           }
-          state.x = cx;
-          state.y = cy;
-          state.size = cSize;
-          state.a = cAlpha;
         }
         if (rects.length > 0) {
           canvas.fillEllipses(rects, hardness);
