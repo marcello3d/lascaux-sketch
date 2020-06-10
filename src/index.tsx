@@ -4,6 +4,13 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { App } from './App';
 
+import * as Sentry from '@sentry/browser';
+
+Sentry.init({
+  dsn:
+    'https://b5811d5fb3a94236942d6fb80fac2534@o40943.ingest.sentry.io/5267706',
+});
+
 // Hackity hack to get sub-pixel precision on iPad
 // const pixelRatio = window.devicePixelRatio;
 // if (pixelRatio > 1 && 'standalone' in navigator) {
