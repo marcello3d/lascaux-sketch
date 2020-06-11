@@ -98,14 +98,15 @@ export class GlOS1 implements DrawOs {
   private readonly _rectVertexBuffer: WebGLBuffer;
   private readonly _colorVertexBuffer: WebGLBuffer;
   private readonly _drawingVertexIndexBuffer: WebGLBuffer;
+  private readonly _EXT_blend_minmax: EXT_blend_minmax | null;
   private readonly _WEBGL_color_buffer_float: WEBGL_color_buffer_float | null;
   private readonly _OES_texture_float: OES_texture_float_linear | null;
   private readonly _OES_texture_half_float: OES_texture_half_float | null;
   private readonly _frameBufferTypeString: string;
   private readonly _frameBufferType: GLenum;
-  private readonly _frameBufferFormat: GLenum;
+  private readonly _frameBufferReadWriteType: GLenum;
 
-  private readonly _readBuffer: Uint8Array | Uint16Array | Float32Array;
+  private readonly _readBuffer: Uint8Array | Float32Array;
 
   constructor(dna: Dna, scale: number = 1, tileSize: number = 64) {
     this.dna = dna;
@@ -157,16 +158,20 @@ export class GlOS1 implements DrawOs {
     this._WEBGL_color_buffer_float = gl.getExtension(
       'WEBGL_color_buffer_float',
     );
+    this._EXT_blend_minmax = gl.getExtension('EXT_blend_minmax');
     this._OES_texture_float = gl.getExtension('OES_texture_float');
     this._OES_texture_half_float = gl.getExtension('OES_texture_half_float');
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
 
     if (
       this._OES_texture_float &&
-      checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT)
+      checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT) &&
+      gl.getExtension('OES_texture_float_linear') &&
+      this._WEBGL_color_buffer_float
     ) {
       console.log('using full float RGBA textures');
       this._frameBufferType = gl.FLOAT;
+      this._frameBufferReadWriteType = gl.FLOAT;
       this._frameBufferTypeString = 'float32';
       this._readBuffer = new Float32Array(pixelWidth * pixelHeight * 4);
     } else if (
@@ -176,21 +181,21 @@ export class GlOS1 implements DrawOs {
         gl,
         gl.RGBA,
         this._OES_texture_half_float.HALF_FLOAT_OES,
-      )
+      ) &&
+      gl.getExtension('OES_texture_half_float_linear')
     ) {
       console.log('using half float RGBA textures');
       this._frameBufferType = this._OES_texture_half_float.HALF_FLOAT_OES;
+      this._frameBufferReadWriteType = gl.UNSIGNED_BYTE;
       this._frameBufferTypeString = 'float16';
-      this._readBuffer = new Uint16Array(pixelWidth * pixelHeight * 4);
+      this._readBuffer = new Uint8Array(pixelWidth * pixelHeight * 4);
     } else {
       console.log('using unsigned byte RGBA textures');
       this._frameBufferType = gl.UNSIGNED_BYTE;
-
+      this._frameBufferReadWriteType = gl.UNSIGNED_BYTE;
       this._frameBufferTypeString = 'uint8';
       this._readBuffer = new Uint8Array(pixelWidth * pixelHeight * 4);
     }
-
-    this._frameBufferFormat = gl.RGBA;
 
     gl.enable(gl.BLEND);
     // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -271,6 +276,7 @@ export class GlOS1 implements DrawOs {
     if (this._framebuffer !== buffer) {
       const { gl } = this;
       gl.bindFramebuffer(gl.FRAMEBUFFER, buffer ? buffer.framebuffer : null);
+      gl.blendEquation(gl.FUNC_ADD);
       if (buffer) {
         // Not pre-multiplied
         gl.blendFuncSeparate(
@@ -298,7 +304,6 @@ export class GlOS1 implements DrawOs {
       pixelWidth,
       pixelHeight,
       _frameBufferType,
-      _frameBufferFormat,
       tileSize,
       _tiles,
     } = this;
@@ -307,7 +312,7 @@ export class GlOS1 implements DrawOs {
       pixelWidth,
       pixelHeight,
       _frameBufferType,
-      _frameBufferFormat,
+      gl.RGBA,
     );
     const layer = _layers.length;
     _layers.push({ frameBuffer });
@@ -353,8 +358,8 @@ export class GlOS1 implements DrawOs {
         minY,
         bufferW,
         bufferH,
-        this._frameBufferFormat,
-        this._frameBufferType,
+        gl.RGBA,
+        this._frameBufferReadWriteType,
         savedBuffer.pixels,
       );
       console.log(`get pixels in ${Date.now() - start1} ms`);
@@ -496,8 +501,8 @@ export class GlOS1 implements DrawOs {
       y,
       image.width,
       image.height,
-      this._frameBufferFormat,
-      this._frameBufferType,
+      gl.RGBA,
+      this._frameBufferReadWriteType,
       image.pixels,
     );
   }
@@ -690,6 +695,7 @@ export class GlOS1 implements DrawOs {
     rects: Rects,
     ellipse: boolean,
     hardness: number,
+    erase: boolean = false,
   ) {
     const { width, height } = this.dna;
     // Build list of vertices
@@ -788,6 +794,20 @@ export class GlOS1 implements DrawOs {
     }
     if (actualRects > 0) {
       const gl = this.gl;
+
+      if (erase) {
+        gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
+        gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_REVERSE_SUBTRACT);
+      } else {
+        gl.blendFuncSeparate(
+          gl.SRC_ALPHA,
+          gl.ONE_MINUS_SRC_ALPHA,
+          gl.ONE,
+          gl.ONE_MINUS_SRC_ALPHA,
+        );
+        gl.blendEquation(gl.FUNC_ADD);
+      }
+
       let attributes;
       if (ellipse) {
         this._programManager.use(this._ellipseProgram);
@@ -818,14 +838,6 @@ export class GlOS1 implements DrawOs {
       gl.drawElements(gl.TRIANGLES, actualRects * 6, gl.UNSIGNED_SHORT, 0);
     }
   }
-
-  private _fillRects(layer: number, rects: Rects) {
-    this._fillRectEllipses(layer, rects, false, 1);
-  }
-  private _fillEllipses(layer: number, rects: Rects, hardness: number) {
-    this._fillRectEllipses(layer, rects, true, hardness);
-  }
-
   getInfo(): string {
     return `WebGL ${this._frameBufferTypeString} (${
       this._readBuffer.BYTES_PER_ELEMENT * 8 * 4
@@ -850,11 +862,11 @@ export class GlOS1 implements DrawOs {
       },
 
       fillRects(rects: Rects) {
-        os._fillRects(state.layer, rects);
+        os._fillRectEllipses(state.layer, rects, false, 1);
       },
 
-      fillEllipses(ellipses: Rects, hardness: number) {
-        os._fillEllipses(state.layer, ellipses, hardness);
+      fillEllipses(ellipses: Rects, hardness: number, erase: boolean) {
+        os._fillRectEllipses(state.layer, ellipses, true, hardness, erase);
       },
 
       drawLine(
