@@ -82,7 +82,7 @@ export function handleCommand(
       break;
 
     case DRAW_START_EVENT: {
-      const { alpha, hardness = 1, color, erase } = mode;
+      const { layer, alpha, hardness = 1, color, erase } = mode;
       const { x, y, pressure = 1 } = payload;
       const size = mode.size * pressure;
       const [r, g, b] = parseColor(color);
@@ -91,6 +91,7 @@ export function handleCommand(
       state.x = x;
       state.y = y;
 
+      canvas.setLayer(layer);
       canvas.fillEllipses(
         [[x - size / 2, y - size / 2, size, size, r, g, b, alpha]],
         hardness,
