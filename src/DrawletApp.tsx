@@ -1,4 +1,5 @@
 import React, {
+  ChangeEvent,
   useCallback,
   useLayoutEffect,
   useMemo,
@@ -240,6 +241,13 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
     }
     return array;
   }, [updateObject.mode.layer, updateObject.mode.layers, canvasInstance]);
+
+  const onEraseChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      canvasInstance.setMode('erase', event.target.checked);
+    },
+    [canvasInstance],
+  );
   return (
     <div className={styles.root}>
       <div className={styles.tools}>
@@ -255,7 +263,17 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
         </Button>
       </div>
       <div className={styles.left}>
-        <label className={styles.toolLabel}>Color</label>
+        <div>
+          <label className={styles.toolLabel}>Color</label>
+          <label className={styles.value}>
+            <input
+              type="checkbox"
+              checked={updateObject.mode.erase}
+              onChange={onEraseChange}
+            />{' '}
+            Erase
+          </label>
+        </div>
         <div className={styles.colorButtons}>
           <div
             className={styles.currentColor}

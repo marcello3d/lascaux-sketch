@@ -34,6 +34,7 @@ export type FiverMode = {
   layers: number;
   layer: number;
   color: string;
+  erase: boolean;
   size: number;
   alpha: number;
   spacing: number;
@@ -62,6 +63,7 @@ export function initializeCommand(
     layer: 0,
     color: colors[(bg + 1) % colors.length],
     size: 8,
+    erase: false,
     alpha: 1,
     spacing: 0.05,
     hardness: 1,
@@ -80,7 +82,7 @@ export function handleCommand(
       break;
 
     case DRAW_START_EVENT: {
-      const { alpha, hardness = 1, color } = mode;
+      const { layer, alpha, hardness = 1, color, erase } = mode;
       const { x, y, pressure = 1 } = payload;
       const size = mode.size * pressure;
       const [r, g, b] = parseColor(color);
@@ -89,9 +91,11 @@ export function handleCommand(
       state.x = x;
       state.y = y;
 
+      canvas.setLayer(layer);
       canvas.fillEllipses(
         [[x - size / 2, y - size / 2, size, size, r, g, b, alpha]],
         hardness,
+        erase,
       );
       break;
     }
@@ -145,7 +149,7 @@ export function handleCommand(
           }
         }
         if (rects.length > 0) {
-          canvas.fillEllipses(rects, hardness);
+          canvas.fillEllipses(rects, hardness, mode.erase);
         }
       }
 

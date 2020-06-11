@@ -76,7 +76,7 @@ export type DrawingContext = {
   setLayer(layer: number): void;
 
   fillRects(rects: Rects): void;
-  fillEllipses(ellipses: Rects, hardness: number): void;
+  fillEllipses(ellipses: Rects, hardness: number, erase?: boolean): void;
   drawLine(
     x1: number,
     y1: number,
