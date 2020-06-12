@@ -1,3 +1,5 @@
+import { float32ArrayToUint16Array, toHalf } from './float16';
+
 export type FrameBuffer = {
   width: number;
   height: number;
@@ -181,24 +183,57 @@ export function setDrawingMatrix(
   );
 }
 
+type TypedArray =
+  | Uint8Array
+  | Uint16Array
+  | Uint32Array
+  | Int8Array
+  | Int16Array
+  | Int32Array
+  | Float32Array
+  | Float64Array;
+type TypedArrayConstructor = {
+  new (size: number): TypedArray;
+};
+
 export function checkRenderTargetSupport(
   gl: WebGLRenderingContext,
   format: GLenum,
   type: GLenum,
-): boolean {
+  ReadPixelArray: TypedArrayConstructor,
+  readType: GLenum = type,
+  WritePixelArray: TypedArrayConstructor = ReadPixelArray,
+  writeType: GLenum = readType,
+): string | boolean {
+  if (hasError(gl)) {
+    return 'error-before-test';
+  }
   // create temporary frame buffer and texture
   const framebuffer = gl.createFramebuffer();
   if (!framebuffer) {
-    return false;
+    return 'no-create-framebuffer';
   }
   try {
     const texture = gl.createTexture();
     if (!texture) {
-      return false;
+      return 'no-create-texture';
     }
     try {
+      const width = 4;
+      const height = 4;
+
       gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texImage2D(gl.TEXTURE_2D, 0, format, 2, 2, 0, format, type, null);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        format,
+        width,
+        height,
+        0,
+        format,
+        type,
+        null,
+      );
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
       gl.framebufferTexture2D(
@@ -209,10 +244,89 @@ export function checkRenderTargetSupport(
         0,
       );
 
+      if (hasError(gl)) {
+        return 'framebuffer-error';
+      }
+
       // check frame buffer status
-      return (
-        gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE
+      const status = getFramebufferStatus(gl);
+      if (status) {
+        return status;
+      }
+
+      const sourcePixels = new Float32Array(width * height * 4);
+      for (let i = 0; i < sourcePixels.length; ) {
+        sourcePixels[i++] = 0.75;
+        sourcePixels[i++] = 0.5;
+        sourcePixels[i++] = 0.25;
+        sourcePixels[i++] = 1;
+      }
+
+      const writePixels = new WritePixelArray(width * height * 4);
+      if (
+        writePixels instanceof Float32Array ||
+        writePixels instanceof Float64Array
+      ) {
+        writePixels.set(sourcePixels);
+      } else if (writePixels instanceof Uint16Array) {
+        float32ArrayToUint16Array(sourcePixels, writePixels);
+      } else if (writePixels instanceof Uint8Array) {
+        for (let i = 0; i < writePixels.length; i++) {
+          writePixels[i] = sourcePixels[i] * 255;
+        }
+      }
+      console.log('Writing: ' + writePixels.join(','));
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        width,
+        height,
+        format,
+        writeType,
+        writePixels,
       );
+      const canWrite = !hasError(gl);
+
+      const readPixels = new ReadPixelArray(width * height * 4);
+      gl.readPixels(0, 0, width, height, format, readType, readPixels);
+      const canRead = !hasError(gl);
+
+      console.log('READ: ' + readPixels.join(','));
+
+      if (canRead && canWrite) {
+        for (let i = 0; i < readPixels.length; i++) {
+          let readPix = readPixels[i];
+          let writePix = writePixels[i];
+          if (
+            readPixels instanceof Float32Array &&
+            writePixels instanceof Uint16Array
+          ) {
+            readPix = toHalf(readPixels[i]);
+          } else if (
+            writePixels instanceof Float32Array &&
+            readPixels instanceof Uint16Array
+          ) {
+            writePix = toHalf(writePixels[i]);
+          }
+          if (readPix !== writePix) {
+            return 'Can read/write, but pixels are wrong';
+          }
+        }
+        return true;
+      }
+      if (canRead) {
+        return 'Can read, but not write';
+      }
+      if (canWrite) {
+        return 'Can write, but not read';
+      }
+      return 'cannot read or write';
     } finally {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.bindTexture(gl.TEXTURE_2D, null);
@@ -223,7 +337,7 @@ export function checkRenderTargetSupport(
   }
 }
 
-function getErrorString(gl: WebGLRenderingContext): string | undefined {
+export function getErrorString(gl: WebGLRenderingContext): string | undefined {
   switch (gl.getError()) {
     // An unacceptable value has been specified for an enumerated argument. The command is ignored and the error flag is set.
     case gl.INVALID_ENUM:
@@ -253,11 +367,50 @@ function getErrorString(gl: WebGLRenderingContext): string | undefined {
       return undefined;
   }
 }
+
+export function getFramebufferStatus(
+  gl: WebGLRenderingContext,
+): string | undefined {
+  const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  switch (status) {
+    // The framebuffer is ready to display.
+    case gl.FRAMEBUFFER_COMPLETE:
+      return undefined;
+
+    // The attachment types are mismatched or not all framebuffer attachment points are framebuffer attachment complete.
+    case gl.FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+      return 'FRAMEBUFFER_INCOMPLETE_ATTACHMENT';
+
+    // There is no attachment.
+    case gl.FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+      return 'FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT';
+
+    // Height and width of the attachment are not the same.
+    case gl.FRAMEBUFFER_INCOMPLETE_DIMENSIONS:
+      return 'FRAMEBUFFER_INCOMPLETE_DIMENSIONS';
+
+    // The format of the attachment is not supported or if depth and stencil attachments are not the same renderbuffer.
+    case gl.FRAMEBUFFER_UNSUPPORTED:
+      return 'FRAMEBUFFER_UNSUPPORTED';
+
+    default:
+      return 'UNKNOWN:' + status;
+  }
+}
 export function checkError(gl: WebGLRenderingContext) {
   const error = getErrorString(gl);
   if (error) {
     throw new Error(`WebGL ` + error);
   }
+}
+
+export function hasError(gl: WebGLRenderingContext) {
+  const error = getErrorString(gl);
+  if (error !== undefined) {
+    console.error('WebGL Error: ' + error);
+    return true;
+  }
+  return false;
 }
 
 export function getOrThrow<T>(value: T | null | 0, type: string): T {

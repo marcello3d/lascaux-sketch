@@ -68,7 +68,7 @@ type ChangedTile = [
   number,
 ];
 
-const ENABLE_HALF_FLOAT_SUPPORT = false;
+const ENABLE_HALF_FLOAT_SUPPORT = true;
 
 export class GlOS1 implements DrawOs {
   public readonly dna: Dna;
@@ -165,7 +165,7 @@ export class GlOS1 implements DrawOs {
 
     if (
       this._OES_texture_float &&
-      checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT) &&
+      checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT, Float32Array, gl.FLOAT) &&
       gl.getExtension('OES_texture_float_linear') &&
       this._WEBGL_color_buffer_float
     ) {
@@ -181,20 +181,33 @@ export class GlOS1 implements DrawOs {
         gl,
         gl.RGBA,
         this._OES_texture_half_float.HALF_FLOAT_OES,
+        Float32Array,
+        this._OES_texture_half_float.HALF_FLOAT_OES,
       ) &&
       gl.getExtension('OES_texture_half_float_linear')
     ) {
       console.log('using half float RGBA textures');
       this._frameBufferType = this._OES_texture_half_float.HALF_FLOAT_OES;
-      this._frameBufferReadWriteType = gl.UNSIGNED_BYTE;
+      this._frameBufferReadWriteType = gl.FLOAT;
       this._frameBufferTypeString = 'float16';
-      this._readBuffer = new Uint8Array(pixelWidth * pixelHeight * 4);
-    } else {
+      this._readBuffer = new Float32Array(pixelWidth * pixelHeight * 4);
+      // this._readBuffer = new Uint8Array(pixelWidth * pixelHeight * 4);
+    } else if (
+      checkRenderTargetSupport(
+        gl,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        Uint8Array,
+        gl.UNSIGNED_BYTE,
+      )
+    ) {
       console.log('using unsigned byte RGBA textures');
       this._frameBufferType = gl.UNSIGNED_BYTE;
       this._frameBufferReadWriteType = gl.UNSIGNED_BYTE;
       this._frameBufferTypeString = 'uint8';
       this._readBuffer = new Uint8Array(pixelWidth * pixelHeight * 4);
+    } else {
+      throw new Error(`no valid frame buffer support`);
     }
 
     gl.enable(gl.BLEND);

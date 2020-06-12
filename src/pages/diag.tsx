@@ -341,7 +341,7 @@ function Table({ rows }: { rows: Row[] }) {
   return (
     <pre>
       {rows.map((arr, index) => {
-        const [name, value] = arr;
+        let [name, value] = arr;
         if (arr.length === 1) {
           return (
             <React.Fragment key={index}>
@@ -401,12 +401,20 @@ function computeWebglSupport(webgl2: boolean): Row[] {
   if (!webgl2) {
     gl.getExtension('OES_texture_float');
     glHalfFloat = gl.getExtension('OES_texture_half_float');
-  } else {
-    gl.getExtension('EXT_color_buffer_float');
   }
+  gl.getExtension('EXT_color_buffer_float');
   // @ts-ignore
   const gl2HalfFloat = gl.HALF_FLOAT;
   const dimensions = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+
+  function compute(name: string, fn: () => string | boolean): Row {
+    console.log(`Computing ${name}...`);
+    const value = fn();
+    console.log(`  --> ${value}`);
+    return [name, value];
+  }
+
+  const HALF_FLOAT = webgl2 ? gl2HalfFloat : glHalfFloat?.HALF_FLOAT_OES;
   return [
     [
       'Version',
@@ -434,16 +442,52 @@ function computeWebglSupport(webgl2: boolean): Row[] {
       'MAX_COMBINED_TEXTURE_IMAGE_UNITS',
       gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS),
     ],
-    [
-      'Float RGBA render textures',
-      checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT),
-    ],
-    [
-      'Half-float RGBA render textures',
-      webgl2
-        ? checkRenderTargetSupport(gl, gl.RGBA, gl2HalfFloat)
-        : glHalfFloat &&
-          checkRenderTargetSupport(gl, gl.RGBA, glHalfFloat.HALF_FLOAT_OES),
-    ],
+    compute('Byte RGBA render textures <-> Uint8Array', () =>
+      checkRenderTargetSupport(
+        gl,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        Uint8Array,
+        gl.UNSIGNED_BYTE,
+      ),
+    ),
+    compute('Float RGBA render textures <-> Float32Array', () =>
+      checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT, Float32Array, gl.FLOAT),
+    ),
+    ...(webgl2
+      ? []
+      : [
+          compute('Half-float RGBA render textures <-> Uint16Array', () =>
+            checkRenderTargetSupport(
+              gl,
+              gl.RGBA,
+              HALF_FLOAT,
+              Uint16Array,
+              HALF_FLOAT,
+            ),
+          ),
+          compute('Half-float RGBA render textures <-> Float32Array', () =>
+            checkRenderTargetSupport(
+              gl,
+              gl.RGBA,
+              HALF_FLOAT,
+              Float32Array,
+              gl.FLOAT,
+            ),
+          ),
+          compute(
+            'Half-float RGBA render textures -> read Float32Array -> write Uint16Array',
+            () =>
+              checkRenderTargetSupport(
+                gl,
+                gl.RGBA,
+                HALF_FLOAT,
+                Float32Array,
+                gl.FLOAT,
+                Uint16Array,
+                HALF_FLOAT,
+              ),
+          ),
+        ]),
   ];
 }
