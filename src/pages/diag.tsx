@@ -285,31 +285,43 @@ export default function Diag() {
     }
     return rows;
   }, [data]);
-  return (
-    <div
-      className={styles.root}
-      touch-action="none"
-      onPointerEnter={handlePointerEvent}
-      onPointerLeave={handlePointerEvent}
-      onPointerMove={handlePointerEvent}
-      onPointerDown={handlePointerEvent}
-      onPointerUp={handlePointerEvent}
-      onPointerOut={handlePointerEvent}
-      onPointerOver={handlePointerEvent}
-    >
-      <h1>PointerEvents Diagnostics</h1>
+  const pointerEventsTable = useMemo(
+    () => (
       <Table
         rows={[
-          ...system,
-          ['PointerEvents - click/drag/tap here to compute…'],
           ['Polyfill', PEPJS.PointerEvent === window.PointerEvent],
           ...dataRows,
-          ['WebGL'],
-          ...webgl,
-          ['WebGL2'],
-          ...webgl2,
         ]}
       />
+    ),
+    [dataRows],
+  );
+  return (
+    <div className={styles.root}>
+      <h1>Diagnostics</h1>
+      <h2>System</h2>
+      <div>
+        <Table rows={system} />
+      </div>
+      <h2>PointerEvents</h2>
+      <div
+        className={styles.touchArea}
+        touch-action="none"
+        onPointerEnter={handlePointerEvent}
+        onPointerLeave={handlePointerEvent}
+        onPointerMove={handlePointerEvent}
+        onPointerDown={handlePointerEvent}
+        onPointerUp={handlePointerEvent}
+        onPointerOut={handlePointerEvent}
+        onPointerOver={handlePointerEvent}
+      >
+        Tap/click in this box to detect input.
+        {pointerEventsTable}
+      </div>
+      <h2>WebGL 1</h2>
+      <Table rows={webgl} />
+      <h2>WebGL 2</h2>
+      <Table rows={webgl2} />
     </div>
   );
 }
