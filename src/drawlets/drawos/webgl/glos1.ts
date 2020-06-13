@@ -384,17 +384,18 @@ export class GlOS1 implements DrawOs {
       const start1 = Date.now();
       let pixels = _readBuffer.subarray(0, width * height * 4);
       gl.readPixels(minX, minY, width, height, gl.RGBA, readTypeInt, pixels);
-      if (
-        pixels instanceof Float32Array &&
-        _writeBuffer instanceof Uint16Array
-      ) {
-        pixels = float32ArrayToUint16Array(
-          pixels,
-          _writeBuffer.subarray(0, pixels.length),
-        );
-      }
-      const savedBuffer = { pixels, width, height };
       console.log(`get pixels in ${Date.now() - start1} ms`);
+      // if (
+      //   pixels instanceof Float32Array &&
+      //   _writeBuffer instanceof Uint16Array
+      // ) {
+      //   pixels = float32ArrayToUint16Array(
+      //     pixels,
+      //     _writeBuffer.subarray(0, pixels.length),
+      //   );
+      //   console.log(`get and convert pixels in ${Date.now() - start1} ms`);
+      // }
+      const savedBuffer = { pixels, width, height };
       for (const key of tileKeys) {
         const [x, y] = tiles[key];
         const tile = copyRgbaPixels(

@@ -1,4 +1,4 @@
-import { float32ArrayToUint16Array, toHalf } from './float16';
+import { float32ArrayToUint16Array } from './float16';
 
 export type FrameBuffer = {
   width: number;
