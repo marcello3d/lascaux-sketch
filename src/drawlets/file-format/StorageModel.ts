@@ -4,6 +4,7 @@ import SnapshotMap from './SnapshotMap';
 import GotoMap from './GotoMap';
 import { PromiseOrValue } from 'promise-or-value';
 import ModeMap from './ModeMap';
+import DrawingModel from './DrawingModel';
 
 export type Metadata = {
   gotoMap: GotoMap;
@@ -19,6 +20,7 @@ export type Stroke = {
 };
 
 export interface StorageModel {
+  replay(model: DrawingModel): PromiseOrValue<void>;
   getMetadata(initialMode: object): PromiseOrValue<Metadata>;
   addStroke(type: string, time: number, payload: StrokePayload): void;
   getStroke(index: number): PromiseOrValue<Stroke>;

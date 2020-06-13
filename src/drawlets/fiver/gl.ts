@@ -24,19 +24,24 @@ export function makeFiverCanvas(
 
 export async function makeFiverModel(
   dna: FiverDna,
-  storageModel: StorageModel,
+  storage: StorageModel,
 ): Promise<DrawingModel<FiverDna, FiverMode, FiverState>> {
   // This is convoluted
   const initialMode = initializeCommand(getInitializeContext(dna));
-  const metadata = await storageModel.getMetadata(initialMode);
-  return new DrawingModel({
+  console.log(`[LOAD] Getting metadata...`);
+  const metadata = await storage.getMetadata(initialMode);
+  const drawing = new DrawingModel({
     dna,
     editable: true,
     DrawOs: GlOS1,
     snapshotStrokeCount: 250,
-    storageModel,
+    storageModel: storage,
     metadata,
     initializeCommand,
     handleCommand,
   });
+  console.log(`[LOAD] Loading strokes...`);
+  await storage.replay(drawing);
+  console.log(`[LOAD] Loaded strokes!`);
+  return drawing;
 }
