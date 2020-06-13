@@ -6,7 +6,7 @@ import { useDexieItem } from '../db/useDexie';
 import { db } from '../db/db';
 import { makeFiverModel } from '../drawlets/fiver/gl';
 import { FiverDna } from '../drawlets/fiver/fiver';
-import { LocalStorageModel } from '../db/DexieStorageModel';
+import { DexieStorageModel } from '../db/DexieStorageModel';
 import { NotFoundPage } from './404';
 
 type DrawingPageProps = { drawingId?: string } & RouteComponentProps;
@@ -17,9 +17,8 @@ export function DrawingPage(props: DrawingPageProps) {
   if (!drawingId || !drawing) {
     return <NotFoundPage {...props} />;
   }
-  const localStorageModel = new LocalStorageModel(drawingId);
   const drawingModel = getOrMakeDrawingModel(drawingId, () =>
-    makeFiverModel(drawing.dna as FiverDna, localStorageModel),
+    makeFiverModel(drawing.dna as FiverDna, new DexieStorageModel(drawingId)),
   );
   if (drawingModel instanceof Promise) {
     throw drawingModel;
