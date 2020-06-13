@@ -1,9 +1,4 @@
 .root {
   padding: 10px;
-  touch-action: none;
-  overflow: auto;
   width: 100%;
-}
-.root * {
-  touch-action: none;
 }

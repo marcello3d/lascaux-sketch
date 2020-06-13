@@ -1,11 +1,13 @@
 // @ts-ignore
 import * as PEPJS from '@marcello/pepjs';
-import * as React from 'react';
-import { ReactNode, useCallback, useMemo, useState } from 'react';
+import React, { ReactNode, useCallback, useMemo, useState } from 'react';
 import Bowser from 'bowser';
 
 import styles from './diag.module.css';
-import { checkRenderTargetSupport } from '../drawlets/drawos/webgl/util';
+import {
+  checkRenderTargetSupport,
+  FrameBufferInfo,
+} from '../drawlets/drawos/webgl/util';
 import produce from 'immer';
 
 type PointerData = {
@@ -100,10 +102,6 @@ export default function Diag() {
         height,
       } = event;
       events++;
-      event.preventDefault();
-      event.stopPropagation();
-      event.nativeEvent.preventDefault();
-      event.nativeEvent.stopImmediatePropagation();
       setData(
         produce(data, (draft) => {
           draft.types[type.replace(/^pointer/, '')] = true;
@@ -415,6 +413,18 @@ function computeWebglSupport(webgl2: boolean): Row[] {
   }
 
   const HALF_FLOAT = webgl2 ? gl2HalfFloat : glHalfFloat?.HALF_FLOAT_OES;
+  function parseCombos(combo: string | FrameBufferInfo[]) {
+    if (typeof combo === 'string') {
+      return combo;
+    }
+    return combo
+      .map(({ readArray, readType, writeArray, writeType }) =>
+        readArray === writeArray
+          ? `read/write:${readArray.name}`
+          : `read:${readArray.name}+write:${writeArray.name}`,
+      )
+      .join(', ');
+  }
   return [
     [
       'Version',
@@ -442,51 +452,21 @@ function computeWebglSupport(webgl2: boolean): Row[] {
       'MAX_COMBINED_TEXTURE_IMAGE_UNITS',
       gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS),
     ],
-    compute('Byte RGBA render textures <-> Uint8Array', () =>
-      checkRenderTargetSupport(
-        gl,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        Uint8Array,
-        gl.UNSIGNED_BYTE,
+    compute('Int render textures', () =>
+      parseCombos(
+        checkRenderTargetSupport(gl, gl.RGBA, gl.UNSIGNED_BYTE, HALF_FLOAT),
       ),
     ),
-    compute('Float RGBA render textures <-> Float32Array', () =>
-      checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT, Float32Array, gl.FLOAT),
+    compute('float32 render textures', () =>
+      parseCombos(checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT, HALF_FLOAT)),
     ),
     ...(webgl2
       ? []
       : [
-          compute('Half-float RGBA render textures <-> Uint16Array', () =>
-            checkRenderTargetSupport(
-              gl,
-              gl.RGBA,
-              HALF_FLOAT,
-              Uint16Array,
-              HALF_FLOAT,
+          compute('float16 render textures', () =>
+            parseCombos(
+              checkRenderTargetSupport(gl, gl.RGBA, HALF_FLOAT, HALF_FLOAT),
             ),
-          ),
-          compute('Half-float RGBA render textures <-> Float32Array', () =>
-            checkRenderTargetSupport(
-              gl,
-              gl.RGBA,
-              HALF_FLOAT,
-              Float32Array,
-              gl.FLOAT,
-            ),
-          ),
-          compute(
-            'Half-float RGBA render textures -> read Float32Array -> write Uint16Array',
-            () =>
-              checkRenderTargetSupport(
-                gl,
-                gl.RGBA,
-                HALF_FLOAT,
-                Float32Array,
-                gl.FLOAT,
-                Uint16Array,
-                HALF_FLOAT,
-              ),
           ),
         ]),
   ];

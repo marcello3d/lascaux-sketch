@@ -4,10 +4,12 @@ import {
   copyRgbaPixels,
   createFrameBuffer,
   FrameBuffer,
+  FrameBufferInfo,
   getOrThrow,
   RgbaImage,
   setDrawingMatrix,
   setViewportMatrix,
+  TypedArray,
 } from './util';
 
 import ProgramManager from './program-manager';
@@ -102,11 +104,12 @@ export class GlOS1 implements DrawOs {
   private readonly _WEBGL_color_buffer_float: WEBGL_color_buffer_float | null;
   private readonly _OES_texture_float: OES_texture_float_linear | null;
   private readonly _OES_texture_half_float: OES_texture_half_float | null;
-  private readonly _frameBufferTypeString: string;
   private readonly _frameBufferType: GLenum;
-  private readonly _frameBufferReadWriteType: GLenum;
+  private readonly _frameBufferInfo: FrameBufferInfo;
+  private readonly _frameBufferBits: number;
 
-  private readonly _readBuffer: Uint8Array | Float32Array;
+  private readonly _readBuffer: TypedArray;
+  private readonly _writeBuffer: TypedArray | undefined;
 
   constructor(dna: Dna, scale: number = 1, tileSize: number = 64) {
     this.dna = dna;
@@ -163,52 +166,60 @@ export class GlOS1 implements DrawOs {
     this._OES_texture_half_float = gl.getExtension('OES_texture_half_float');
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
 
-    if (
+    const floatCombos =
       this._OES_texture_float &&
-      checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT, Float32Array, gl.FLOAT) &&
+      checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT);
+    if (
+      Array.isArray(floatCombos) &&
       gl.getExtension('OES_texture_float_linear') &&
       this._WEBGL_color_buffer_float
     ) {
       console.log('using full float RGBA textures');
       this._frameBufferType = gl.FLOAT;
-      this._frameBufferReadWriteType = gl.FLOAT;
-      this._frameBufferTypeString = 'float32';
-      this._readBuffer = new Float32Array(pixelWidth * pixelHeight * 4);
-    } else if (
-      ENABLE_HALF_FLOAT_SUPPORT &&
-      this._OES_texture_half_float &&
-      checkRenderTargetSupport(
-        gl,
-        gl.RGBA,
-        this._OES_texture_half_float.HALF_FLOAT_OES,
-        Float32Array,
-        this._OES_texture_half_float.HALF_FLOAT_OES,
-      ) &&
-      gl.getExtension('OES_texture_half_float_linear')
-    ) {
-      console.log('using half float RGBA textures');
-      this._frameBufferType = this._OES_texture_half_float.HALF_FLOAT_OES;
-      this._frameBufferReadWriteType = gl.FLOAT;
-      this._frameBufferTypeString = 'float16';
-      this._readBuffer = new Float32Array(pixelWidth * pixelHeight * 4);
-      // this._readBuffer = new Uint8Array(pixelWidth * pixelHeight * 4);
-    } else if (
-      checkRenderTargetSupport(
-        gl,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        Uint8Array,
-        gl.UNSIGNED_BYTE,
-      )
-    ) {
-      console.log('using unsigned byte RGBA textures');
-      this._frameBufferType = gl.UNSIGNED_BYTE;
-      this._frameBufferReadWriteType = gl.UNSIGNED_BYTE;
-      this._frameBufferTypeString = 'uint8';
-      this._readBuffer = new Uint8Array(pixelWidth * pixelHeight * 4);
+      this._frameBufferInfo = floatCombos[0];
     } else {
-      throw new Error(`no valid frame buffer support`);
+      const halfFloatCombos =
+        ENABLE_HALF_FLOAT_SUPPORT &&
+        this._OES_texture_half_float &&
+        checkRenderTargetSupport(
+          gl,
+          gl.RGBA,
+          this._OES_texture_half_float.HALF_FLOAT_OES,
+          this._OES_texture_half_float.HALF_FLOAT_OES,
+        );
+      if (
+        this._OES_texture_half_float &&
+        Array.isArray(halfFloatCombos) &&
+        gl.getExtension('OES_texture_half_float_linear')
+      ) {
+        console.log('using half float RGBA textures');
+        this._frameBufferType = this._OES_texture_half_float.HALF_FLOAT_OES;
+        this._frameBufferInfo = halfFloatCombos[0];
+      } else {
+        const byteCombo = checkRenderTargetSupport(
+          gl,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+        );
+        if (Array.isArray(byteCombo)) {
+          console.log('using unsigned byte RGBA textures');
+          this._frameBufferType = gl.UNSIGNED_BYTE;
+          this._frameBufferInfo = byteCombo[0];
+        } else {
+          throw new Error(`no valid frame buffer support`);
+        }
+      }
     }
+    this._readBuffer = new this._frameBufferInfo.readArray(
+      pixelWidth * pixelHeight * 4,
+    );
+    this._writeBuffer =
+      this._frameBufferInfo.readArray !== this._frameBufferInfo.writeArray
+        ? new this._frameBufferInfo.writeArray(pixelWidth * pixelHeight * 4)
+        : undefined;
+
+    this._frameBufferBits =
+      (this._writeBuffer ?? this._readBuffer).BYTES_PER_ELEMENT * 8 * 4;
 
     gl.enable(gl.BLEND);
     // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -347,7 +358,15 @@ export class GlOS1 implements DrawOs {
   getSnapshot(): Snap {
     const links: Links = {};
     const start = Date.now();
-    const { tileSize, _tiles, _readBuffer, _layers, gl } = this;
+    const {
+      tileSize,
+      _tiles,
+      _readBuffer,
+      _layers,
+      _frameBufferInfo,
+      gl,
+    } = this;
+    const { writeArray, readTypeInt } = _frameBufferInfo;
     const { length: layerCount } = _layers;
     let changedTiles = 0;
     for (let layer = 0; layer < layerCount; layer++) {
@@ -360,26 +379,20 @@ export class GlOS1 implements DrawOs {
       this._prepareToDraw(layer);
       const bufferW = maxX - minX;
       const bufferH = maxY - minY;
+      const start1 = Date.now();
+      const pixels = _readBuffer.subarray(0, bufferW * bufferH * 4);
+      gl.readPixels(minX, minY, bufferW, bufferH, gl.RGBA, readTypeInt, pixels);
       const savedBuffer = {
-        pixels: _readBuffer.subarray(0, bufferW * bufferH * 4),
+        pixels,
         width: bufferW,
         height: bufferH,
       };
-      const start1 = Date.now();
-      gl.readPixels(
-        minX,
-        minY,
-        bufferW,
-        bufferH,
-        gl.RGBA,
-        this._frameBufferReadWriteType,
-        savedBuffer.pixels,
-      );
       console.log(`get pixels in ${Date.now() - start1} ms`);
       for (const key of tileKeys) {
         const [x, y] = tiles[key];
         const tile = copyRgbaPixels(
           savedBuffer,
+          writeArray,
           x - minX,
           y - minY,
           tileSize,
@@ -499,7 +512,12 @@ export class GlOS1 implements DrawOs {
     }
   }
 
-  private _putTile(layer: number, x: number, y: number, image: RgbaImage) {
+  private _putTile(
+    layer: number,
+    x: number,
+    y: number,
+    { pixels, width, height }: RgbaImage,
+  ) {
     const { gl } = this;
     this._prepareToDraw(layer);
     gl.bindTexture(gl.TEXTURE_2D, this._layers[layer].frameBuffer.texture);
@@ -512,11 +530,11 @@ export class GlOS1 implements DrawOs {
       0,
       x,
       y,
-      image.width,
-      image.height,
+      width,
+      height,
       gl.RGBA,
-      this._frameBufferReadWriteType,
-      image.pixels,
+      this._frameBufferInfo.writeTypeInt,
+      pixels,
     );
   }
   private _clearTile(layer: number, x: number, y: number) {
@@ -852,8 +870,8 @@ export class GlOS1 implements DrawOs {
     }
   }
   getInfo(): string {
-    return `WebGL ${this._frameBufferTypeString} (${
-      this._readBuffer.BYTES_PER_ELEMENT * 8 * 4
+    return `WebGL ${this._frameBufferInfo.writeType} (${
+      this._frameBufferBits
     } bit): ${this.pixelWidth}x${this.pixelHeight} (${
       Object.keys(this._tiles).length
     } tiles)`;

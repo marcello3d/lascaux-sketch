@@ -183,8 +183,9 @@ export function setDrawingMatrix(
   );
 }
 
-type TypedArray =
+export type TypedArray =
   | Uint8Array
+  | Uint8ClampedArray
   | Uint16Array
   | Uint32Array
   | Int8Array
@@ -192,19 +193,25 @@ type TypedArray =
   | Int32Array
   | Float32Array
   | Float64Array;
-type TypedArrayConstructor = {
+export type TypedArrayConstructor = {
   new (size: number): TypedArray;
+};
+
+export type FrameBufferInfo = {
+  readArray: TypedArrayConstructor;
+  readType: string;
+  readTypeInt: GLint;
+  writeArray: TypedArrayConstructor;
+  writeType: string;
+  writeTypeInt: GLint;
 };
 
 export function checkRenderTargetSupport(
   gl: WebGLRenderingContext,
   format: GLenum,
   type: GLenum,
-  ReadPixelArray: TypedArrayConstructor,
-  readType: GLenum = type,
-  WritePixelArray: TypedArrayConstructor = ReadPixelArray,
-  writeType: GLenum = readType,
-): string | boolean {
+  halfFloatType?: GLint,
+): string | FrameBufferInfo[] {
   if (hasError(gl)) {
     return 'error-before-test';
   }
@@ -262,71 +269,101 @@ export function checkRenderTargetSupport(
         sourcePixels[i++] = 1;
       }
 
-      const writePixels = new WritePixelArray(width * height * 4);
-      if (
-        writePixels instanceof Float32Array ||
-        writePixels instanceof Float64Array
-      ) {
-        writePixels.set(sourcePixels);
-      } else if (writePixels instanceof Uint16Array) {
-        float32ArrayToUint16Array(sourcePixels, writePixels);
-      } else if (writePixels instanceof Uint8Array) {
-        for (let i = 0; i < writePixels.length; i++) {
-          writePixels[i] = sourcePixels[i] * 255;
-        }
+      const types: [TypedArrayConstructor, number, string][] = [
+        [Uint8Array, gl.UNSIGNED_BYTE, 'uint8'],
+        [Uint16Array, gl.UNSIGNED_SHORT, 'uint16'],
+        // [Uint32Array, gl.UNSIGNED_INT, 'uint32'],
+        [Float32Array, gl.FLOAT, 'float32'],
+        // [Float64Array, gl.FLOAT, 'float64'],
+      ];
+      if (halfFloatType) {
+        types.splice(
+          3,
+          0,
+          [Uint16Array, halfFloatType, 'float16'],
+          [Float32Array, halfFloatType, 'float32'],
+        );
       }
-      console.log('Writing: ' + writePixels.join(','));
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texSubImage2D(
-        gl.TEXTURE_2D,
-        0,
-        0,
-        0,
-        width,
-        height,
-        format,
-        writeType,
-        writePixels,
-      );
-      const canWrite = !hasError(gl);
 
-      const readPixels = new ReadPixelArray(width * height * 4);
-      gl.readPixels(0, 0, width, height, format, readType, readPixels);
-      const canRead = !hasError(gl);
-
-      console.log('READ: ' + readPixels.join(','));
-
-      if (canRead && canWrite) {
-        for (let i = 0; i < readPixels.length; i++) {
-          let readPix = readPixels[i];
-          let writePix = writePixels[i];
-          if (
-            readPixels instanceof Float32Array &&
-            writePixels instanceof Uint16Array
-          ) {
-            readPix = toHalf(readPixels[i]);
-          } else if (
-            writePixels instanceof Float32Array &&
-            readPixels instanceof Uint16Array
-          ) {
-            writePix = toHalf(writePixels[i]);
-          }
-          if (readPix !== writePix) {
-            return 'Can read/write, but pixels are wrong';
+      const combos: FrameBufferInfo[] = [];
+      for (const [WritableType, writeTypeInt, writeType] of types) {
+        console.log(`Testing write to ${WritableType.name}...`);
+        const writePixels = new WritableType(width * height * 4);
+        if (
+          writePixels instanceof Float32Array ||
+          writePixels instanceof Float64Array
+        ) {
+          writePixels.set(sourcePixels);
+        } else if (writePixels instanceof Uint16Array) {
+          float32ArrayToUint16Array(sourcePixels, writePixels);
+        } else if (writePixels instanceof Uint8Array) {
+          for (let i = 0; i < writePixels.length; i++) {
+            writePixels[i] = sourcePixels[i] * 255;
           }
         }
-        return true;
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          0,
+          0,
+          width,
+          height,
+          format,
+          writeTypeInt,
+          writePixels,
+        );
+        if (getErrorString(gl)) {
+          continue;
+        }
+
+        for (const [ReadableType, readTypeInt, readType] of types) {
+          console.log(`Testing read to ${WritableType.name}...`);
+
+          const readPixels = new ReadableType(width * height * 4);
+          gl.readPixels(0, 0, width, height, format, readTypeInt, readPixels);
+          if (getErrorString(gl)) {
+            continue;
+          }
+          let ok = true;
+          for (let i = 0; i < readPixels.length; i++) {
+            let readPix = readPixels[i];
+            let writePix = writePixels[i];
+            if (
+              readPixels instanceof Float32Array &&
+              writePixels instanceof Uint16Array
+            ) {
+              readPix = toHalf(readPixels[i]);
+            } else if (
+              writePixels instanceof Float32Array &&
+              readPixels instanceof Uint16Array
+            ) {
+              writePix = toHalf(writePixels[i]);
+            }
+            if (readPix !== writePix) {
+              ok = false;
+              break;
+            }
+          }
+          if (ok) {
+            combos.push({
+              readArray: ReadableType,
+              readType,
+              readTypeInt,
+              writeArray: WritableType,
+              writeType,
+              writeTypeInt,
+            });
+          }
+        }
       }
-      if (canRead) {
-        return 'Can read, but not write';
+      if (combos.length === 0) {
+        return 'no-compatible-format';
       }
-      if (canWrite) {
-        return 'Can write, but not read';
-      }
-      return 'cannot read or write';
+      return combos;
     } finally {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.bindTexture(gl.TEXTURE_2D, null);
@@ -421,33 +458,32 @@ export function getOrThrow<T>(value: T | null | 0, type: string): T {
 }
 
 export type RgbaImage = {
-  pixels: Uint8Array | Uint16Array | Float32Array;
+  pixels: TypedArray;
   width: number;
   height: number;
 };
 export function copyRgbaPixels(
   src: RgbaImage,
+  TypedArrayType: TypedArrayConstructor,
   x: number,
   y: number,
   width: number,
   height: number,
 ): RgbaImage {
-  const TypedArrayType =
-    src.pixels instanceof Uint8Array
-      ? Uint8Array
-      : src.pixels instanceof Uint16Array
-      ? Uint16Array
-      : Float32Array;
-  const pixels = new TypedArrayType(width * height * 4);
+  const destRowWidth = width * 4;
+  const pixels = new TypedArrayType(destRowWidth * height);
   const xx = x * 4;
   const srcRowWidth = src.width * 4;
-  const destRowWidth = width * 4;
   for (let yy = 0; yy < height; yy++) {
-    const start = xx + (yy + y) * srcRowWidth;
-    pixels.set(
-      src.pixels.subarray(start, start + destRowWidth),
-      yy * destRowWidth,
-    );
+    const srcOffset = xx + (yy + y) * srcRowWidth;
+    const srcRow = src.pixels.subarray(srcOffset, srcOffset + destRowWidth);
+    const destOffset = yy * destRowWidth;
+    const destRow = pixels.subarray(destOffset, destOffset + destRowWidth);
+    if (srcRow instanceof Float32Array && destRow instanceof Uint16Array) {
+      float32ArrayToUint16Array(srcRow, destRow);
+    } else {
+      destRow.set(srcRow);
+    }
   }
   return { pixels, width, height };
 }
