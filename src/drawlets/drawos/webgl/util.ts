@@ -462,14 +462,14 @@ export type RgbaImage = {
 };
 export function copyRgbaPixels(
   src: RgbaImage,
-  TypedArrayType: TypedArrayConstructor,
+  destArrayType: TypedArrayConstructor,
   x: number,
   y: number,
   width: number,
   height: number,
 ): RgbaImage {
   const destRowWidth = width * 4;
-  const pixels = new TypedArrayType(destRowWidth * height);
+  const pixels = new destArrayType(destRowWidth * height);
   const xx = x * 4;
   const srcRowWidth = src.width * 4;
   for (let yy = 0; yy < height; yy++) {

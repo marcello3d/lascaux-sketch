@@ -32,6 +32,7 @@ import { lineShader } from './glsl/line';
 import { rectShader } from './glsl/rect';
 import { PromiseOrValue, then } from 'promise-or-value';
 import { waitAll } from '../../util/promise-or-value';
+import { float32ArrayToUint16Array } from './float16';
 
 function makeTextureVertexArray(
   x1: number,
@@ -362,6 +363,7 @@ export class GlOS1 implements DrawOs {
       tileSize,
       _tiles,
       _readBuffer,
+      _writeBuffer,
       _layers,
       _frameBufferInfo,
       gl,
@@ -377,16 +379,18 @@ export class GlOS1 implements DrawOs {
       const { tiles, maxX, minY, minX, maxY } = changed;
       const tileKeys = Object.keys(tiles);
       this._prepareToDraw(layer);
-      const bufferW = maxX - minX;
-      const bufferH = maxY - minY;
+      const width = maxX - minX;
+      const height = maxY - minY;
       const start1 = Date.now();
-      const pixels = _readBuffer.subarray(0, bufferW * bufferH * 4);
-      gl.readPixels(minX, minY, bufferW, bufferH, gl.RGBA, readTypeInt, pixels);
-      const savedBuffer = {
-        pixels,
-        width: bufferW,
-        height: bufferH,
-      };
+      let pixels = _readBuffer.subarray(0, width * height * 4);
+      gl.readPixels(minX, minY, width, height, gl.RGBA, readTypeInt, pixels);
+      if (
+        _readBuffer instanceof Float32Array &&
+        _writeBuffer instanceof Uint16Array
+      ) {
+        pixels = float32ArrayToUint16Array(_readBuffer, _writeBuffer);
+      }
+      const savedBuffer = { pixels, width, height };
       console.log(`get pixels in ${Date.now() - start1} ms`);
       for (const key of tileKeys) {
         const [x, y] = tiles[key];
