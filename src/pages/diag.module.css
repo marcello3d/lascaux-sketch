@@ -1,9 +1,11 @@
 .root {
   padding: 10px;
-  touch-action: none;
-  overflow: auto;
   width: 100%;
 }
-.root * {
+
+.touchArea {
   touch-action: none;
+  background: #fff4e6;
+  padding: 5px;
+  display: table-cell;
 }

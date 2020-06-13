@@ -1,11 +1,13 @@
 // @ts-ignore
 import * as PEPJS from '@marcello/pepjs';
-import * as React from 'react';
-import { ReactNode, useCallback, useMemo, useState } from 'react';
+import React, { ReactNode, useCallback, useMemo, useState } from 'react';
 import Bowser from 'bowser';
 
 import styles from './diag.module.css';
-import { checkRenderTargetSupport } from '../drawlets/drawos/webgl/util';
+import {
+  checkRenderTargetSupport,
+  FrameBufferInfo,
+} from '../drawlets/drawos/webgl/util';
 import produce from 'immer';
 
 type PointerData = {
@@ -100,10 +102,6 @@ export default function Diag() {
         height,
       } = event;
       events++;
-      event.preventDefault();
-      event.stopPropagation();
-      event.nativeEvent.preventDefault();
-      event.nativeEvent.stopImmediatePropagation();
       setData(
         produce(data, (draft) => {
           draft.types[type.replace(/^pointer/, '')] = true;
@@ -287,31 +285,43 @@ export default function Diag() {
     }
     return rows;
   }, [data]);
-  return (
-    <div
-      className={styles.root}
-      touch-action="none"
-      onPointerEnter={handlePointerEvent}
-      onPointerLeave={handlePointerEvent}
-      onPointerMove={handlePointerEvent}
-      onPointerDown={handlePointerEvent}
-      onPointerUp={handlePointerEvent}
-      onPointerOut={handlePointerEvent}
-      onPointerOver={handlePointerEvent}
-    >
-      <h1>PointerEvents Diagnostics</h1>
+  const pointerEventsTable = useMemo(
+    () => (
       <Table
         rows={[
-          ...system,
-          ['PointerEvents - click/drag/tap here to compute…'],
           ['Polyfill', PEPJS.PointerEvent === window.PointerEvent],
           ...dataRows,
-          ['WebGL'],
-          ...webgl,
-          ['WebGL2'],
-          ...webgl2,
         ]}
       />
+    ),
+    [dataRows],
+  );
+  return (
+    <div className={styles.root}>
+      <h1>Diagnostics</h1>
+      <h2>System</h2>
+      <div>
+        <Table rows={system} />
+      </div>
+      <h2>PointerEvents</h2>
+      <div
+        className={styles.touchArea}
+        touch-action="none"
+        onPointerEnter={handlePointerEvent}
+        onPointerLeave={handlePointerEvent}
+        onPointerMove={handlePointerEvent}
+        onPointerDown={handlePointerEvent}
+        onPointerUp={handlePointerEvent}
+        onPointerOut={handlePointerEvent}
+        onPointerOver={handlePointerEvent}
+      >
+        Tap/click in this box to detect input.
+        {pointerEventsTable}
+      </div>
+      <h2>WebGL 1</h2>
+      <Table rows={webgl} />
+      <h2>WebGL 2</h2>
+      <Table rows={webgl2} />
     </div>
   );
 }
@@ -341,7 +351,7 @@ function Table({ rows }: { rows: Row[] }) {
   return (
     <pre>
       {rows.map((arr, index) => {
-        const [name, value] = arr;
+        let [name, value] = arr;
         if (arr.length === 1) {
           return (
             <React.Fragment key={index}>
@@ -401,12 +411,31 @@ function computeWebglSupport(webgl2: boolean): Row[] {
   if (!webgl2) {
     gl.getExtension('OES_texture_float');
     glHalfFloat = gl.getExtension('OES_texture_half_float');
-  } else {
-    gl.getExtension('EXT_color_buffer_float');
   }
+  gl.getExtension('EXT_color_buffer_float');
   // @ts-ignore
   const gl2HalfFloat = gl.HALF_FLOAT;
   const dimensions = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+
+  function compute(name: string, fn: () => string | boolean): Row {
+    console.info(`[${webgl2 ? 'webgl2' : 'webgl1'}] Testing ${name}...`);
+    const value = fn();
+    console.info(`  --> ${value}`);
+    return [name, value];
+  }
+
+  function parseCombos(combo: string | FrameBufferInfo[]) {
+    if (typeof combo === 'string') {
+      return combo;
+    }
+    return combo
+      .map(({ readTypeName, writeTypeName }) =>
+        readTypeName === writeTypeName
+          ? `read/write:${readTypeName}`
+          : `read:${readTypeName}+write:${writeTypeName}`,
+      )
+      .join(', ');
+  }
   return [
     [
       'Version',
@@ -434,16 +463,41 @@ function computeWebglSupport(webgl2: boolean): Row[] {
       'MAX_COMBINED_TEXTURE_IMAGE_UNITS',
       gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS),
     ],
-    [
-      'Float RGBA render textures',
-      checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT),
-    ],
-    [
-      'Half-float RGBA render textures',
-      webgl2
-        ? checkRenderTargetSupport(gl, gl.RGBA, gl2HalfFloat)
-        : glHalfFloat &&
-          checkRenderTargetSupport(gl, gl.RGBA, glHalfFloat.HALF_FLOAT_OES),
-    ],
+    compute('uint8 render textures', () =>
+      parseCombos(
+        checkRenderTargetSupport(
+          gl,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          undefined,
+          console.log,
+        ),
+      ),
+    ),
+    compute('float16 render textures', () =>
+      parseCombos(
+        glHalfFloat
+          ? checkRenderTargetSupport(
+              gl,
+              gl.RGBA,
+              glHalfFloat.HALF_FLOAT_OES,
+              glHalfFloat.HALF_FLOAT_OES,
+              console.log,
+            )
+          : checkRenderTargetSupport(
+              gl,
+              gl.RGBA,
+              gl2HalfFloat,
+              gl2HalfFloat,
+              console.log,
+            ),
+      ),
+    ),
+
+    compute('float32 render textures', () =>
+      parseCombos(
+        checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT, undefined, console.log),
+      ),
+    ),
   ];
 }
