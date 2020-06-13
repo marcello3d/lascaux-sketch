@@ -406,22 +406,21 @@ function computeWebglSupport(webgl2: boolean): Row[] {
   const dimensions = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
 
   function compute(name: string, fn: () => string | boolean): Row {
-    console.log(`Computing ${name}...`);
+    console.info(`[${webgl2 ? 'webgl2' : 'webgl1'}] Testing ${name}...`);
     const value = fn();
-    console.log(`  --> ${value}`);
+    console.info(`  --> ${value}`);
     return [name, value];
   }
 
-  const HALF_FLOAT = webgl2 ? gl2HalfFloat : glHalfFloat?.HALF_FLOAT_OES;
   function parseCombos(combo: string | FrameBufferInfo[]) {
     if (typeof combo === 'string') {
       return combo;
     }
     return combo
-      .map(({ readArray, readType, writeArray, writeType }) =>
-        readArray === writeArray && readType === writeType
-          ? `read/write:${readArray.name}(${readType})`
-          : `read:${readArray.name}(${readType})+write:${writeArray.name}(${writeType})`,
+      .map(({ readTypeName, writeTypeName }) =>
+        readTypeName === writeTypeName
+          ? `read/write:${readTypeName}`
+          : `read:${readTypeName}+write:${writeTypeName}`,
       )
       .join(', ');
   }
@@ -452,22 +451,41 @@ function computeWebglSupport(webgl2: boolean): Row[] {
       'MAX_COMBINED_TEXTURE_IMAGE_UNITS',
       gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS),
     ],
-    compute('Int render textures', () =>
+    compute('uint8 render textures', () =>
       parseCombos(
-        checkRenderTargetSupport(gl, gl.RGBA, gl.UNSIGNED_BYTE, HALF_FLOAT),
+        checkRenderTargetSupport(
+          gl,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          undefined,
+          console.log,
+        ),
       ),
     ),
-    compute('float32 render textures', () =>
-      parseCombos(checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT, HALF_FLOAT)),
-    ),
-    ...(webgl2
-      ? []
-      : [
-          compute('float16 render textures', () =>
-            parseCombos(
-              checkRenderTargetSupport(gl, gl.RGBA, HALF_FLOAT, HALF_FLOAT),
+    compute('float16 render textures', () =>
+      parseCombos(
+        glHalfFloat
+          ? checkRenderTargetSupport(
+              gl,
+              gl.RGBA,
+              glHalfFloat.HALF_FLOAT_OES,
+              glHalfFloat.HALF_FLOAT_OES,
+              console.log,
+            )
+          : checkRenderTargetSupport(
+              gl,
+              gl.RGBA,
+              gl2HalfFloat,
+              gl2HalfFloat,
+              console.log,
             ),
-          ),
-        ]),
+      ),
+    ),
+
+    compute('float32 render textures', () =>
+      parseCombos(
+        checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT, undefined, console.log),
+      ),
+    ),
   ];
 }

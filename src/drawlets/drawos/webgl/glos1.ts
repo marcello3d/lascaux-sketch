@@ -32,7 +32,6 @@ import { lineShader } from './glsl/line';
 import { rectShader } from './glsl/rect';
 import { PromiseOrValue, then } from 'promise-or-value';
 import { waitAll } from '../../util/promise-or-value';
-import { float32ArrayToUint16Array } from './float16';
 
 function makeTextureVertexArray(
   x1: number,
@@ -110,7 +109,6 @@ export class GlOS1 implements DrawOs {
   private readonly _frameBufferBits: number;
 
   private readonly _readBuffer: TypedArray;
-  private readonly _writeBuffer: TypedArray | undefined;
 
   constructor(dna: Dna, scale: number = 1, tileSize: number = 64) {
     this.dna = dna;
@@ -159,6 +157,7 @@ export class GlOS1 implements DrawOs {
 
     this.gl = gl;
 
+    console.log(`[WEBGL] Checking capabilities...`);
     this._WEBGL_color_buffer_float = gl.getExtension(
       'WEBGL_color_buffer_float',
     );
@@ -172,10 +171,8 @@ export class GlOS1 implements DrawOs {
       checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT);
     if (
       Array.isArray(floatCombos) &&
-      gl.getExtension('OES_texture_float_linear') &&
-      this._WEBGL_color_buffer_float
+      gl.getExtension('OES_texture_float_linear')
     ) {
-      console.log('using full float RGBA textures');
       this._frameBufferType = gl.FLOAT;
       this._frameBufferInfo = floatCombos[0];
     } else {
@@ -193,7 +190,6 @@ export class GlOS1 implements DrawOs {
         Array.isArray(halfFloatCombos) &&
         gl.getExtension('OES_texture_half_float_linear')
       ) {
-        console.log('using half float RGBA textures');
         this._frameBufferType = this._OES_texture_half_float.HALF_FLOAT_OES;
         this._frameBufferInfo = halfFloatCombos[0];
       } else {
@@ -203,7 +199,6 @@ export class GlOS1 implements DrawOs {
           gl.UNSIGNED_BYTE,
         );
         if (Array.isArray(byteCombo)) {
-          console.log('using unsigned byte RGBA textures');
           this._frameBufferType = gl.UNSIGNED_BYTE;
           this._frameBufferInfo = byteCombo[0];
         } else {
@@ -211,16 +206,18 @@ export class GlOS1 implements DrawOs {
         }
       }
     }
-    this._readBuffer = new this._frameBufferInfo.readArray(
-      pixelWidth * pixelHeight * 4,
-    );
-    this._writeBuffer =
-      this._frameBufferInfo.readArray !== this._frameBufferInfo.writeArray
-        ? new this._frameBufferInfo.writeArray(pixelWidth * pixelHeight * 4)
-        : undefined;
+    const {
+      ReadTypedArray,
+      WriteTypedArray,
+      readTypeName,
+      writeTypeName,
+    } = this._frameBufferInfo;
+    this._readBuffer = new ReadTypedArray(pixelWidth * pixelHeight * 4);
+    this._frameBufferBits = new WriteTypedArray(1).BYTES_PER_ELEMENT * 8 * 4;
 
-    this._frameBufferBits =
-      (this._writeBuffer ?? this._readBuffer).BYTES_PER_ELEMENT * 8 * 4;
+    console.log(
+      `[WEBGL] Using ${writeTypeName} RGBA textures (${readTypeName} read)`,
+    );
 
     gl.enable(gl.BLEND);
     // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -363,13 +360,12 @@ export class GlOS1 implements DrawOs {
       tileSize,
       _tiles,
       _readBuffer,
-      _writeBuffer,
       _layers,
       _frameBufferInfo,
       gl,
     } = this;
-    const { writeArray, readTypeInt } = _frameBufferInfo;
-    const { length: layerCount } = _layers;
+    const { WriteTypedArray, glReadType } = _frameBufferInfo;
+    const layerCount = _layers.length;
     let changedTiles = 0;
     for (let layer = 0; layer < layerCount; layer++) {
       const { changed } = _layers[layer];
@@ -382,25 +378,17 @@ export class GlOS1 implements DrawOs {
       const width = maxX - minX;
       const height = maxY - minY;
       const start1 = Date.now();
+
       let pixels = _readBuffer.subarray(0, width * height * 4);
-      gl.readPixels(minX, minY, width, height, gl.RGBA, readTypeInt, pixels);
+      gl.readPixels(minX, minY, width, height, gl.RGBA, glReadType, pixels);
       console.log(`get pixels in ${Date.now() - start1} ms`);
-      // if (
-      //   pixels instanceof Float32Array &&
-      //   _writeBuffer instanceof Uint16Array
-      // ) {
-      //   pixels = float32ArrayToUint16Array(
-      //     pixels,
-      //     _writeBuffer.subarray(0, pixels.length),
-      //   );
-      //   console.log(`get and convert pixels in ${Date.now() - start1} ms`);
-      // }
+
       const savedBuffer = { pixels, width, height };
       for (const key of tileKeys) {
         const [x, y] = tiles[key];
         const tile = copyRgbaPixels(
           savedBuffer,
-          writeArray,
+          WriteTypedArray,
           x - minX,
           y - minY,
           tileSize,
@@ -541,7 +529,7 @@ export class GlOS1 implements DrawOs {
       width,
       height,
       gl.RGBA,
-      this._frameBufferInfo.writeTypeInt,
+      this._frameBufferInfo.glWriteType,
       pixels,
     );
   }
@@ -878,7 +866,7 @@ export class GlOS1 implements DrawOs {
     }
   }
   getInfo(): string {
-    return `WebGL ${this._frameBufferInfo.writeType} (${
+    return `WebGL ${this._frameBufferInfo.writeTypeName} (${
       this._frameBufferBits
     } bit): ${this.pixelWidth}x${this.pixelHeight} (${
       Object.keys(this._tiles).length

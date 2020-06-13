@@ -198,12 +198,12 @@ export type TypedArrayConstructor = {
 };
 
 export type FrameBufferInfo = {
-  readArray: TypedArrayConstructor;
-  readType: string;
-  readTypeInt: GLint;
-  writeArray: TypedArrayConstructor;
-  writeType: string;
-  writeTypeInt: GLint;
+  ReadTypedArray: TypedArrayConstructor;
+  readTypeName: string;
+  glReadType: GLint;
+  WriteTypedArray: TypedArrayConstructor;
+  writeTypeName: string;
+  glWriteType: GLint;
 };
 
 export function checkRenderTargetSupport(
@@ -211,25 +211,31 @@ export function checkRenderTargetSupport(
   format: GLenum,
   type: GLenum,
   halfFloatType?: GLint,
+  log?: (message: string) => void,
 ): string | FrameBufferInfo[] {
-  if (hasError(gl)) {
-    return 'error-before-test';
+  const existingError = getErrorString(gl);
+  if (existingError) {
+    return `error-before-test:${existingError}`;
   }
   // create temporary frame buffer and texture
   const framebuffer = gl.createFramebuffer();
   if (!framebuffer) {
-    return 'no-create-framebuffer';
+    return 'createFramebuffer:null';
   }
   try {
     const texture = gl.createTexture();
     if (!texture) {
-      return 'no-create-texture';
+      return 'createTexture:null';
     }
     try {
       const width = 4;
       const height = 4;
 
       gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texImage2D(
         gl.TEXTURE_2D,
         0,
@@ -242,6 +248,11 @@ export function checkRenderTargetSupport(
         null,
       );
 
+      const texImage2D = getErrorString(gl);
+      if (texImage2D) {
+        return `texImage2D:${texImage2D}`;
+      }
+
       gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
       gl.framebufferTexture2D(
         gl.FRAMEBUFFER,
@@ -251,8 +262,9 @@ export function checkRenderTargetSupport(
         0,
       );
 
-      if (hasError(gl)) {
-        return 'framebuffer-error';
+      const framebufferError = getErrorString(gl);
+      if (framebufferError) {
+        return `framebufferTexture2D:${framebufferError}`;
       }
 
       // check frame buffer status
@@ -271,23 +283,18 @@ export function checkRenderTargetSupport(
 
       const types: [TypedArrayConstructor, number, string][] = [
         [Uint8Array, gl.UNSIGNED_BYTE, 'uint8'],
-        [Uint16Array, gl.UNSIGNED_SHORT, 'uint16'],
-        // [Uint32Array, gl.UNSIGNED_INT, 'uint32'],
       ];
-      if (halfFloatType) {
-        types.push(
-          [Uint16Array, halfFloatType, 'float16'],
-          [Float32Array, halfFloatType, 'float32'],
-        );
+      if (type === halfFloatType || type === gl.UNSIGNED_SHORT) {
+        types.push([Uint16Array, gl.UNSIGNED_SHORT, 'uint16']);
       }
-      types.push(
-        [Float32Array, gl.FLOAT, 'float32'],
-        // [Float64Array, gl.FLOAT, 'float64'],
-      );
+      if (type === halfFloatType) {
+        types.push([Uint16Array, halfFloatType, 'float16']);
+      }
+      types.push([Float32Array, gl.FLOAT, 'float32']);
 
       const combos: FrameBufferInfo[] = [];
       for (const [WritableType, writeTypeInt, writeType] of types) {
-        console.log(`Testing write to ${WritableType.name}...`);
+        log?.(`Testing write to ${WritableType.name}...`);
         const writePixels = new WritableType(width * height * 4);
         if (
           writePixels instanceof Float32Array ||
@@ -301,10 +308,6 @@ export function checkRenderTargetSupport(
             writePixels[i] = sourcePixels[i] * 255;
           }
         }
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texSubImage2D(
           gl.TEXTURE_2D,
           0,
@@ -316,26 +319,31 @@ export function checkRenderTargetSupport(
           writeTypeInt,
           writePixels,
         );
-        if (getErrorString(gl)) {
+        const texSubImage2DError = getErrorString(gl);
+        if (texSubImage2DError) {
+          log?.(
+            `Cannot write to ${writeType}, texSubImage2D got ${texSubImage2DError}`,
+          );
           continue;
         }
-        console.log('write', writePixels);
         for (const [ReadableType, readTypeInt, readType] of types) {
-          console.log(`Testing read to ${ReadableType.name}...`);
+          log?.(`Testing read to ${ReadableType.name}...`);
 
           let readPixels = new ReadableType(width * height * 4);
           gl.readPixels(0, 0, width, height, format, readTypeInt, readPixels);
-          if (getErrorString(gl)) {
+          const readPixelsError = getErrorString(gl);
+          if (readPixelsError) {
+            log?.(
+              `Cannot read to ${readType}, readPixels got ${readPixelsError}`,
+            );
             continue;
           }
 
-          console.log('read ' + readType, readPixels);
           if (
             readPixels instanceof Float32Array &&
             writePixels instanceof Uint16Array
           ) {
             readPixels = float32ArrayToUint16Array(readPixels);
-            console.log('read ->float16', readPixels);
           }
           let ok = true;
           for (let i = 0; i < readPixels.length; i++) {
@@ -348,12 +356,12 @@ export function checkRenderTargetSupport(
           }
           if (ok) {
             combos.push({
-              readArray: ReadableType,
-              readType,
-              readTypeInt,
-              writeArray: WritableType,
-              writeType,
-              writeTypeInt,
+              ReadTypedArray: ReadableType,
+              readTypeName: readType,
+              glReadType: readTypeInt,
+              WriteTypedArray: WritableType,
+              writeTypeName: writeType,
+              glWriteType: writeTypeInt,
             });
           }
         }
