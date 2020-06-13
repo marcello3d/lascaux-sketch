@@ -263,9 +263,9 @@ export function checkRenderTargetSupport(
 
       const sourcePixels = new Float32Array(width * height * 4);
       for (let i = 0; i < sourcePixels.length; ) {
-        sourcePixels[i++] = 0.75;
-        sourcePixels[i++] = 0.5;
-        sourcePixels[i++] = 0.25;
+        sourcePixels[i++] = i / sourcePixels.length;
+        sourcePixels[i++] = (0.5 * i) / sourcePixels.length;
+        sourcePixels[i++] = (0.25 * i) / sourcePixels.length;
         sourcePixels[i++] = 1;
       }
 
@@ -273,17 +273,17 @@ export function checkRenderTargetSupport(
         [Uint8Array, gl.UNSIGNED_BYTE, 'uint8'],
         [Uint16Array, gl.UNSIGNED_SHORT, 'uint16'],
         // [Uint32Array, gl.UNSIGNED_INT, 'uint32'],
-        [Float32Array, gl.FLOAT, 'float32'],
-        // [Float64Array, gl.FLOAT, 'float64'],
       ];
       if (halfFloatType) {
-        types.splice(
-          3,
-          0,
+        types.push(
           [Uint16Array, halfFloatType, 'float16'],
           [Float32Array, halfFloatType, 'float32'],
         );
       }
+      types.push(
+        [Float32Array, gl.FLOAT, 'float32'],
+        // [Float64Array, gl.FLOAT, 'float64'],
+      );
 
       const combos: FrameBufferInfo[] = [];
       for (const [WritableType, writeTypeInt, writeType] of types) {
@@ -319,30 +319,28 @@ export function checkRenderTargetSupport(
         if (getErrorString(gl)) {
           continue;
         }
-
+        console.log('write', writePixels);
         for (const [ReadableType, readTypeInt, readType] of types) {
-          console.log(`Testing read to ${WritableType.name}...`);
+          console.log(`Testing read to ${ReadableType.name}...`);
 
-          const readPixels = new ReadableType(width * height * 4);
+          let readPixels = new ReadableType(width * height * 4);
           gl.readPixels(0, 0, width, height, format, readTypeInt, readPixels);
           if (getErrorString(gl)) {
             continue;
+          }
+
+          console.log('read ' + readType, readPixels);
+          if (
+            readPixels instanceof Float32Array &&
+            writePixels instanceof Uint16Array
+          ) {
+            readPixels = float32ArrayToUint16Array(readPixels);
+            console.log('read ->float16', readPixels);
           }
           let ok = true;
           for (let i = 0; i < readPixels.length; i++) {
             let readPix = readPixels[i];
             let writePix = writePixels[i];
-            if (
-              readPixels instanceof Float32Array &&
-              writePixels instanceof Uint16Array
-            ) {
-              readPix = toHalf(readPixels[i]);
-            } else if (
-              writePixels instanceof Float32Array &&
-              readPixels instanceof Uint16Array
-            ) {
-              writePix = toHalf(writePixels[i]);
-            }
             if (readPix !== writePix) {
               ok = false;
               break;

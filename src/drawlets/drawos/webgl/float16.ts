@@ -12,12 +12,13 @@ export function toHalf(val: number) {
 
 export function float32ArrayToUint16Array(
   src: Float32Array,
-  dest: Uint16Array,
-) {
+  dest: Uint16Array = new Uint16Array(src.length),
+): Uint16Array {
   const srcAsInts = new Int32Array(src.buffer);
   for (let i = 0; i < src.length; i++) {
     dest[i] = toHalfFloat(src, srcAsInts, i);
   }
+  return dest;
 }
 function toHalfFloat(src: Float32Array, int32View: Int32Array, index: number) {
   var x = int32View[index];

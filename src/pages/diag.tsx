@@ -419,9 +419,9 @@ function computeWebglSupport(webgl2: boolean): Row[] {
     }
     return combo
       .map(({ readArray, readType, writeArray, writeType }) =>
-        readArray === writeArray
-          ? `read/write:${readArray.name}`
-          : `read:${readArray.name}+write:${writeArray.name}`,
+        readArray === writeArray && readType === writeType
+          ? `read/write:${readArray.name}(${readType})`
+          : `read:${readArray.name}(${readType})+write:${writeArray.name}(${writeType})`,
       )
       .join(', ');
   }
