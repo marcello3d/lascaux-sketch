@@ -81,7 +81,7 @@ export default class DrawingModel<
     initializeCommand,
     handleCommand,
     metadata,
-    snapshotStrokeCount = 1000,
+    snapshotStrokeCount = 5000,
   }: {
     dna: DrawletDna;
     editable: boolean;
