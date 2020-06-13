@@ -385,10 +385,13 @@ export class GlOS1 implements DrawOs {
       let pixels = _readBuffer.subarray(0, width * height * 4);
       gl.readPixels(minX, minY, width, height, gl.RGBA, readTypeInt, pixels);
       if (
-        _readBuffer instanceof Float32Array &&
+        pixels instanceof Float32Array &&
         _writeBuffer instanceof Uint16Array
       ) {
-        pixels = float32ArrayToUint16Array(_readBuffer, _writeBuffer);
+        pixels = float32ArrayToUint16Array(
+          pixels,
+          _writeBuffer.subarray(0, pixels.length),
+        );
       }
       const savedBuffer = { pixels, width, height };
       console.log(`get pixels in ${Date.now() - start1} ms`);
