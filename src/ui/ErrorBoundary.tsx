@@ -1,29 +1,31 @@
 import React, { ErrorInfo } from 'react';
+import * as Sentry from '@sentry/browser';
 
-type Props = { children: React.ReactNode };
-type State = { error?: Error };
+type Props = {
+  fallback: (error: Error) => React.ReactNode;
+  children: React.ReactNode;
+};
+type State = {
+  error?: Error;
+};
 
 export class ErrorBoundary extends React.Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = {};
-  }
+  state: State = {};
 
   static getDerivedStateFromError(error: Error) {
-    // Update state so the next render will show the fallback UI.
-    return { hasError: error };
+    return { error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error(`Got error: `, error);
+    // You can also log the error to an error reporting service
+    console.error(error, errorInfo);
+    Sentry.captureException(error);
   }
-
   render() {
     const { error } = this.state;
     if (error) {
-      return <h1>Something went wrong! ${error.message}</h1>;
+      return this.props.fallback(error);
     }
-
     return this.props.children;
   }
 }

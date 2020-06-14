@@ -14,13 +14,16 @@ type DrawingPageProps = { drawingId?: string } & RouteComponentProps;
 export function DrawingPage(props: DrawingPageProps) {
   const { drawingId } = props;
   const drawing = useDexieItem(db.drawings, drawingId);
-  if (!drawingId || !drawing) {
+  if (!drawing) {
     return <NotFoundPage {...props} />;
   }
-  const drawingModel = getOrMakeDrawingModel(drawingId, () =>
-    makeFiverModel(drawing.dna as FiverDna, new DexieStorageModel(drawingId)),
+  const { dna, id } = drawing;
+  const drawingModel = getOrMakeDrawingModel(id, () =>
+    makeFiverModel(dna as FiverDna, new DexieStorageModel(id)).catch(
+      (error) => error,
+    ),
   );
-  if (drawingModel instanceof Promise) {
+  if (drawingModel instanceof Error || drawingModel instanceof Promise) {
     throw drawingModel;
   }
   return <DrawletApp drawingModel={drawingModel} />;
