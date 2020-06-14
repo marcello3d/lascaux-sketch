@@ -7,6 +7,8 @@ import { NotFoundPage } from './pages/404';
 import { IndexPage } from './pages';
 import { DrawingPage } from './pages/drawing';
 import { LoadingPage } from './pages/loading';
+import { ErrorBoundary } from './ui/ErrorBoundary';
+import { InternalErrorPage } from './pages/500';
 
 const LazyDiag = React.lazy(() => import('./pages/diag'));
 const Diag = (_: RouteComponentProps) => <LazyDiag />;
@@ -27,14 +29,22 @@ export function App() {
         <Link to="/">Lascaux Sketch 2</Link> by{' '}
         <a href="https://marcello.cellosoft.com/">marcello</a>
       </header>
-      <Suspense fallback={<LoadingPage />}>
-        <Router className={styles.main}>
-          <Diag path="diag" />
-          <IndexPage path="/" />
-          <DrawingPage path="drawings/:drawingId" />
-          <NotFoundPage default />
-        </Router>
-      </Suspense>
+      <ErrorBoundary
+        fallback={(error) => (
+          <div className={styles.main}>
+            <InternalErrorPage error={error} />
+          </div>
+        )}
+      >
+        <Suspense fallback={<LoadingPage />}>
+          <Router className={styles.main}>
+            <Diag path="diag" />
+            <IndexPage path="/" />
+            <DrawingPage path="drawings/:drawingId" />
+            <NotFoundPage default />
+          </Router>
+        </Suspense>
+      </ErrorBoundary>
     </div>
   );
 }
