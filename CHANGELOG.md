@@ -1,5 +1,12 @@
 # Changelog
 
+## 2020-06-14
+### Added
+- Version to header
+
+### Changed
+- Reorganized git repo/deployment configuration 
+
 ## 2020-06-13
 ### Added
 - Support for float16 (if float32 is not available)
