@@ -39,7 +39,7 @@ export function App() {
           </a>{' '}
           (
           <a
-            href={`https://github.com/marcello3d/lascaux-sketch/branch/${process.env.REACT_APP_GIT_SHA}`}
+            href={`https://github.com/marcello3d/lascaux-sketch/tree/${process.env.REACT_APP_GIT_BRANCH}`}
           >
             {process.env.REACT_APP_GIT_BRANCH}
           </a>
