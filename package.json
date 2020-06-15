@@ -37,7 +37,6 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "now-build": "REACT_APP_GIT_SHA=$VERCEL_GITHUB_COMMIT_SHA REACT_APP_GIT_BRANCH=$VERCEL_GITHUB_COMMIT_REF yarn build",
     "postinstall": "patch-package"
   },
   "husky": {
