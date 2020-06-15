@@ -1,0 +1,48 @@
+{
+  "version": 2,
+  "name": "lascaux-studio",
+  "alias": "lascaux.studio",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@now/static-build",
+      "config": { "distDir": "build" }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/static/(.*)",
+      "headers": {
+        "cache-control": "max-age=31536000,s-maxage=31536000,immutable"
+      },
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/favicon.ico",
+      "headers": { "cache-control": "max-age=3600,s-maxage=3600" },
+      "dest": "/favicon.ico"
+    },
+    {
+      "src": "/icon.png",
+      "headers": { "cache-control": "max-age=3600,s-maxage=3600" },
+      "dest": "/icon.png"
+    },
+    {
+      "src": "/asset-manifest.json",
+      "dest": "/asset-manifest.json"
+    },
+    {
+      "src": "/manifest.json",
+      "dest": "/manifest.json"
+    },
+    {
+      "src": "/precache-manifest.(.*)",
+      "dest": "/precache-manifest.$1"
+    },
+    {
+      "src": "/(.*)",
+      "headers": { "cache-control": "s-maxage=0" },
+      "dest": "/index.html"
+    }
+  ]
+}
