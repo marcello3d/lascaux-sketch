@@ -1,7 +1,5 @@
 {
   "version": 2,
-  "name": "lascaux-studio",
-  "alias": "lascaux.studio",
   "builds": [
     {
       "src": "package.json",
