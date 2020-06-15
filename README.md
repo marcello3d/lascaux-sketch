@@ -15,3 +15,10 @@ used on [2draw.net](https://2draw.net/). This is a new version built from the gr
 - Saves in browser local storage
 - Full animation history saved and can be played back
 
+# License
+
+Code license TBD
+
+Lascaux Sketch logo and name cannot to be used without permission.
+
+Some icons are licensed from Fontawesome and cannot be redistributed without a license. 
