@@ -8,6 +8,9 @@ import * as Sentry from '@sentry/browser';
 
 if (process.env.NODE_ENV === 'production') {
   Sentry.init({
+    release: process.env.REACT_APP_GIT_SHA,
+    environment:
+      process.env.REACT_APP_GIT_BRANCH === 'latest' ? 'release' : 'other',
     dsn:
       'https://b5811d5fb3a94236942d6fb80fac2534@o40943.ingest.sentry.io/5267706',
   });

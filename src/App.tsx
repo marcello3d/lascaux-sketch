@@ -26,8 +26,25 @@ export function App() {
   return (
     <div className={styles.root} style={size}>
       <header className={styles.head}>
-        <Link to="/">Lascaux Sketch 2</Link> by{' '}
-        <a href="https://marcello.cellosoft.com/">marcello</a>
+        <div className={styles.logo}>
+          <Link to="/">Lascaux Sketch 2</Link> by{' '}
+          <a href="https://marcello.cellosoft.com/">marcello</a>
+        </div>
+        <div className={styles.version}>
+          build{' '}
+          <a
+            href={`https://github.com/marcello3d/lascaux-sketch/commit/${process.env.REACT_APP_GIT_SHA}`}
+          >
+            {(process.env.REACT_APP_GIT_SHA ?? 'unknown').slice(0, 8)}
+          </a>{' '}
+          (
+          <a
+            href={`https://github.com/marcello3d/lascaux-sketch/tree/${process.env.REACT_APP_GIT_BRANCH}`}
+          >
+            {process.env.REACT_APP_GIT_BRANCH}
+          </a>
+          )
+        </div>
       </header>
       <ErrorBoundary
         fallback={(error) => (
