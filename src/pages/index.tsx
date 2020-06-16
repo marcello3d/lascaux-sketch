@@ -1,5 +1,4 @@
 import React, { Suspense, useMemo } from 'react';
-import { Link, RouteComponentProps } from '@reach/router';
 
 import styles from './page.module.css';
 import LascauxLogoPath from './lascaux-logo.jpg';
