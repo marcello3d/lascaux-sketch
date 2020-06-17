@@ -17,7 +17,7 @@ import { FiverMode } from './drawlets/fiver/fiver';
 import { Button } from './ui/Button';
 import useEventEffect from './react-hooks/useEventEffect';
 import { Layout } from './ui/Layout';
-import { Header } from './ui/header';
+import { Header } from './ui/Header';
 import FileDownloadIcon from './icons/fa/file-download.svg';
 import { Icon } from './ui/Icon';
 import { downloadFile, filenameDate } from './ui/download';

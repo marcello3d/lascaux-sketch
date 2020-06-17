@@ -1,4 +1,4 @@
-import styles from './header.module.css';
+import styles from './Header.module.css';
 import { Link } from '@reach/router';
 import React from 'react';
 

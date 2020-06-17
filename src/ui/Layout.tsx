@@ -1,5 +1,5 @@
 import styles from './Layout.module.css';
-import { Header } from './header';
+import { Header } from './Header';
 import React, { useMemo } from 'react';
 import classNames from 'classnames';
 
