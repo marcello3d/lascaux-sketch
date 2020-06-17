@@ -1,5 +1,10 @@
 # Changelog
 
+## 2020-06-16
+### Added
+- Save PNG button
+- Changelog to homepage
+
 ## 2020-06-14
 ### Added
 - Version to header

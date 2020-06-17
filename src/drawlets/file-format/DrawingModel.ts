@@ -296,6 +296,10 @@ export class CanvasModel<
     return this._drawos.getDom();
   }
 
+  getPng(): Promise<Blob> {
+    return this._drawos.getPng();
+  }
+
   setTransform(translateX: number, translateY: number, scale: number): void {
     this._drawos.setTransform(translateX, translateY, scale);
   }

@@ -122,6 +122,7 @@ export type Snap = {
 export interface DrawOs {
   initialize(): void;
   getSnapshot(): Snap;
+  getPng(): Promise<Blob>;
   getDrawingContext(): DrawingContext;
   loadSnapshot(snapshot: Snapshot, getLink: GetLinkFn): PromiseOrValue<void>;
   getDom(): HTMLCanvasElement;
@@ -163,6 +164,7 @@ export type UpdateObject<Mode extends object> = {
 export type DrawletInstance<Mode extends object> = {
   dom: HTMLElement;
   getUpdateObject(): UpdateObject<Mode>;
+  getPng(): Promise<Blob>;
   flush(): void;
   setMode(mode: string, value: any): void;
   setScale(scale: number): void;

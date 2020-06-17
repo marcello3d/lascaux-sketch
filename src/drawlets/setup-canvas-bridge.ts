@@ -160,6 +160,10 @@ export default function setupHtmlCanvasBridge<
       return drawingModel.flush();
     },
 
+    getPng(): Promise<Blob> {
+      return canvas.getPng();
+    },
+
     setMode(mode: string, value: any) {
       addStroke(`%${mode}`, value);
     },
