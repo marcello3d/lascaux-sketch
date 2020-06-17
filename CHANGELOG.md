@@ -2,7 +2,7 @@
 
 ## 2020-06-16
 ### Added
-- Save PNG button (known bug: Safari saves upside down)
+- Save PNG button
 
 ## 2020-06-14
 ### Added
