@@ -108,8 +108,6 @@ export class GlOS1 implements DrawOs {
   private readonly _frameBufferInfo: FrameBufferInfo;
   private readonly _frameBufferBits: number;
 
-  private readonly flipForSafari: boolean;
-
   private readonly _readBuffer: TypedArray;
 
   constructor(dna: Dna, scale: number = 1, tileSize: number = 64) {
