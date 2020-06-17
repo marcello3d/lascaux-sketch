@@ -1,5 +1,6 @@
 import React, { Suspense, useMemo } from 'react';
 import { Link, RouteComponentProps } from '@reach/router';
+import raw from 'raw.macro';
 
 import styles from './page.module.css';
 import LascauxLogoPath from './lascaux-logo.jpg';
@@ -10,6 +11,8 @@ import { newDate, newId } from '../db/fields';
 import { useDexieArray } from '../db/useDexie';
 import { newDna } from '../drawlets/fiver/fiver';
 import { Layout } from '../ui/Layout';
+
+const changelog = raw('../../CHANGELOG.md');
 
 const sortedDrawings = db.drawings.orderBy('createdAt').reverse();
 function Drawings() {
@@ -84,6 +87,8 @@ export function IndexPage(props: RouteComponentProps) {
           Check out <Link to="/diag">diagnostics</Link> to see how Lascaux
           Sketch handles your input device (tablet/mouse/touch screen)
         </p>
+        <h2>Changelog</h2>
+        <pre>{changelog}</pre>
       </div>
     </Layout>
   );
