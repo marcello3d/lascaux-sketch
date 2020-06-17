@@ -9,6 +9,7 @@ import {
   FrameBufferInfo,
 } from '../drawlets/drawos/webgl/util';
 import produce from 'immer';
+import { Layout } from '../ui/Layout';
 
 type PointerData = {
   types: Record<string, boolean>;
@@ -297,7 +298,7 @@ export default function Diag() {
     [dataRows],
   );
   return (
-    <div className={styles.root}>
+    <Layout className={styles.root}>
       <h1>Diagnostics</h1>
       <h2>System</h2>
       <div>
@@ -322,7 +323,7 @@ export default function Diag() {
       <Table rows={webgl} />
       <h2>WebGL 2</h2>
       <Table rows={webgl2} />
-    </div>
+    </Layout>
   );
 }
 

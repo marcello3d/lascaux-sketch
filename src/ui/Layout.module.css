@@ -1,0 +1,22 @@
+.root {
+  width: 100vw;
+  height: var(--app-height);
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'header'
+    'main';
+  background: #444;
+}
+
+.main {
+  grid-area: main;
+  flex-grow: 1;
+  background: #fff;
+  color: #000;
+}
+.main p {
+  line-height: 1.5;
+  margin: .5em 0;
+}

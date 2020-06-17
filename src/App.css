@@ -19,47 +19,6 @@ body {
   box-sizing: border-box;
 }
 
-.root {
-  width: 100vw;
-  height: var(--app-height);
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr;
-  grid-template-areas:
-    'header'
-    'main';
-  background: #444;
-}
-
-.head {
-  grid-area: header;
-  color: #eee;
-  padding: 15px 10px 10px;
-  font-size: 20px;
-  display: flex;
-}
-.head a {
-  color: #fff;
-}
-.logo {
-  flex-grow: 1;
-}
-.version {
-  font-size: 14px;
-}
-
-.main {
-  grid-area: main;
-  background: #fff;
-  color: #000;
-  display: flex;
-  overflow: auto;
-}
-.main p {
-  line-height: 1.5;
-  margin: .5em 0;
-}
-
 h1,h2,h3 {
   margin: 0;
   font-weight: 400;
@@ -77,6 +36,10 @@ button {
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
   margin: 2px;
   vertical-align: middle;
+  outline: none;
+}
+button:active {
+  opacity: 0.8;
 }
 
 a {

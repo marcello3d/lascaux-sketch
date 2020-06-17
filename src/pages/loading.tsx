@@ -1,9 +1,10 @@
 import styles from './loading.module.css';
 import React from 'react';
+import { Layout } from '../ui/Layout';
 
 export function LoadingPage() {
   return (
-    <div className={styles.root}>
+    <Layout className={styles.root}>
       <div className={styles['sk-cube-grid']}>
         <div />
         <div />
@@ -16,6 +17,6 @@ export function LoadingPage() {
         <div />
       </div>
       <div>Loading…</div>
-    </div>
+    </Layout>
   );
 }

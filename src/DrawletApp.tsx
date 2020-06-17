@@ -1,5 +1,4 @@
 import React, {
-  ChangeEvent,
   useCallback,
   useLayoutEffect,
   useMemo,
@@ -17,6 +16,11 @@ import { DrawletInstance, UpdateObject } from './drawlets/Drawlet';
 import { FiverMode } from './drawlets/fiver/fiver';
 import { Button } from './ui/Button';
 import useEventEffect from './react-hooks/useEventEffect';
+import { Layout } from './ui/Layout';
+import { Header } from './ui/header';
+import FileDownloadIcon from './icons/fa/file-download.svg';
+import { Icon } from './ui/Icon';
+import { downloadFile, filenameDate } from './ui/download';
 
 const colors: readonly string[] = [
   '#ffffff', // white
@@ -80,6 +84,12 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
   useLayoutEffect(() => canvasInstance.subscribe(), [canvasInstance]);
 
   useAppendChild(drawletContainerRef, drawingModel.editCanvas.dom);
+
+  const downloadPng = useCallback(() => {
+    canvasInstance.getPng().then((blob) => {
+      downloadFile(blob, `Lascaux Sketch ${filenameDate()}.png`);
+    });
+  }, [canvasInstance]);
 
   const [brushSize, setTempBrushSize, setBrushSize] = useUpdateMode(
     canvasInstance,
@@ -249,7 +259,17 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
     [canvasInstance],
   );
   return (
-    <div className={styles.root}>
+    <Layout
+      header={
+        <Header>
+          <button onClick={downloadPng}>
+            <Icon file={FileDownloadIcon} alt="download" />
+            Save PNG
+          </button>
+        </Header>
+      }
+      className={styles.root}
+    >
       <div className={styles.tools}>
         <Button disabled={updateObject.strokeCount === 0} onClick={togglePlay}>
           {updateObject.playing ? 'Pause' : 'Play'}
@@ -324,6 +344,6 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
       />
       <div className={styles.right} />
       <div className={styles.status} />
-    </div>
+    </Layout>
   );
 }

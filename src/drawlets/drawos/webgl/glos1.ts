@@ -127,18 +127,8 @@ export class GlOS1 implements DrawOs {
     canvas.style.left = '0';
     canvas.style.top = '0';
 
-    const resizeCanvas = () => {
-      const screenWidth = document.documentElement.clientWidth;
-      const screenHeight = document.documentElement.clientHeight;
-      canvas.style.width = screenWidth + 'px';
-      canvas.style.height = screenHeight + 'px';
-
-      this.pixelRatio = window.devicePixelRatio;
-      canvas.width = screenWidth * this.pixelRatio;
-      canvas.height = screenHeight * this.pixelRatio;
-    };
-
-    resizeCanvas();
+    this.canvas = canvas;
+    this.sizeCanvasToWindow();
 
     const gl = canvas.getContext('webgl', {
       preserveDrawingBuffer: true,
@@ -152,8 +142,6 @@ export class GlOS1 implements DrawOs {
     if (!gl) {
       throw new Error('Cannot init webgl');
     }
-
-    this.canvas = canvas;
 
     this.gl = gl;
 
@@ -237,15 +225,8 @@ export class GlOS1 implements DrawOs {
     this._mainProgram = this._createMainGlProgram(gl);
     const updateCanvasAndGl = () => {
       requestAnimationFrame(() => {
-        resizeCanvas();
-        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-        this._programManager.use(this._mainProgram);
-        setViewportMatrix(
-          gl,
-          this._mainProgram.uniforms.uMVMatrix,
-          gl.drawingBufferWidth / this.pixelRatio,
-          gl.drawingBufferHeight / this.pixelRatio,
-        );
+        this.sizeCanvasToWindow();
+        this.updateViewport();
         this._redraw();
       });
     };
@@ -284,6 +265,29 @@ export class GlOS1 implements DrawOs {
     updateCanvasAndGl();
 
     checkError(gl);
+  }
+
+  private updateViewport(pixelRatio = this.pixelRatio) {
+    const { gl } = this;
+    this._programManager.use(this._mainProgram);
+    setViewportMatrix(
+      gl,
+      this._mainProgram.uniforms.uMVMatrix,
+      gl.drawingBufferWidth / pixelRatio,
+      gl.drawingBufferHeight / pixelRatio,
+    );
+  }
+
+  sizeCanvasToWindow() {
+    const { canvas } = this;
+    const screenWidth = document.documentElement.clientWidth;
+    const screenHeight = document.documentElement.clientHeight;
+    canvas.style.width = screenWidth + 'px';
+    canvas.style.height = screenHeight + 'px';
+
+    this.pixelRatio = window.devicePixelRatio;
+    canvas.width = screenWidth * this.pixelRatio;
+    canvas.height = screenHeight * this.pixelRatio;
   }
 
   initialize(): void {
@@ -351,6 +355,32 @@ export class GlOS1 implements DrawOs {
         _tiles[key] = { layer, x, y, link: null };
       }
     }
+  }
+
+  getPng(): Promise<Blob> {
+    const { canvas, _mainTextureVertexArray, pixelWidth, pixelHeight } = this;
+    canvas.width = pixelWidth;
+    canvas.height = pixelHeight;
+    this._mainTextureVertexArray = makeTextureVertexArray(
+      0,
+      0,
+      pixelWidth,
+      pixelHeight,
+    );
+    this.updateViewport(1);
+    this._redraw();
+    return new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, 'image/png');
+    }).then((blob) => {
+      this._mainTextureVertexArray = _mainTextureVertexArray;
+      this.sizeCanvasToWindow();
+      this.updateViewport();
+      this._redraw();
+      if (blob === null) {
+        throw new Error('Could not get image');
+      }
+      return blob;
+    });
   }
 
   getSnapshot(): Snap {

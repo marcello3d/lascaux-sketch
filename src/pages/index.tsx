@@ -9,6 +9,7 @@ import { db } from '../db/db';
 import { newDate, newId } from '../db/fields';
 import { useDexieArray } from '../db/useDexie';
 import { newDna } from '../drawlets/fiver/fiver';
+import { Layout } from '../ui/Layout';
 
 const sortedDrawings = db.drawings.orderBy('createdAt').reverse();
 function Drawings() {
@@ -49,7 +50,7 @@ export function IndexPage(props: RouteComponentProps) {
   };
 
   return (
-    <div className={styles.root}>
+    <Layout className={styles.root}>
       <div className={styles.column}>
         <h2>Local Drawings</h2>
         <p>Drawings are saved in your browser's local storage.</p>
@@ -84,6 +85,6 @@ export function IndexPage(props: RouteComponentProps) {
           Sketch handles your input device (tablet/mouse/touch screen)
         </p>
       </div>
-    </div>
+    </Layout>
   );
 }
