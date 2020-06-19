@@ -1,4 +1,5 @@
-import { createProgram, getOrThrow } from './util';
+import { createProgram } from './gl-program';
+import { getOrThrow } from './gl-errors';
 
 export class ShaderDescription<
   AttributeKey extends string,

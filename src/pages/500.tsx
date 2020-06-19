@@ -12,7 +12,7 @@ export function InternalErrorPage({ error }: Props) {
     <Layout className={styles.root}>
       <h1>
         <Icon file={PooStormIcon} alt="Error icon" />
-        Apologies, we've had an øerror!
+        Apologies, we've had an error!
       </h1>
       <h2>{error.toString()}</h2>
       <pre>{error.stack}</pre>

@@ -1,7 +1,7 @@
 import { Collection, PromiseExtended, Table } from 'dexie';
 import { useEffect } from 'react';
 import { IDatabaseChange } from 'dexie-observable/api';
-import { useForceRender } from './useForceRender';
+import { useForceRender } from '../react-hooks/useForceRender';
 
 const tableCaches = new Map<string, WeakMap<any, any>>();
 

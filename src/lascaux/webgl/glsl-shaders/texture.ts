@@ -1,5 +1,5 @@
 import glsl from 'babel-plugin-glsl/macro';
-import { ShaderDescription } from '../program';
+import { ShaderDescription } from '../util/program';
 
 export const textureShader = new ShaderDescription(
   glsl`

@@ -85,9 +85,7 @@ export default class AsciiCanvas {
     const expectedDataSize = rowLength * h;
     if (expectedDataSize !== data.length) {
       throw new Error(
-        `invalid tile data, length = ${
-          data.length
-        }, expected ${expectedDataSize}`,
+        `invalid tile data, length = ${data.length}, expected ${expectedDataSize}`,
       );
     }
     for (let yy = 0; yy < h; yy++) {

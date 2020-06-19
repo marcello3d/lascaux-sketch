@@ -1,37 +1,33 @@
-import {
-  checkError,
-  checkRenderTargetSupport,
-  copyRgbaPixels,
-  createFrameBuffer,
-  FrameBuffer,
-  FrameBufferInfo,
-  getOrThrow,
-  RgbaImage,
-  setDrawingMatrix,
-  setViewportMatrix,
-  TypedArray,
-} from './util';
-
-import ProgramManager from './program-manager';
-import { Dna } from '../dna';
-import { Program, ProgramOf } from './program';
+import ProgramManager from './util/program-manager';
+import { Program, ProgramOf } from './util/program';
 
 import {
   DrawingContext,
-  DrawOs,
+  DrawBackend,
   GetLinkFn,
   Links,
   Rects,
   Snap,
   Snapshot,
   Tiles,
-} from '../../Drawlet';
-import { ellipseShader } from './glsl/ellipse';
-import { textureShader } from './glsl/texture';
-import { lineShader } from './glsl/line';
-import { rectShader } from './glsl/rect';
+} from '../Drawlet';
+import { ellipseShader } from './glsl-shaders/ellipse';
+import { textureShader } from './glsl-shaders/texture';
+import { lineShader } from './glsl-shaders/line';
+import { rectShader } from './glsl-shaders/rect';
 import { PromiseOrValue, then } from 'promise-or-value';
-import { waitAll } from '../../util/promise-or-value';
+import { waitAll } from '../util/promise-or-value';
+import {
+  checkRenderTargetSupport,
+  createFrameBuffer,
+  FrameBuffer,
+  FrameBufferInfo,
+} from './util/gl-framebuffer';
+import { TypedArray } from '../util/typed-arrays';
+import { checkError, getOrThrow } from './util/gl-errors';
+import { setDrawingMatrix, setViewportMatrix } from './util/gl-matrix';
+import { copyRgbaPixels, RgbaImage } from '../util/rgba-image';
+import { Dna } from '../dna';
 
 function makeTextureVertexArray(
   x1: number,
@@ -72,7 +68,7 @@ type ChangedTile = [
 
 const ENABLE_HALF_FLOAT_SUPPORT = true;
 
-export class GlOS1 implements DrawOs {
+export class GlDrawBackend implements DrawBackend {
   public readonly dna: Dna;
   public readonly pixelWidth: number;
   public readonly pixelHeight: number;

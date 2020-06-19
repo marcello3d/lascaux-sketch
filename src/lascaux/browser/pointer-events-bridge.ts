@@ -1,4 +1,4 @@
-import { clamp, clampRange } from './clipping';
+import { clamp, clampRange } from '../util/clipping';
 
 import {
   CURSOR_EVENT,
@@ -8,9 +8,9 @@ import {
   DRAW_START_EVENT,
   DrawletCursorEvent,
   DrawletDrawEvent,
-  DrawletDrawEventType,
+  DrawEventType,
   DrawletEvent,
-} from './Drawlet';
+} from '../Drawlet';
 
 import styles from './pointer-events-bridge.module.css';
 
@@ -52,7 +52,7 @@ const KeyDownEventName = 'keydown';
 const KeyUpEventName = 'keyup';
 const KeySpace = ' ';
 
-const POINTER_EVENT_TYPE_MAP: Record<string, DrawletDrawEventType> = {
+const POINTER_EVENT_TYPE_MAP: Record<string, DrawEventType> = {
   [PointerDownEventName]: DRAW_START_EVENT,
   [PointerMoveEventName]: DRAW_EVENT,
   [PointerUpEventName]: DRAW_END_EVENT,

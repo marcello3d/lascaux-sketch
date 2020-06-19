@@ -1,16 +1,23 @@
-import React, { Suspense, useMemo } from 'react';
+import React, {
+  ChangeEvent,
+  Suspense,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
 import { Link, RouteComponentProps } from '@reach/router';
 import raw from 'raw.macro';
 
-import styles from './page.module.css';
+import styles from './index.module.css';
 import LascauxLogoPath from './lascaux-logo.jpg';
 import IconImagePolaroid from '../icons/fa/image-polaroid.svg';
 
 import { db } from '../db/db';
 import { newDate, newId } from '../db/fields';
 import { useDexieArray } from '../db/useDexie';
-import { newDna } from '../drawlets/fiver/fiver';
 import { Layout } from '../ui/Layout';
+import { newDna } from '../lascaux/dna';
+import classNames from 'classnames';
 
 const changelog = raw('../../CHANGELOG.md');
 
@@ -41,16 +48,42 @@ function Drawings() {
   return <ul className={styles.list}>{items}</ul>;
 }
 
-export function IndexPage(props: RouteComponentProps) {
-  const addDrawing = async () => {
+function validSize(input: string): number | undefined {
+  if (!/^\d+$/.test(input)) {
+    return undefined;
+  }
+  const n = parseInt(input, 10);
+  if (n < 8 || n > 4096) {
+    return undefined;
+  }
+  return n;
+}
+
+export function IndexPage({ navigate }: RouteComponentProps) {
+  const [stringWidth, setWidth] = useState('512');
+  const [stringHeight, setHeight] = useState('512');
+  const onWidthChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => setWidth(event.target.value),
+    [],
+  );
+  const onHeightChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => setHeight(event.target.value),
+    [],
+  );
+  const width = validSize(stringWidth);
+  const height = validSize(stringHeight);
+  const addDrawing = useCallback(async () => {
+    if (width === undefined || height === undefined) {
+      return;
+    }
     const id = newId();
     await db.drawings.add({
       id,
       createdAt: newDate(),
-      dna: newDna(),
+      dna: newDna(width, height),
     });
-    props.navigate?.(`/drawings/${id}`);
-  };
+    navigate?.(`/drawings/${id}`);
+  }, [width, height, navigate]);
 
   return (
     <Layout className={styles.root}>
@@ -58,7 +91,30 @@ export function IndexPage(props: RouteComponentProps) {
         <h2>Local Drawings</h2>
         <p>Drawings are saved in your browser's local storage.</p>
         <p>
-          <button onClick={addDrawing}>New Drawing</button>
+          <button
+            onClick={addDrawing}
+            disabled={!(width !== undefined && height !== undefined)}
+          >
+            New Drawing
+          </button>{' '}
+          Size:{' '}
+          <input
+            className={classNames(styles.input, {
+              [styles.invalid]: width === undefined,
+            })}
+            value={stringWidth}
+            inputMode="numeric"
+            onChange={onWidthChange}
+          />
+          {' ⨉ '}
+          <input
+            className={classNames(styles.input, {
+              [styles.invalid]: height === undefined,
+            })}
+            value={stringHeight}
+            inputMode="numeric"
+            onChange={onHeightChange}
+          />
         </p>
         <Suspense fallback={<p>Retrieving…</p>}>
           <Drawings />

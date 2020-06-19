@@ -1,22 +1,16 @@
-import DrawingModel from './file-format/DrawingModel';
-import { Dna } from './drawos/dna';
-import { DrawletEvent, DrawletInstance, UpdateObject } from './Drawlet';
+import DrawingModel from '../data-model/DrawingModel';
+import { LascauxDomInstance, DrawletEvent, LascauxUiState } from '../Drawlet';
 import pointerEventsBridge, { EventBridge } from './pointer-events-bridge';
-import { ADD_LAYER_EVENT, GOTO_EVENT } from './file-format/events';
-import { FiverMode } from './fiver/fiver';
+import { ADD_LAYER_EVENT, GOTO_EVENT } from '../data-model/events';
 import { then } from 'promise-or-value';
 
-export default function setupHtmlCanvasBridge<
-  DrawletDna extends Dna,
-  Mode extends object,
-  State extends object
->(
-  drawingModel: DrawingModel<DrawletDna, Mode, State>,
-  onUpdate: (options: UpdateObject<Mode>) => void,
+export default function createLascauxDomInstance(
+  drawingModel: DrawingModel,
+  onUpdate: (options: LascauxUiState) => void,
   editable: boolean = true,
   maxInitialWidth?: number,
   maxInitialHeight?: number,
-): DrawletInstance<Mode> {
+): LascauxDomInstance {
   const transform = {
     translateX: 0,
     translateY: 0,
@@ -67,7 +61,7 @@ export default function setupHtmlCanvasBridge<
   let requestNotifyFrame: number | null = null;
   let needToNotify = false;
 
-  function getUpdateObject(): UpdateObject<Mode> {
+  function getUiState(): LascauxUiState {
     return {
       cursor: canvas.targetCursor,
       strokeCount: canvas.strokeCount,
@@ -83,7 +77,7 @@ export default function setupHtmlCanvasBridge<
   function notifyRenderDone() {
     // debounce notifications
     if (!requestNotifyFrame) {
-      onUpdate(getUpdateObject());
+      onUpdate(getUiState());
       needToNotify = false;
       requestNotifyFrame = window.requestAnimationFrame(() => {
         requestNotifyFrame = null;
@@ -150,7 +144,7 @@ export default function setupHtmlCanvasBridge<
   return {
     dom: canvas.dom,
 
-    getUpdateObject,
+    getUiState,
 
     getInfo() {
       return drawingModel.getInfo();
@@ -176,7 +170,7 @@ export default function setupHtmlCanvasBridge<
     },
 
     addLayer() {
-      const currentLayerCount = (getUpdateObject().mode as FiverMode).layers;
+      const currentLayerCount = getUiState().mode.layers;
       addStroke(ADD_LAYER_EVENT);
       addStroke('%layers', currentLayerCount + 1);
       addStroke('%layer', currentLayerCount);

@@ -1,7 +1,7 @@
 import 'dexie-observable';
 import Dexie, { Table } from 'dexie';
-import { Dna } from '../drawlets/drawos/dna';
-import { Stroke } from '../drawlets/file-format/StorageModel';
+import { Stroke } from '../lascaux/data-model/StorageModel';
+import { Dna } from '../lascaux/dna';
 
 export type DbDrawing = {
   id: string;

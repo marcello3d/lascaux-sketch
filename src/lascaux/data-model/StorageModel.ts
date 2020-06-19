@@ -1,10 +1,10 @@
 import { Snap } from '../Drawlet';
-import { RgbaImage } from '../drawos/webgl/util';
 import SnapshotMap from './SnapshotMap';
 import GotoMap from './GotoMap';
 import { PromiseOrValue } from 'promise-or-value';
 import ModeMap from './ModeMap';
 import DrawingModel from './DrawingModel';
+import { RgbaImage } from '../util/rgba-image';
 
 export type Metadata = {
   gotoMap: GotoMap;

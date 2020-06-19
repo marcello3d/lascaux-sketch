@@ -1,18 +1,20 @@
+import Dexie from 'dexie';
+import { PromiseOrValue } from 'promise-or-value';
+
 import {
   Metadata,
   StorageModel,
   Stroke,
   StrokePayload,
-} from '../drawlets/file-format/StorageModel';
-import { Snap } from '../drawlets/Drawlet';
-import { RgbaImage } from '../drawlets/drawos/webgl/util';
+} from '../lascaux/data-model/StorageModel';
+import { Snap } from '../lascaux/Drawlet';
+import { RgbaImage } from '../lascaux/util/rgba-image';
+import GotoMap from '../lascaux/data-model/GotoMap';
+import SnapshotMap from '../lascaux/data-model/SnapshotMap';
+import ModeMap from '../lascaux/data-model/ModeMap';
+import DrawingModel from '../lascaux/data-model/DrawingModel';
+
 import { db, DbStroke } from './db';
-import GotoMap from '../drawlets/file-format/GotoMap';
-import SnapshotMap from '../drawlets/file-format/SnapshotMap';
-import ModeMap from '../drawlets/file-format/ModeMap';
-import Dexie from 'dexie';
-import { PromiseOrValue } from 'promise-or-value';
-import DrawingModel from '../drawlets/file-format/DrawingModel';
 
 export class DexieStorageModel implements StorageModel {
   private snapshots: Record<number, Snap> = {};
