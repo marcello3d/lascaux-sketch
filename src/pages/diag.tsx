@@ -7,7 +7,7 @@ import styles from './diag.module.css';
 import {
   checkRenderTargetSupport,
   FrameBufferInfo,
-} from '../drawlets/drawos/webgl/util';
+} from '../lascaux/webgl/util/gl-framebuffer';
 import produce from 'immer';
 import { Layout } from '../ui/Layout';
 

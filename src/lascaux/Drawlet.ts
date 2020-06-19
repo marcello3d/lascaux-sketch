@@ -1,21 +1,17 @@
-import { Dna } from './drawos/dna';
-import { RgbaImage } from './drawos/webgl/util';
+import { RgbaImage } from './util/rgba-image';
 import { PromiseOrValue } from 'promise-or-value';
+import { Dna, DrawingMode, DrawingState } from './dna';
 
-export type DrawletInitContext<DrawletDna extends Dna> = {
-  dna: DrawletDna;
+export type InitContext = {
+  dna: Dna;
   random: () => number;
 };
 
-export type DrawletHandleContext<
-  DrawletDna extends Dna,
-  Mode extends object,
-  State extends object
-> = {
-  dna: DrawletDna;
+export type DrawContext = {
+  dna: Dna;
+  mode: DrawingMode;
+  state: DrawingState;
   random: () => number;
-  mode: Mode;
-  state: State;
 };
 
 export const DRAW_START_EVENT = 'start';
@@ -23,13 +19,13 @@ export const DRAW_EVENT = 'draw';
 export const DRAW_END_EVENT = 'end';
 export const CURSOR_EVENT = '%cursor';
 
-export type DrawletDrawEventType =
+export type DrawEventType =
   | typeof DRAW_START_EVENT
   | typeof DRAW_EVENT
   | typeof DRAW_END_EVENT;
 
 export type CursorType = 'touch' | 'cursor' | 'stylus';
-export type DrawletDrawEventPayload = {
+export type DrawEventPayload = {
   x: number;
   y: number;
   pressure?: number;
@@ -45,11 +41,7 @@ export type DrawletCursorEventPayload = {
   tilt?: boolean;
 };
 
-export type DrawletDrawEvent = [
-  DrawletDrawEventType,
-  number,
-  DrawletDrawEventPayload,
-];
+export type DrawletDrawEvent = [DrawEventType, number, DrawEventPayload];
 export type DrawletCursorEvent = [
   typeof CURSOR_EVENT,
   number,
@@ -95,17 +87,13 @@ export type DrawingContext = {
   ): void;
 };
 
-export type DrawletInitializeFn<DrawletDna extends Dna, Mode> = (
-  context: DrawletInitContext<DrawletDna>,
+export type DrawletInitializeFn = (
+  context: InitContext,
   canvas?: DrawingContext,
-) => Mode;
+) => DrawingMode;
 
-export type DrawletHandleFn<
-  DrawletDna extends Dna,
-  Mode extends object,
-  State extends object
-> = (
-  context: DrawletHandleContext<DrawletDna, Mode, State>,
+export type DrawletHandleFn = (
+  context: DrawContext,
   canvas: DrawingContext,
   event: string,
   payload: any,
@@ -119,7 +107,7 @@ export type Snap = {
   state?: object;
 };
 
-export interface DrawOs {
+export interface DrawBackend {
   initialize(): void;
   getSnapshot(): Snap;
   getPng(): Promise<Blob>;
@@ -151,19 +139,20 @@ export type Transform = {
   translateY: number;
   scale: number;
 };
-export type UpdateObject<Mode extends object> = {
+export type LascauxUiState = {
   cursor: number;
   strokeCount: number;
   undo: number | undefined;
   redo: number | undefined;
   gotos: number[];
-  mode: Mode;
+  mode: DrawingMode;
   playing: boolean;
   transform: Transform;
 };
-export type DrawletInstance<Mode extends object> = {
+
+export type LascauxDomInstance = {
   dom: HTMLElement;
-  getUpdateObject(): UpdateObject<Mode>;
+  getUiState(): LascauxUiState;
   getPng(): Promise<Blob>;
   flush(): void;
   setMode(mode: string, value: any): void;
@@ -175,8 +164,3 @@ export type DrawletInstance<Mode extends object> = {
   subscribe(): () => void;
   getInfo(): string | undefined;
 };
-export type DrawOsConstructor = new (
-  dna: Dna,
-  scale?: number,
-  tileSize?: number,
-) => DrawOs;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2020-06-18
+### Added
+- Choose canvas size before drawing!
+
+### Changed
+- A lot of code reorganization and type refactoring
+
 ## 2020-06-16
 ### Added
 - Save PNG button

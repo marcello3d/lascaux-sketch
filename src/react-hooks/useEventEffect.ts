@@ -18,35 +18,22 @@ export default function useEventEffect<E extends Event>(
     passive = undefined,
   }: Options = {},
 ) {
-  useEffect(
-    () => {
-      if (!elementOrRef || !enabled) {
-        return undefined;
-      }
-      const element =
-        'addEventListener' in elementOrRef
-          ? elementOrRef
-          : elementOrRef.current;
-      element.addEventListener(type, listener as EventListener, {
-        capture,
-        once,
-        passive,
-      });
-
-      return () => {
-        element.removeEventListener(type, listener as EventListener, {
-          capture,
-        });
-      };
-    },
-    [
-      enabled,
-      elementOrRef,
-      type,
+  useEffect(() => {
+    if (!elementOrRef || !enabled) {
+      return undefined;
+    }
+    const element =
+      'addEventListener' in elementOrRef ? elementOrRef : elementOrRef.current;
+    element.addEventListener(type, listener as EventListener, {
       capture,
       once,
       passive,
-      listener,
-    ],
-  );
+    });
+
+    return () => {
+      element.removeEventListener(type, listener as EventListener, {
+        capture,
+      });
+    };
+  }, [enabled, elementOrRef, type, capture, once, passive, listener]);
 }

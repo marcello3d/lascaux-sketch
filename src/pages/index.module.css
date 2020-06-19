@@ -6,6 +6,13 @@
   padding: 10px;
   width: 50%;
 }
+.input {
+  width: 4em;
+  text-align: center;
+}
+.invalid {
+  background: #ffc5c5;
+}
 
 @media only screen and (max-width: 640px) {
   .root {

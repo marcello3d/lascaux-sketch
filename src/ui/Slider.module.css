@@ -89,7 +89,6 @@
   cursor: pointer;
 }
 
-
 /*
  Tweaks when slider is focused
  */
@@ -105,7 +104,6 @@
 .slider:focus::-ms-fill-upper {
   background: var(--accent-color);
 }
-
 
 /*
  Tweaks when slider is hovered

@@ -1,4 +1,6 @@
-import { float32ArrayToUint16Array } from './float16';
+import { float32ArrayToUint16Array } from '../../util/float16';
+import { TypedArrayConstructor } from '../../util/typed-arrays';
+import { getErrorString } from './gl-errors';
 
 export type FrameBuffer = {
   width: number;
@@ -74,128 +76,6 @@ export function createFrameBuffer(
     },
   };
 }
-
-export function createProgram(
-  gl: WebGLRenderingContext,
-  vertexShader: string | WebGLShader,
-  fragmentShader: string | WebGLShader,
-): WebGLProgram {
-  const program = gl.createProgram();
-  if (!program) {
-    throw new Error('Could not create WebGLProgram');
-  }
-
-  if (typeof vertexShader === 'string') {
-    vertexShader = createShader(gl, vertexShader, gl.VERTEX_SHADER);
-  }
-  if (typeof fragmentShader === 'string') {
-    fragmentShader = createShader(gl, fragmentShader, gl.FRAGMENT_SHADER);
-  }
-  // Attach pre-existing shaders
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-
-  gl.linkProgram(program);
-
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const info = gl.getProgramInfoLog(program);
-    throw new Error('Could not compile WebGL program. \n\n' + info);
-  }
-  return program;
-}
-
-export function createShader(
-  gl: WebGLRenderingContext,
-  sourceCode: string,
-  type: GLenum,
-): WebGLShader {
-  // Compiles either a shader of type gl.VERTEX_SHADER or gl.FRAGMENT_SHADER
-  const shader = gl.createShader(type);
-  if (!shader) {
-    throw new Error('Could not create WebGLShader');
-  }
-  gl.shaderSource(shader, sourceCode);
-  gl.compileShader(shader);
-
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const info = gl.getShaderInfoLog(shader);
-    console.error(`Could not compile WebGL shader.
-
-${sourceCode}
-
-${info}`);
-    throw new Error(`Could not compile WebGL shader.
-
-${sourceCode}
-
-${info}`);
-  }
-  return shader;
-}
-
-/**
- * Sets a transformation matrix for drawing on the screen
- */
-export function setViewportMatrix(
-  gl: WebGLRenderingContext,
-  uniform: WebGLUniformLocation,
-  width: number,
-  height: number,
-): void {
-  // 2D Matrix
-  // shifted x: -1, y: 1
-  // scaled 2/width, -2/height (negative to flip Y axis)
-  gl.uniformMatrix4fv(
-    uniform,
-    false,
-    // prettier-ignore
-    new Float32Array([
-      2 / width, 0, 0, 0,
-      0, -2 / height, 0, 0,
-      0, 0, 0, 0,
-      -1, 1, 0, 1
-    ]),
-  );
-}
-
-/**
- * Sets a matrix for drawing on a framebuffer
- */
-export function setDrawingMatrix(
-  gl: WebGLRenderingContext,
-  uniform: WebGLUniformLocation,
-  width: number,
-  height: number,
-): void {
-  // 2D Matrix
-  // shifted x: -1, y: -1
-  // scaled 2/width, 2/height (no flipping on framebuffer)
-  gl.uniformMatrix4fv(
-    uniform,
-    false,
-    // prettier-ignore
-    new Float32Array([
-      2 / width, 0, 0, 0,
-      0, 2 / height, 0, 0,
-      0, 0, 1, 0,
-      -1, -1, 0, 1
-    ]),
-  );
-}
-
-export type TypedArray =
-  | Uint8Array
-  | Uint8ClampedArray
-  | Uint16Array
-  | Uint32Array
-  | Int8Array
-  | Int16Array
-  | Int32Array
-  | Float32Array
-  | Float64Array;
-export type TypedArrayConstructor = {
-  new (size: number): TypedArray;
-};
 
 export type FrameBufferInfo = {
   ReadTypedArray: TypedArrayConstructor;
@@ -380,37 +260,6 @@ export function checkRenderTargetSupport(
   }
 }
 
-export function getErrorString(gl: WebGLRenderingContext): string | undefined {
-  switch (gl.getError()) {
-    // An unacceptable value has been specified for an enumerated argument. The command is ignored and the error flag is set.
-    case gl.INVALID_ENUM:
-      return 'INVALID_ENUM';
-
-    // A numeric argument is out of range. The command is ignored and the error flag is set.
-    case gl.INVALID_VALUE:
-      return 'INVALID_VALUE';
-
-    // The specified command is not allowed for the current state. The command is ignored and the error flag is set.',
-    case gl.INVALID_OPERATION:
-      return 'INVALID_OPERATION';
-
-    // The currently bound framebuffer is not framebuffer complete when trying to render to or to read from it.',
-    case gl.INVALID_FRAMEBUFFER_OPERATION:
-      return 'INVALID_FRAMEBUFFER_OPERATION';
-
-    // Not enough memory is left to execute the command.',
-    case gl.OUT_OF_MEMORY:
-      return 'OUT_OF_MEMORY';
-
-    // If the WebGL context is lost, this error is returned on the first call to getError. Afterwards and until the context has been restored, it returns gl.NO_ERROR.',
-    case gl.CONTEXT_LOST_WEBGL:
-      return 'CONTEXT_LOST_WEBGL';
-
-    default:
-      return undefined;
-  }
-}
-
 export function getFramebufferStatus(
   gl: WebGLRenderingContext,
 ): string | undefined {
@@ -439,57 +288,4 @@ export function getFramebufferStatus(
     default:
       return 'UNKNOWN:' + status;
   }
-}
-export function checkError(gl: WebGLRenderingContext) {
-  const error = getErrorString(gl);
-  if (error) {
-    throw new Error(`WebGL ` + error);
-  }
-}
-
-export function hasError(gl: WebGLRenderingContext) {
-  const error = getErrorString(gl);
-  if (error !== undefined) {
-    console.error('WebGL Error: ' + error);
-    return true;
-  }
-  return false;
-}
-
-export function getOrThrow<T>(value: T | null | 0, type: string): T {
-  if (value === null || value === 0) {
-    throw new Error(`${type} failed`);
-  }
-  return value;
-}
-
-export type RgbaImage = {
-  pixels: TypedArray;
-  width: number;
-  height: number;
-};
-export function copyRgbaPixels(
-  src: RgbaImage,
-  destArrayType: TypedArrayConstructor,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-): RgbaImage {
-  const destRowWidth = width * 4;
-  const pixels = new destArrayType(destRowWidth * height);
-  const xx = x * 4;
-  const srcRowWidth = src.width * 4;
-  for (let yy = 0; yy < height; yy++) {
-    const srcOffset = xx + (yy + y) * srcRowWidth;
-    const srcRow = src.pixels.subarray(srcOffset, srcOffset + destRowWidth);
-    const destOffset = yy * destRowWidth;
-    const destRow = pixels.subarray(destOffset, destOffset + destRowWidth);
-    if (srcRow instanceof Float32Array && destRow instanceof Uint16Array) {
-      float32ArrayToUint16Array(srcRow, destRow);
-    } else {
-      destRow.set(srcRow);
-    }
-  }
-  return { pixels, width, height };
 }

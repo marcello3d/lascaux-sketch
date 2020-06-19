@@ -10,10 +10,6 @@ import styles from './DrawletApp.module.css';
 import { useAppendChild } from './react-hooks/useAppendChild';
 import classNames from 'classnames';
 import { Slider } from './ui/Slider';
-import DrawingModel from './drawlets/file-format/DrawingModel';
-import { makeFiverCanvas } from './drawlets/fiver/gl';
-import { DrawletInstance, UpdateObject } from './drawlets/Drawlet';
-import { FiverMode } from './drawlets/fiver/fiver';
 import { Button } from './ui/Button';
 import useEventEffect from './react-hooks/useEventEffect';
 import { Layout } from './ui/Layout';
@@ -21,6 +17,10 @@ import { Header } from './ui/Header';
 import FileDownloadIcon from './icons/fa/file-download.svg';
 import { Icon } from './ui/Icon';
 import { downloadFile, filenameDate } from './ui/download';
+import { LascauxDomInstance, LascauxUiState } from './lascaux/Drawlet';
+import DrawingModel from './lascaux/data-model/DrawingModel';
+import createLascauxDomInstance from './lascaux/browser/setup-canvas-bridge';
+import { DrawingMode } from './lascaux/dna';
 
 const colors: readonly string[] = [
   '#ffffff', // white
@@ -41,16 +41,20 @@ const colors: readonly string[] = [
   '#006666', // dark blue-ish green
 ];
 
-function useUpdateMode<K extends keyof Mode & string, Mode extends object>(
-  canvasInstance: DrawletInstance<Mode>,
-  updateObject: UpdateObject<Mode>,
+function useUpdateMode<K extends keyof DrawingMode & string>(
+  canvasInstance: LascauxDomInstance,
+  updateObject: LascauxUiState,
   field: K,
-): [Mode[K], (newValue: Mode[K]) => void, (newValue: Mode[K]) => void] {
-  const [tempValue, setTempValue] = useState<Mode[K] | undefined>(
+): [
+  DrawingMode[K],
+  (newValue: DrawingMode[K]) => void,
+  (newValue: DrawingMode[K]) => void,
+] {
+  const [tempValue, setTempValue] = useState<DrawingMode[K] | undefined>(
     updateObject.mode[field],
   );
   const setValue = useCallback(
-    (alpha: Mode[K]) => {
+    (alpha: DrawingMode[K]) => {
       canvasInstance.setMode(field, alpha);
       setTempValue(undefined);
     },
@@ -62,12 +66,12 @@ function useUpdateMode<K extends keyof Mode & string, Mode extends object>(
 
 export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
   const drawletContainerRef = useRef<HTMLDivElement>(null);
-  const [updateObjectState, setUpdateObject] = useState<UpdateObject<
-    FiverMode
-  > | null>(null);
+  const [updateObjectState, setUpdateObject] = useState<LascauxUiState | null>(
+    null,
+  );
 
   const canvasInstance = useMemo(
-    () => makeFiverCanvas(drawingModel, setUpdateObject),
+    () => createLascauxDomInstance(drawingModel, setUpdateObject),
     [drawingModel, setUpdateObject],
   );
 
@@ -80,7 +84,7 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
     { passive: false },
   );
 
-  const updateObject = updateObjectState || canvasInstance.getUpdateObject();
+  const updateObject = updateObjectState || canvasInstance.getUiState();
   useLayoutEffect(() => canvasInstance.subscribe(), [canvasInstance]);
 
   useAppendChild(drawletContainerRef, drawingModel.editCanvas.dom);

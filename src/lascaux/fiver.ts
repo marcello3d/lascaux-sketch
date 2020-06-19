@@ -1,55 +1,46 @@
-import { Dna } from '../drawos/dna';
 import {
   DRAW_END_EVENT,
   DRAW_START_EVENT,
+  DrawContext,
   DrawingContext,
-  DrawletHandleContext,
-  DrawletInitContext,
+  InitContext,
   Rect,
-} from '../Drawlet';
-import { ADD_LAYER_EVENT, DRAW_EVENT } from '../file-format/events';
-import parseColor from '../drawos/parse-color';
+} from './Drawlet';
+import { ADD_LAYER_EVENT, DRAW_EVENT } from './data-model/events';
+import parseColor from './util/parse-color';
+import { StorageModel } from './data-model/StorageModel';
+import DrawingModel, { getInitializeContext } from './data-model/DrawingModel';
+import { GlDrawBackend } from './webgl/gl-draw-backend';
+import { Dna, DrawingMode } from './dna';
 
-export const name = 'fiver';
-export const author = 'marcello';
-export const os = 'os1';
-
-export interface FiverDna extends Dna {
-  colors: string[];
+export async function createDrawingModel(
+  dna: Dna,
+  storage: StorageModel,
+): Promise<DrawingModel> {
+  // This is convoluted
+  const initialMode = initializeCommand(getInitializeContext(dna));
+  console.log(`[LOAD] Getting metadata...`);
+  const metadata = await storage.getMetadata(initialMode);
+  const drawing = new DrawingModel({
+    dna,
+    editable: true,
+    DrawOs: GlDrawBackend,
+    snapshotStrokeCount: 250,
+    storageModel: storage,
+    metadata,
+    initializeCommand,
+    handleCommand,
+  });
+  console.log(`[LOAD] Loading strokes...`);
+  await storage.replay(drawing);
+  console.log(`[LOAD] Loaded strokes!`);
+  return drawing;
 }
 
-export function newDna(width: number = 512, height: number = 512): FiverDna {
-  return {
-    // TODO: should width/height be part of the drawlet?
-    width,
-    height,
-
-    // Should mode-changing options be managed by drawlet os?
-    colors: ['#497aa6', '#f2c063', '#f2dbce', '#a6654e', '#f2695c'],
-    // TODO: move
-    randomseed: Math.random().toString(36).slice(2),
-  };
-}
-export type FiverMode = {
-  layers: number;
-  layer: number;
-  color: string;
-  erase: boolean;
-  size: number;
-  alpha: number;
-  spacing: number;
-  hardness: number;
-};
-export type FiverState = {
-  size: number;
-  a: number;
-  x: number;
-  y: number;
-};
-export function initializeCommand(
-  context: DrawletInitContext<FiverDna>,
+function initializeCommand(
+  context: InitContext,
   canvas?: DrawingContext,
-): FiverMode {
+): DrawingMode {
   const {
     dna: { colors, width, height },
   } = context;
@@ -70,8 +61,8 @@ export function initializeCommand(
   };
 }
 
-export function handleCommand(
-  { dna, mode, state }: DrawletHandleContext<FiverDna, FiverMode, FiverState>,
+function handleCommand(
+  { dna, mode, state }: DrawContext,
   canvas: DrawingContext,
   event: string,
   payload: any,

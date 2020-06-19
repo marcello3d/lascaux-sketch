@@ -1,3 +1,8 @@
+import seedrandom from 'seedrandom';
+import { PromiseOrValue, then } from 'promise-or-value';
+
+import jsonCopy from '../util/json-copy';
+
 import {
   getNormalizedModePayload,
   GOTO_EVENT,
@@ -9,23 +14,17 @@ import GotoMap, { isSkipped, Skips } from './GotoMap';
 import ModeMap from './ModeMap';
 import SnapshotMap from './SnapshotMap';
 
-import seedrandom from 'seedrandom';
-
-import jsonCopy from './json-copy';
-import { Dna } from '../drawos/dna';
 import {
   DRAW_END_EVENT,
+  DrawContext,
   DrawingContext,
-  DrawletHandleContext,
   DrawletHandleFn,
-  DrawletInitContext,
   DrawletInitializeFn,
-  DrawOs,
-  DrawOsConstructor,
+  DrawBackend,
+  InitContext,
 } from '../Drawlet';
 import { Metadata, StorageModel } from './StorageModel';
-import { FiverDna, FiverMode, FiverState } from '../fiver/fiver';
-import { PromiseOrValue, then } from 'promise-or-value';
+import { Dna, DrawingMode, DrawingState, makeInitialState } from '../dna';
 
 function getRandomFn(dna: Dna, cursor: number) {
   let random: () => number;
@@ -37,28 +36,28 @@ function getRandomFn(dna: Dna, cursor: number) {
     return random();
   };
 }
-export function getInitializeContext<DrawletDna extends Dna>(
-  dna: DrawletDna,
-): DrawletInitContext<DrawletDna> {
+export function getInitializeContext(dna: Dna): InitContext {
   return {
     random: getRandomFn(dna, 0),
     dna,
   };
 }
 
+type DrawOsConstructor = new (
+  dna: Dna,
+  scale?: number,
+  tileSize?: number,
+) => DrawBackend;
+
 /**
- * Manages all the strokeCount and goto for a drawing, using external storage
+ * Manages all the stroke and goto data for a drawing, using StorageModel
  */
-export default class DrawingModel<
-  DrawletDna extends Dna = FiverDna,
-  Mode extends object = FiverMode,
-  State extends object = FiverState
-> {
+export default class DrawingModel {
   readonly _storageModel: StorageModel;
-  readonly _dna: DrawletDna;
+  readonly _dna: Dna;
   private readonly _DrawOs: DrawOsConstructor;
-  private readonly _initializeCommand: DrawletInitializeFn<DrawletDna, Mode>;
-  readonly _handleCommand: DrawletHandleFn<DrawletDna, Mode, State>;
+  private readonly _initializeCommand: DrawletInitializeFn;
+  readonly _handleCommand: DrawletHandleFn;
   private readonly _queue: Array<{
     eventType: string;
     time: number;
@@ -67,11 +66,11 @@ export default class DrawingModel<
   _strokeCount: number = 0;
   private _drawingCursor: number = 0;
   _snapshotMap!: SnapshotMap;
-  _modeMap!: ModeMap<Mode>;
+  _modeMap!: ModeMap<DrawingMode>;
   private _gotoMap!: GotoMap;
   private _snapshotStrokeCount: number = 0;
   private _strokesSinceSnapshot: number = 0;
-  private _editCanvas: CanvasModel<DrawletDna, Mode, State> | undefined;
+  private _editCanvas: CanvasModel | undefined;
 
   constructor({
     dna,
@@ -83,12 +82,12 @@ export default class DrawingModel<
     metadata,
     snapshotStrokeCount = 5000,
   }: {
-    dna: DrawletDna;
+    dna: Dna;
     editable: boolean;
     DrawOs: DrawOsConstructor;
     storageModel: StorageModel;
-    initializeCommand: DrawletInitializeFn<DrawletDna, Mode>;
-    handleCommand: DrawletHandleFn<DrawletDna, Mode, State>;
+    initializeCommand: DrawletInitializeFn;
+    handleCommand: DrawletHandleFn;
     metadata: Metadata;
     snapshotStrokeCount: number;
   }) {
@@ -138,7 +137,7 @@ export default class DrawingModel<
     return this._drawingCursor;
   }
 
-  createCanvas(): CanvasModel<DrawletDna, Mode, State> {
+  createCanvas(): CanvasModel {
     return new CanvasModel(this, new this._DrawOs(this._dna));
   }
 
@@ -258,18 +257,14 @@ export default class DrawingModel<
   }
 }
 
-export class CanvasModel<
-  DrawletDna extends Dna,
-  Mode extends object,
-  State extends object
-> {
-  readonly _drawing: DrawingModel<DrawletDna, Mode, State>;
-  readonly _drawos: DrawOs;
+export class CanvasModel {
+  readonly _drawing: DrawingModel;
+  readonly _drawos: DrawBackend;
   _inGoto: boolean;
   _cursor: number = 0;
   _targetCursor: number = 0;
-  _state: object = {};
-  constructor(drawing: DrawingModel<DrawletDna, Mode, State>, drawOs: DrawOs) {
+  _state: DrawingState = makeInitialState();
+  constructor(drawing: DrawingModel, drawOs: DrawBackend) {
     this._drawing = drawing;
     this._drawos = drawOs;
     this._inGoto = false;
@@ -284,7 +279,7 @@ export class CanvasModel<
     return this._targetCursor;
   }
 
-  get mode(): Mode {
+  get mode(): DrawingMode {
     return this._drawing._modeMap.getMode(this.strokeCount);
   }
 
@@ -306,7 +301,7 @@ export class CanvasModel<
 
   _initialize() {
     this._cursor = 0;
-    this._state = {};
+    this._state = makeInitialState();
     this._drawos.initialize();
     this._drawing._initialize(this._drawos.getDrawingContext());
   }
@@ -335,14 +330,14 @@ export class CanvasModel<
     const exec = this._drawing._handleCommand;
     // Call from local variable so `this` is null
     exec(
-      this._makeCanvasContext(),
+      this._makeDrawContext(),
       this._drawos.getDrawingContext(),
       eventType,
       payload,
     );
   }
 
-  _makeCanvasContext(): DrawletHandleContext<DrawletDna, Mode, State> {
+  _makeDrawContext(): DrawContext {
     const {
       _drawing: { _dna, _modeMap },
       _state,
@@ -352,7 +347,7 @@ export class CanvasModel<
       random: getRandomFn(_dna, _cursor),
       mode: _modeMap.getMode(_cursor),
       dna: _dna,
-      state: _state as State,
+      state: _state,
     };
   }
 
