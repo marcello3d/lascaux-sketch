@@ -72,18 +72,22 @@ export function IndexPage({ navigate }: RouteComponentProps) {
   );
   const width = validSize(stringWidth);
   const height = validSize(stringHeight);
-  const addDrawing = useCallback(async () => {
-    if (width === undefined || height === undefined) {
-      return;
-    }
-    const id = newId();
-    await db.drawings.add({
-      id,
-      createdAt: newDate(),
-      dna: newDna(width, height),
-    });
-    navigate?.(`/drawings/${id}`);
-  }, [width, height, navigate]);
+  const addDrawing = useCallback(
+    async (event: React.SyntheticEvent) => {
+      event.preventDefault();
+      if (width === undefined || height === undefined) {
+        return;
+      }
+      const id = newId();
+      await db.drawings.add({
+        id,
+        createdAt: newDate(),
+        dna: newDna(width, height),
+      });
+      navigate?.(`/drawings/${id}`);
+    },
+    [width, height, navigate],
+  );
 
   return (
     <Layout className={styles.root}>
@@ -91,30 +95,32 @@ export function IndexPage({ navigate }: RouteComponentProps) {
         <h2>Local Drawings</h2>
         <p>Drawings are saved in your browser's local storage.</p>
         <p>
-          <button
-            onClick={addDrawing}
-            disabled={!(width !== undefined && height !== undefined)}
-          >
-            New Drawing
-          </button>{' '}
-          Size:{' '}
-          <input
-            className={classNames(styles.input, {
-              [styles.invalid]: width === undefined,
-            })}
-            value={stringWidth}
-            inputMode="numeric"
-            onChange={onWidthChange}
-          />
-          {' ⨉ '}
-          <input
-            className={classNames(styles.input, {
-              [styles.invalid]: height === undefined,
-            })}
-            value={stringHeight}
-            inputMode="numeric"
-            onChange={onHeightChange}
-          />
+          <form onSubmit={addDrawing}>
+            <button
+              onClick={addDrawing}
+              disabled={!(width !== undefined && height !== undefined)}
+            >
+              New Drawing
+            </button>{' '}
+            Size:{' '}
+            <input
+              className={classNames(styles.input, {
+                [styles.invalid]: width === undefined,
+              })}
+              value={stringWidth}
+              inputMode="numeric"
+              onChange={onWidthChange}
+            />
+            {' ⨉ '}
+            <input
+              className={classNames(styles.input, {
+                [styles.invalid]: height === undefined,
+              })}
+              value={stringHeight}
+              inputMode="numeric"
+              onChange={onHeightChange}
+            />
+          </form>
         </p>
         <Suspense fallback={<p>Retrieving…</p>}>
           <Drawings />
