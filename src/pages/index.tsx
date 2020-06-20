@@ -6,7 +6,6 @@ import React, {
   useState,
 } from 'react';
 import { Link, RouteComponentProps } from '@reach/router';
-import raw from 'raw.macro';
 
 import styles from './index.module.css';
 import LascauxLogoPath from './lascaux-logo.jpg';
@@ -18,8 +17,6 @@ import { useDexieArray } from '../db/useDexie';
 import { Layout } from '../ui/Layout';
 import { newDna } from '../lascaux/dna';
 import classNames from 'classnames';
-
-const changelog = raw('../../CHANGELOG.md');
 
 const sortedDrawings = db.drawings.orderBy('createdAt').reverse();
 function Drawings() {
@@ -149,8 +146,47 @@ export function IndexPage({ navigate }: RouteComponentProps) {
           Check out <Link to="/diag">diagnostics</Link> to see how Lascaux
           Sketch handles your input device (tablet/mouse/touch screen)
         </p>
+
         <h2>Changelog</h2>
-        <pre>{changelog}</pre>
+
+        <h3>2020-06-18</h3>
+        <ul>
+          <li>Canvas size option</li>
+        </ul>
+
+        <h3>2020-06-16</h3>
+        <ul>
+          <li>Added "Save PNG" button</li>
+        </ul>
+
+        <h3>2020-06-14</h3>
+        <ul>
+          <li>Version to header</li>
+          <li>Code/deployment reorganization</li>
+        </ul>
+
+        <h3>2020-06-13</h3>
+        <ul>
+          <li>Support for float16 (if float32 is not available)</li>
+          <li>Faster undo after reloading drawing</li>
+        </ul>
+
+        <h3>2020-06-09</h3>
+        <ul>
+          <li>Click to add a dot</li>
+          <li>Brush spacing and hardness sliders</li>
+          <li>
+            <a href="https://sentry.io">Sentry</a> error tracking
+          </li>
+          <li>Smoother brush rendering</li>
+        </ul>
+
+        <h3>2020-06-06</h3>
+        <ul>
+          <li>First public release!</li>
+          <li>Save drawings to local storage</li>
+          <li>Loading screen</li>
+        </ul>
       </div>
     </Layout>
   );
