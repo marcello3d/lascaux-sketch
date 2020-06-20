@@ -35,7 +35,7 @@ export type DrawEventType =
   | typeof DRAW_START_EVENT
   | typeof DRAW_EVENT
   | typeof DRAW_END_EVENT;
-export type CursorType = 'touch' | 'cursor' | 'stylus';
+export type CursorType = 'touch' | 'mouse' | 'pen' | 'unknown';
 export type DrawEventPayload = {
   x: number;
   y: number;
@@ -45,8 +45,8 @@ export type DrawEventPayload = {
   tiltX?: number;
   tiltY?: number;
 };
-export type DrawletCursorEventPayload = {
-  cursor: CursorType;
+export type DrawletCursorPayload = {
+  type: CursorType;
   forceMax?: number;
   radiusError?: number;
   tilt?: boolean;
@@ -55,6 +55,6 @@ export type DrawletDrawEvent = [DrawEventType, number, DrawEventPayload];
 export type DrawletCursorEvent = [
   typeof CURSOR_EVENT,
   number,
-  DrawletCursorEventPayload,
+  DrawletCursorPayload,
 ];
 export type DrawletEvent = DrawletDrawEvent | DrawletCursorEvent;
