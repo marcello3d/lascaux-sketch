@@ -1806,10 +1806,18 @@
   dependencies:
     "@types/react" "*"
 
-"@types/react@*", "@types/react@16.9.36":
+"@types/react@*":
   version "16.9.36"
   resolved "https://registry.yarnpkg.com/@types/react/-/react-16.9.36.tgz#ade589ff51e2a903e34ee4669e05dbfa0c1ce849"
   integrity sha512-mGgUb/Rk/vGx4NCvquRuSH0GHBQKb1OqpGS9cT9lFxlTLHZgkksgI60TuIxubmn7JuCb+sENHhQciqa0npm0AQ==
+  dependencies:
+    "@types/prop-types" "*"
+    csstype "^2.2.0"
+
+"@types/react@16.9.38":
+  version "16.9.38"
+  resolved "https://registry.yarnpkg.com/@types/react/-/react-16.9.38.tgz#868405dace93a4095d3e054f4c4a1de7a1ac0680"
+  integrity sha512-pHAeZbjjNRa/hxyNuLrvbxhhnKyKNiLC6I5fRF2Zr/t/S6zS41MiyzH4+c+1I9vVfvuRt1VS2Lodjr4ZWnxrdA==
   dependencies:
     "@types/prop-types" "*"
     csstype "^2.2.0"
@@ -5756,10 +5764,10 @@ immer@1.10.0:
   resolved "https://registry.yarnpkg.com/immer/-/immer-1.10.0.tgz#bad67605ba9c810275d91e1c2a47d4582e98286d"
   integrity sha512-O3sR1/opvCDGLEVcvrGTMtLac8GJ5IwZC4puPrLuRj3l7ICKvkmA0vGuU9OW8mV9WIBRnaxp5GJh9IEAaNOoYg==
 
-immer@7.0.1:
-  version "7.0.1"
-  resolved "https://registry.yarnpkg.com/immer/-/immer-7.0.1.tgz#830f44a36c4181c0eca4385e7782e164e5eb9249"
-  integrity sha512-DpWL/ES2Ba8KwW+A5AgNRoJPZP8LxdHejKXar1VfbF5a7ATvvekzmmNSQxje+WG0DIhuanvFEumFffVqyCLmBQ==
+immer@7.0.3:
+  version "7.0.3"
+  resolved "https://registry.yarnpkg.com/immer/-/immer-7.0.3.tgz#d9afe723ed29b3b03e1c74a7fad9d1181aced078"
+  integrity sha512-1f/jaF27WVb3X5Tk1AmOYZE+JZgMl50pIS5I8e/Je+HpYHjHwPfzm6dTEvOAUi6jq+/anFXev7agoOgJaL5RFw==
 
 import-cwd@^2.0.0:
   version "2.1.0"
