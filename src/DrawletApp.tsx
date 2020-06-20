@@ -23,6 +23,7 @@ import DrawingModel from './lascaux/data-model/DrawingModel';
 import createLascauxDomInstance from './lascaux/browser/setup-canvas-bridge';
 import { DrawingMode } from './lascaux/dna';
 import { db } from './db/db';
+import { newDate } from './db/fields';
 
 const colors: readonly string[] = [
   '#ffffff', // white
@@ -85,7 +86,11 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
   useEffect(() => {
     return () => {
       canvasInstance.getPng().then((thumbnail) => {
-        return db.thumbnails.put({ drawingId, thumbnail });
+        return db.thumbnails.put({
+          drawingId,
+          thumbnail,
+          updatedAt: newDate(),
+        });
       });
     };
   }, [canvasInstance, drawingId]);

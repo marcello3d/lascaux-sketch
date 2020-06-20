@@ -17,6 +17,7 @@ export type DbStroke = {
 
 export type DbThumbnail = {
   drawingId: string;
+  updatedAt?: string;
   thumbnail: Blob;
 };
 
