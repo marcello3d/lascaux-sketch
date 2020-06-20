@@ -2,6 +2,7 @@ import { Collection, PromiseExtended, Table } from 'dexie';
 import { useEffect } from 'react';
 import { IDatabaseChange } from 'dexie-observable/api';
 import { useForceRender } from '../react-hooks/useForceRender';
+import { db } from './db';
 
 const tableCaches = new Map<string, WeakMap<any, any>>();
 
@@ -32,31 +33,38 @@ function getItemCache<T, K>(table: Table<T, K>): ItemCache<T, K> {
   return subCache;
 }
 
+db.on('changes').subscribe((changes: IDatabaseChange[]) => {
+  console.log(`changes`, changes);
+  for (const change of changes) {
+    if (tableCaches.has(change.table)) {
+      console.log(`tableCaches.delete(${change.table})`);
+      tableCaches.delete(change.table);
+    }
+    if (itemCaches.has(change.table)) {
+      console.log(`itemCaches.get(${change.table})?.delete(${change.key})`);
+      itemCaches.get(change.table)!.delete(change.key);
+    }
+  }
+});
+
+function useDexieSubscribe() {
+  const forceRender = useForceRender();
+  useEffect(() => {
+    db.on('changes').subscribe(forceRender);
+    return () => {
+      db.on('changes').unsubscribe(forceRender);
+    };
+  }, [forceRender]);
+}
+
 export function useDexieArray<T, K>(
   table: Table<T, K>,
   collection: Collection<T, K>,
 ): T[] {
   const cache = getCollectionCache(table);
   let existing = cache.get(collection);
-  const forceRender = useForceRender();
-  useEffect(() => {
-    // @ts-ignore
-    const listener = (changes: IDatabaseChange[]) => {
-      for (const change of changes) {
-        if (change.table === table.name) {
-          cache.delete(collection);
-          forceRender();
-          break;
-        }
-      }
-    };
-    // @ts-ignore
-    table.db.on('changes').subscribe(listener);
-    return () => {
-      // @ts-ignore
-      table.db.on('changes').unsubscribe(listener);
-    };
-  }, [table.db, table.name, forceRender, cache, collection]);
+
+  useDexieSubscribe();
 
   if (existing === undefined) {
     existing = collection.toArray();
@@ -74,25 +82,8 @@ export function useDexieArray<T, K>(
 
 export function useDexieItem<T, K>(table: Table<T, K>, key: K): T | undefined {
   const cache = getItemCache(table);
-  const forceRender = useForceRender();
-  useEffect(() => {
-    // @ts-ignore
-    const listener = (changes: IDatabaseChange[]) => {
-      for (const change of changes) {
-        if (change.table === table.name && change.key === key) {
-          cache.delete(key);
-          forceRender();
-          break;
-        }
-      }
-    };
-    // @ts-ignore
-    table.db.on('changes').subscribe(listener);
-    return () => {
-      // @ts-ignore
-      table.db.on('changes').unsubscribe(listener);
-    };
-  }, [table.db, table.name, forceRender, cache, key]);
+
+  useDexieSubscribe();
 
   if (!cache.has(key)) {
     const promise = table.get(key);
