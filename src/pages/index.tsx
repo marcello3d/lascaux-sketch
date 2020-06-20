@@ -149,6 +149,11 @@ export function IndexPage({ navigate }: RouteComponentProps) {
 
         <h2>Changelog</h2>
 
+        <h3>2020-06-19</h3>
+        <ul>
+          <li>Block swipe back/forward on Chrome while drawing</li>
+        </ul>
+
         <h3>2020-06-18</h3>
         <ul>
           <li>Canvas size option</li>
