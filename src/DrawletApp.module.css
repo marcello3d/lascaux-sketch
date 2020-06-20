@@ -33,6 +33,7 @@
 .left {
   display: flex;
   max-width: 20vw;
+  min-width: 90px;
   flex-direction: column;
 }
 .tools {
