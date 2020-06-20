@@ -9,23 +9,32 @@ export type DbDrawing = {
   createdAt: string;
   dna: Dna;
 };
+
 export type DbStroke = {
   drawingId: string;
   index: number;
 } & Stroke;
 
+export type DbThumbnail = {
+  drawingId: string;
+  thumbnail: Blob;
+};
+
 class Db extends Dexie {
   drawings: Table<DbDrawing, string>;
-  strokes: Table<DbStroke, number>;
+  strokes: Table<DbStroke, [string, number]>;
+  thumbnails: Table<DbThumbnail, string>;
 
   constructor() {
     super('buckwheat3');
-    this.version(4).stores({
+    this.version(5).stores({
       drawings: 'id,createdAt',
       strokes: '[drawingId+index]',
+      thumbnails: 'drawingId',
     });
     this.drawings = this.table('drawings');
     this.strokes = this.table('strokes');
+    this.thumbnails = this.table('thumbnails');
     this.open().catch((err) => {
       console.error('Failed to open db', err);
     });

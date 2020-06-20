@@ -23,5 +23,5 @@ export function DrawingPage(props: DrawingPageProps) {
   if (drawingModel instanceof Error || drawingModel instanceof Promise) {
     throw drawingModel;
   }
-  return <DrawletApp drawingModel={drawingModel} />;
+  return <DrawletApp drawingId={id} drawingModel={drawingModel} />;
 }

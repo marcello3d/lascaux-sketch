@@ -1,5 +1,6 @@
 import React, {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -21,6 +22,7 @@ import { LascauxDomInstance, LascauxUiState } from './lascaux/Drawlet';
 import DrawingModel from './lascaux/data-model/DrawingModel';
 import createLascauxDomInstance from './lascaux/browser/setup-canvas-bridge';
 import { DrawingMode } from './lascaux/dna';
+import { db } from './db/db';
 
 const colors: readonly string[] = [
   '#ffffff', // white
@@ -64,7 +66,12 @@ function useUpdateMode<K extends keyof DrawingMode & string>(
   return [tempValue ?? updateObject.mode[field], setTempValue, setValue];
 }
 
-export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
+type Props = {
+  drawingId: string;
+  drawingModel: DrawingModel;
+};
+
+export function DrawletApp({ drawingId, drawingModel }: Props) {
   const drawletContainerRef = useRef<HTMLDivElement>(null);
   const [updateObjectState, setUpdateObject] = useState<LascauxUiState | null>(
     null,
@@ -72,9 +79,16 @@ export function DrawletApp({ drawingModel }: { drawingModel: DrawingModel }) {
 
   const canvasInstance = useMemo(
     () => createLascauxDomInstance(drawingModel, setUpdateObject),
-    [drawingModel, setUpdateObject],
+    [drawingModel],
   );
 
+  useEffect(() => {
+    return () => {
+      canvasInstance.getPng().then((thumbnail) => {
+        return db.thumbnails.put({ drawingId, thumbnail });
+      });
+    };
+  }, [canvasInstance, drawingId]);
   useEventEffect(
     canvasInstance.dom,
     'touchmove',
