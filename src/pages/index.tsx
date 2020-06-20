@@ -108,8 +108,8 @@ export function IndexPage({ navigate }: RouteComponentProps) {
           <a href="https://web.archive.org/web/20041009175410/http://www.cellosoft.com/sketchstudio/">
             2002
           </a>{' '}
-          used on <a href="https://2draw.net/">2draw.net</a>. This is a new
-          version built from the ground up using TypeScript and WebGL.
+          used on <a href="https://2draw.net/">2draw.net</a>. This is a new open
+          source version built from the ground up using TypeScript and WebGL.
         </p>
         <h2>Diagnostics</h2>
         <p>

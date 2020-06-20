@@ -2,7 +2,7 @@
   "name": "lascaux-sketch",
   "version": "0.1.0",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "Zlib",
   "author": {
     "name": "Marcello Bastea-Forte",
     "email": "marcello@cellosoft.com"

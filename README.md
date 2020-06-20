@@ -17,7 +17,7 @@ used on [2draw.net](https://2draw.net/). This is a new version built from the gr
 
 # License
 
-Code license TBD
+Source code licensed under [Zlib open source license](https://opensource.org/licenses/Zlib).
 
 Lascaux Sketch logo and name cannot to be used without permission.
 
