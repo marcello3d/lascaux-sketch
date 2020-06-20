@@ -121,7 +121,9 @@ export function IndexPage({ navigate }: RouteComponentProps) {
 
         <h3>2020-06-20</h3>
         <ul>
-          <li>Fix bugs and improve UI</li>
+          <li>Improve UI, add icons</li>
+          <li>Fix bugs where drawing list does not update</li>
+          <li>Prevent accidental dots when pinch zooming</li>
         </ul>
 
         <h3>2020-06-19</h3>
