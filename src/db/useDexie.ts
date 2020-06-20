@@ -34,14 +34,11 @@ function getItemCache<T, K>(table: Table<T, K>): ItemCache<T, K> {
 }
 
 db.on('changes').subscribe((changes: IDatabaseChange[]) => {
-  console.log(`changes`, changes);
   for (const change of changes) {
     if (tableCaches.has(change.table)) {
-      console.log(`tableCaches.delete(${change.table})`);
       tableCaches.delete(change.table);
     }
     if (itemCaches.has(change.table)) {
-      console.log(`itemCaches.get(${change.table})?.delete(${change.key})`);
       itemCaches.get(change.table)!.delete(change.key);
     }
   }
