@@ -1,12 +1,10 @@
+import { DrawContext, DrawingContext, InitContext, Rect } from './Drawlet';
 import {
+  ADD_LAYER_EVENT,
   DRAW_END_EVENT,
+  DRAW_EVENT,
   DRAW_START_EVENT,
-  DrawContext,
-  DrawingContext,
-  InitContext,
-  Rect,
-} from './Drawlet';
-import { ADD_LAYER_EVENT, DRAW_EVENT } from './data-model/events';
+} from './data-model/events';
 import parseColor from './util/parse-color';
 import { StorageModel } from './data-model/StorageModel';
 import DrawingModel, { getInitializeContext } from './data-model/DrawingModel';

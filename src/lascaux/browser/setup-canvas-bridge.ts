@@ -1,7 +1,11 @@
 import DrawingModel from '../data-model/DrawingModel';
-import { LascauxDomInstance, DrawletEvent, LascauxUiState } from '../Drawlet';
+import { LascauxDomInstance, LascauxUiState } from '../Drawlet';
 import pointerEventsBridge, { EventBridge } from './pointer-events-bridge';
-import { ADD_LAYER_EVENT, GOTO_EVENT } from '../data-model/events';
+import {
+  ADD_LAYER_EVENT,
+  DrawletEvent,
+  GOTO_EVENT,
+} from '../data-model/events';
 import { then } from 'promise-or-value';
 
 export default function createLascauxDomInstance(
