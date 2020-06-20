@@ -19,8 +19,6 @@ import { Layout } from '../ui/Layout';
 import { newDna } from '../lascaux/dna';
 import classNames from 'classnames';
 
-const changelog = raw('../../CHANGELOG.md');
-
 const sortedDrawings = db.drawings.orderBy('createdAt').reverse();
 function Drawings() {
   const drawings = useDexieArray(db.drawings, sortedDrawings);
