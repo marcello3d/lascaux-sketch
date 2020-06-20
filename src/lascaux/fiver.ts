@@ -1,7 +1,6 @@
 import { DrawContext, DrawingContext, InitContext, Rect } from './Drawlet';
 import {
   ADD_LAYER_EVENT,
-  CURSOR_EVENT,
   DRAW_END_EVENT,
   DRAW_EVENT,
   DRAW_START_EVENT,
