@@ -6,7 +6,6 @@ import React, {
   useState,
 } from 'react';
 import { Link, RouteComponentProps } from '@reach/router';
-import raw from 'raw.macro';
 
 import styles from './index.module.css';
 import LascauxLogoPath from './lascaux-logo.jpg';
