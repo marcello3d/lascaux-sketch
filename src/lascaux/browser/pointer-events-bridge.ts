@@ -16,8 +16,8 @@ import styles from './pointer-events-bridge.module.css';
 
 const CURSOR_TYPE_MAP: Record<string, CursorType> = {
   touch: 'touch',
-  mouse: 'cursor',
-  pen: 'stylus',
+  mouse: 'mouse',
+  pen: 'pen',
 };
 
 export type Transform = {
@@ -218,7 +218,7 @@ export default function pointerEventsBridge(
       CURSOR_EVENT,
       timeStamp,
       {
-        cursor: CURSOR_TYPE_MAP[pointerType],
+        type: CURSOR_TYPE_MAP[pointerType] || 'unknown',
       },
     ];
   }

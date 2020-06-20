@@ -71,7 +71,7 @@ function handleCommand(
       break;
 
     case DRAW_START_EVENT: {
-      const { layer, alpha, hardness = 1, color, erase } = mode;
+      const { cursor, layer, alpha, hardness = 1, color, erase } = mode;
       const { x, y, pressure = 1 } = payload;
       const size = mode.size * pressure;
       const [r, g, b] = parseColor(color);
@@ -80,12 +80,15 @@ function handleCommand(
       state.x = x;
       state.y = y;
 
-      canvas.setLayer(layer);
-      canvas.fillEllipses(
-        [[x - size / 2, y - size / 2, size, size, r, g, b, alpha]],
-        hardness,
-        erase,
-      );
+      // Don't draw initial point for touch so we can handle gestures
+      if (cursor?.type !== 'touch') {
+        canvas.setLayer(layer);
+        canvas.fillEllipses(
+          [[x - size / 2, y - size / 2, size, size, r, g, b, alpha]],
+          hardness,
+          erase,
+        );
+      }
       break;
     }
 
