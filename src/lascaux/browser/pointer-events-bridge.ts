@@ -168,6 +168,9 @@ export default function pointerEventsBridge(
 
   domElement.addEventListener(PointerDownEventName, onPointerEvent);
   domElement.addEventListener(WheelEventName, onWheelEvent);
+  // Prevent swipe to go forward/back on Chrome
+  // @ts-ignore
+  document.body.style.overscrollBehavior = 'none';
 
   function getCurrentPointers(): Pointer[] {
     return Object.values(currentPointers);
@@ -507,6 +510,10 @@ export default function pointerEventsBridge(
       );
       removeGestureChangeListeners();
       window.removeEventListener(ResizeEventName, relayout);
+
+      // Restore swipe to go forward/back on Chrome
+      // @ts-ignore
+      document.body.style.overscrollBehavior = undefined;
     },
   };
 }
