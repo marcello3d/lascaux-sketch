@@ -21,9 +21,16 @@ body {
 
 h1,
 h2,
-h3 {
-  margin: 0;
+h3,
+ul {
+  margin: 0.5em 0;
   font-weight: 400;
+}
+
+* + h1,
+* + h2,
+* + h3 {
+  margin-top: 1em;
 }
 
 button {
