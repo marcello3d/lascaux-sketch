@@ -39,16 +39,20 @@ button {
   border: none;
   border-radius: 1em;
   font-weight: 600;
-  padding: 0.25em 1em;
+  font-size: 0.8rem;
+  padding: 0.3em 1em;
   text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-  display: inline-grid;
-  grid-template-columns: auto 1fr;
+  display: inline-flex;
+  justify-content: center;
   align-items: center;
   margin: 2px;
-  vertical-align: middle;
+  white-space: nowrap;
+  vertical-align: center;
   outline: none;
+  user-select: none;
 }
+
 button:active {
   opacity: 0.8;
 }

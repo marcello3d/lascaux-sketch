@@ -302,10 +302,10 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
     <Layout
       header={
         <Header>
-          <button onClick={downloadPng}>
+          <Button onClick={downloadPng}>
             <Icon file={FileDownloadIcon} alt="download" />
             Save PNG
-          </button>
+          </Button>
         </Header>
       }
       footer={false}
@@ -380,7 +380,8 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
         <label className={styles.toolLabel}>Layers</label>
         <span className={styles.layers}>{layers}</span>
         <Button onClick={addLayer}>
-          <Icon file={LayerPlusIcon} alt="Layer plus icon" /> Add Layer
+          <Icon file={LayerPlusIcon} alt="Layer plus icon" />
+          Add Layer
         </Button>
         <label className={styles.toolLabel}>Diagnostics</label>
         <p className={styles.diagInfo}>{canvasInstance.getInfo()}</p>
