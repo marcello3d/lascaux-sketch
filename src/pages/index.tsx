@@ -1,49 +1,15 @@
-import React, {
-  ChangeEvent,
-  Suspense,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import React, { ChangeEvent, Suspense, useCallback, useState } from 'react';
 import { Link, RouteComponentProps } from '@reach/router';
 
 import styles from './index.module.css';
 import LascauxLogoPath from './lascaux-logo.jpg';
-import IconImagePolaroid from '../icons/fa/image-polaroid.svg';
 
 import { db } from '../db/db';
 import { newDate, newId } from '../db/fields';
-import { useDexieArray } from '../db/useDexie';
 import { Layout } from '../ui/Layout';
 import { newDna } from '../lascaux/dna';
 import classNames from 'classnames';
-
-const sortedDrawings = db.drawings.orderBy('createdAt').reverse();
-function Drawings() {
-  const drawings = useDexieArray(db.drawings, sortedDrawings);
-  const items = useMemo(
-    () =>
-      drawings.map(({ id, name = 'Untitled drawing', createdAt }) => (
-        <li key={id}>
-          <img
-            src={IconImagePolaroid}
-            width={20}
-            height={20}
-            alt="Drawing icon"
-          />
-          <div>
-            <Link to={`drawings/${id}`}>{name}</Link>
-            <span className={styles.date}>
-              {new Date(createdAt).toLocaleString()}
-            </span>
-          </div>
-        </li>
-      )),
-    [drawings],
-  );
-
-  return <ul className={styles.list}>{items}</ul>;
-}
+import { DrawingGrid } from '../ui/DrawingGrid';
 
 function validSize(input: string): number | undefined {
   if (!/^\d+$/.test(input)) {
@@ -120,7 +86,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
           </form>
         </p>
         <Suspense fallback={<p>Retrieving…</p>}>
-          <Drawings />
+          <DrawingGrid />
         </Suspense>
       </div>
       <div className={styles.column}>
@@ -151,6 +117,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
 
         <h3>2020-06-19</h3>
         <ul>
+          <li>Add thumbnails</li>
           <li>Block swipe back/forward on Chrome while drawing</li>
         </ul>
 
