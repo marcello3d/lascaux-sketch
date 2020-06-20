@@ -6,11 +6,11 @@ import {
   DRAW_END_EVENT,
   DRAW_EVENT,
   DRAW_START_EVENT,
+  DrawEventType,
   DrawletCursorEvent,
   DrawletDrawEvent,
-  DrawEventType,
   DrawletEvent,
-} from '../Drawlet';
+} from '../data-model/events';
 
 import styles from './pointer-events-bridge.module.css';
 

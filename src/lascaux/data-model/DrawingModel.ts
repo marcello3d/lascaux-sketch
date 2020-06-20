@@ -4,6 +4,7 @@ import { PromiseOrValue, then } from 'promise-or-value';
 import jsonCopy from '../util/json-copy';
 
 import {
+  DRAW_END_EVENT,
   getNormalizedModePayload,
   GOTO_EVENT,
   isKeyframeEvent,
@@ -15,7 +16,6 @@ import ModeMap from './ModeMap';
 import SnapshotMap from './SnapshotMap';
 
 import {
-  DRAW_END_EVENT,
   DrawContext,
   DrawingContext,
   DrawletHandleFn,
