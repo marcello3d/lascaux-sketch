@@ -73,6 +73,7 @@ function useCacheEntry<K, T>(
   cache: CacheMap<K, T>,
   key: K,
   compute: (key: K) => PromiseExtended<T>,
+  allowStale: boolean,
 ): T {
   const forceRender = useForceRender();
 
@@ -104,7 +105,7 @@ function useCacheEntry<K, T>(
   }
 
   // Return existing value if we've ever resolved
-  if (entry.resolved) {
+  if (entry.resolved && (allowStale || !entry.stale)) {
     return entry.value!;
   }
 
@@ -115,12 +116,22 @@ function useCacheEntry<K, T>(
 export function useDexieArray<T, K>(
   table: Table<T, K>,
   collection: Collection<T, K>,
+  allowStale: boolean = true,
 ): T[] {
   const cache = getCollectionCache(table);
-  return useCacheEntry(cache, collection, () => collection.toArray());
+  return useCacheEntry(
+    cache,
+    collection,
+    () => collection.toArray(),
+    allowStale,
+  );
 }
 
-export function useDexieItem<T, K>(table: Table<T, K>, key: K): T | undefined {
+export function useDexieItem<T, K>(
+  table: Table<T, K>,
+  key: K,
+  allowStale: boolean = true,
+): T | undefined {
   const cache = getItemCache(table);
-  return useCacheEntry(cache, key, () => table.get(key));
+  return useCacheEntry(cache, key, () => table.get(key), allowStale);
 }
