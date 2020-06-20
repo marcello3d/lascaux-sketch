@@ -5,6 +5,7 @@ import { Link } from '@reach/router';
 import styles from './DrawingGrid.module.css';
 import { Icon } from './Icon';
 import IconImagePolaroid from '../icons/fa/image-polaroid.svg';
+import { useBlobAsUrl } from '../react-hooks/useBlobAsUrl';
 
 const sortedDrawings = db.drawings.orderBy('createdAt').reverse();
 
@@ -26,23 +27,11 @@ export function DrawingButton({
   createdAt,
   dna: { width, height },
 }: DbDrawing) {
-  const blob = useDexieItem(db.thumbnails, id)?.thumbnail;
-  const url = useMemo(() => blob && window.URL.createObjectURL(blob), [blob]);
   return (
     <Link to={`drawings/${id}`} className={styles.drawing}>
-      {url ? (
-        <img
-          src={url}
-          width={100}
-          height={100}
-          alt="Drawing thumbnail"
-          className={styles.icon}
-        />
-      ) : (
-        <div className={styles.icon}>
-          <Icon file={IconImagePolaroid} alt="Drawing icon" />
-        </div>
-      )}
+      <div className={styles.icon}>
+        <DrawingThumbnail drawingId={id} />
+      </div>
       <div className={styles.name}>{name}</div>
       <div className={styles.size}>
         {width} ⨉ {height}
@@ -50,4 +39,21 @@ export function DrawingButton({
       <div className={styles.date}>{new Date(createdAt).toLocaleString()}</div>
     </Link>
   );
+}
+
+export function DrawingThumbnail({ drawingId }: { drawingId: string }) {
+  const blob = useDexieItem(db.thumbnails, drawingId)?.thumbnail;
+  const url = useBlobAsUrl(blob);
+  if (url) {
+    return (
+      <img
+        src={url}
+        width={100}
+        height={100}
+        alt="Drawing thumbnail"
+        className={styles.icon}
+      />
+    );
+  }
+  return <Icon file={IconImagePolaroid} alt="Drawing icon" />;
 }
