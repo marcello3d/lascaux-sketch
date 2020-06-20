@@ -3,6 +3,7 @@ import { Link, RouteComponentProps } from '@reach/router';
 
 import styles from './index.module.css';
 import LascauxLogoPath from './lascaux-logo.jpg';
+import PizzaSliceIcon from '../icons/fa/pizza-slice.svg';
 
 import { db } from '../db/db';
 import { newDate, newId } from '../db/fields';
@@ -10,6 +11,7 @@ import { Layout } from '../ui/Layout';
 import { newDna } from '../lascaux/dna';
 import classNames from 'classnames';
 import { DrawingGrid } from '../ui/DrawingGrid';
+import { Icon } from '../ui/Icon';
 
 function validSize(input: string): number | undefined {
   if (!/^\d+$/.test(input)) {
@@ -57,34 +59,36 @@ export function IndexPage({ navigate }: RouteComponentProps) {
       <div className={styles.column}>
         <h2>Local Drawings</h2>
         <p>Drawings are saved in your browser's local storage.</p>
-        <p>
-          <form onSubmit={addDrawing}>
-            <button
-              onClick={addDrawing}
-              disabled={!(width !== undefined && height !== undefined)}
-            >
-              New Drawing
-            </button>{' '}
-            Size:{' '}
-            <input
-              className={classNames(styles.input, {
-                [styles.invalid]: width === undefined,
-              })}
-              value={stringWidth}
-              inputMode="numeric"
-              onChange={onWidthChange}
+        <form onSubmit={addDrawing}>
+          <button
+            onClick={addDrawing}
+            disabled={!(width !== undefined && height !== undefined)}
+          >
+            <Icon
+              file={PizzaSliceIcon}
+              alt="Pizza slice icon for new drawing button"
             />
-            {' ⨉ '}
-            <input
-              className={classNames(styles.input, {
-                [styles.invalid]: height === undefined,
-              })}
-              value={stringHeight}
-              inputMode="numeric"
-              onChange={onHeightChange}
-            />
-          </form>
-        </p>
+            New Drawing
+          </button>{' '}
+          Size:{' '}
+          <input
+            className={classNames(styles.input, {
+              [styles.invalid]: width === undefined,
+            })}
+            value={stringWidth}
+            inputMode="numeric"
+            onChange={onWidthChange}
+          />
+          {' ⨉ '}
+          <input
+            className={classNames(styles.input, {
+              [styles.invalid]: height === undefined,
+            })}
+            value={stringHeight}
+            inputMode="numeric"
+            onChange={onHeightChange}
+          />
+        </form>
         <Suspense fallback={<p>Retrieving…</p>}>
           <DrawingGrid />
         </Suspense>
@@ -114,6 +118,11 @@ export function IndexPage({ navigate }: RouteComponentProps) {
         </p>
 
         <h2>Changelog</h2>
+
+        <h3>2020-06-20</h3>
+        <ul>
+          <li>Fix bugs and improve UI</li>
+        </ul>
 
         <h3>2020-06-19</h3>
         <ul>
