@@ -32,6 +32,7 @@
 }
 .left {
   display: flex;
+  max-width: 20vw;
   flex-direction: column;
 }
 .tools {
@@ -40,9 +41,6 @@
   flex-direction: row;
   padding: 2px;
   align-items: center;
-}
-.tools button {
-  width: 5em;
 }
 .cursorSlider {
   margin: 2px 10px;
@@ -102,10 +100,15 @@
   border-top: solid 1px #888;
 }
 .layer {
-  display: block;
+  display: flex;
   border-radius: 0;
+  flex-direction: row;
   background: #444;
+  padding: 4px;
   margin: 0;
+}
+.layerName {
+  flex-grow: 1;
 }
 .layerSelected {
   background: #666;

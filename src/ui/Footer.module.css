@@ -1,0 +1,11 @@
+.root {
+  grid-area: footer;
+  color: #eee;
+  padding: 10px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.root a {
+  color: #fff;
+}

@@ -39,10 +39,12 @@ button {
   border: none;
   border-radius: 1em;
   font-weight: 600;
-  letter-spacing: 0.05em;
   padding: 0.25em 1em;
   text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+  display: inline-grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
   margin: 2px;
   vertical-align: middle;
   outline: none;
