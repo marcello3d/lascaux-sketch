@@ -2,7 +2,7 @@
   display: inline-block;
   width: 1em;
   height: 1em;
-  margin: 0.1em;
+  margin: 0.1em 0.3em;
   background-color: currentColor;
   vertical-align: middle;
 }

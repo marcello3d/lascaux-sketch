@@ -25,6 +25,14 @@ import { DrawingMode } from './lascaux/dna';
 import { db } from './db/db';
 import { newDate } from './db/fields';
 
+import LayerPlusIcon from './icons/fa/layer-plus.svg';
+import PenSquareIcon from './icons/fa/pen-square.svg';
+import SquareIcon from './icons/fa/square.svg';
+import PlayIcon from './icons/fa/play.svg';
+import PauseIcon from './icons/fa/pause.svg';
+import UndoIcon from './icons/fa/undo.svg';
+import RedoIcon from './icons/fa/redo.svg';
+
 const colors: readonly string[] = [
   '#ffffff', // white
   '#33ccff', // light sky-blue
@@ -260,15 +268,24 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
     const array: React.ReactNode[] = [];
     for (let i = updateObject.mode.layers - 1; i >= 0; i--) {
       const layer = i;
+      const selected = updateObject.mode.layer === layer;
       array.push(
         <Button
           key={i}
           className={classNames(styles.layer, {
-            [styles.layerSelected]: updateObject.mode.layer === layer,
+            [styles.layerSelected]: selected,
           })}
-          onClick={() => canvasInstance.setMode('layer', layer)}
+          onClick={() => {
+            if (!selected) {
+              canvasInstance.setMode('layer', layer);
+            }
+          }}
         >
-          Layer #{i + 1}
+          <Icon
+            file={selected ? PenSquareIcon : SquareIcon}
+            alt={selected ? 'Selected layer' : 'Unselected layer'}
+          />
+          <span className={styles.layerName}>Layer #{i + 1}</span>
         </Button>,
       );
     }
@@ -285,23 +302,29 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
     <Layout
       header={
         <Header>
-          <button onClick={downloadPng}>
+          <Button onClick={downloadPng}>
             <Icon file={FileDownloadIcon} alt="download" />
             Save PNG
-          </button>
+          </Button>
         </Header>
       }
+      footer={false}
       className={styles.root}
     >
       <div className={styles.tools}>
         <Button disabled={updateObject.strokeCount === 0} onClick={togglePlay}>
-          {updateObject.playing ? 'Pause' : 'Play'}
+          <Icon
+            file={updateObject.playing ? PauseIcon : PlayIcon}
+            alt={updateObject.playing ? 'Pause' : 'Play'}
+          />
         </Button>
         {playbackSlider}
         <Button disabled={updateObject.undo === undefined} onClick={undo}>
+          <Icon file={UndoIcon} alt="Undo icon" />
           Undo
         </Button>
         <Button disabled={updateObject.redo === undefined} onClick={redo}>
+          <Icon file={RedoIcon} alt="Redo icon" />
           Redo
         </Button>
       </div>
@@ -355,10 +378,21 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
         </label>
         {zoomSlider}
         <label className={styles.toolLabel}>Layers</label>
-        <label className={styles.layers}>{layers}</label>
-        <Button onClick={addLayer}>Add Layer</Button>
+        <span className={styles.layers}>{layers}</span>
+        <Button onClick={addLayer}>
+          <Icon file={LayerPlusIcon} alt="Layer plus icon" />
+          Add Layer
+        </Button>
         <label className={styles.toolLabel}>Diagnostics</label>
-        <label className={styles.diagInfo}>{canvasInstance.getInfo()}</label>
+        <p className={styles.diagInfo}>{canvasInstance.getInfo()}</p>
+        <p>
+          build{' '}
+          <a
+            href={`https://github.com/marcello3d/lascaux-sketch/commit/${process.env.REACT_APP_GIT_SHA}`}
+          >
+            {(process.env.REACT_APP_GIT_SHA ?? 'unknown').slice(0, 8)}
+          </a>
+        </p>
       </div>
       <div
         ref={drawletContainerRef}
