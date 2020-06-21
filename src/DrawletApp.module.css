@@ -127,4 +127,16 @@
 .status {
   grid-area: status;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.status > * {
+  padding: 3px 5px;
+}
+.status > .value {
+  width: 5em;
+  text-align: right;
+  flex-shrink: 0;
+  flex-grow: 0;
 }

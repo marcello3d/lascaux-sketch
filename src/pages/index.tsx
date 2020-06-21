@@ -84,6 +84,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
           </button>{' '}
           Size:{' '}
           <input
+            type="text"
             className={classNames(styles.input, {
               [styles.invalid]: width === undefined,
             })}
@@ -93,6 +94,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
           />
           {' ⨉ '}
           <input
+            type="text"
             className={classNames(styles.input, {
               [styles.invalid]: height === undefined,
             })}

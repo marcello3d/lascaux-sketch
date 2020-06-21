@@ -33,6 +33,12 @@ ul {
   margin-top: 1em;
 }
 
+input[type=text] {
+  border: solid 1px black;
+  border-radius: 3px;
+  padding: 2px;
+}
+
 button {
   background: var(--accent-color);
   color: #fff;

@@ -1,5 +1,5 @@
 import { Collection, PromiseExtended, Table } from 'dexie';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { IDatabaseChange } from 'dexie-observable/api';
 import { useForceRender } from '../react-hooks/useForceRender';
 import { db } from './db';
@@ -13,6 +13,7 @@ type CacheEntry<T> = {
   promise?: PromiseExtended<T>;
   resolved: boolean;
   value?: T;
+  revision: number;
 };
 
 type CollectionCache<T, K> = Map<Collection<T, K>, CacheEntry<T[]>>;
@@ -37,6 +38,19 @@ function getItemCache<T, K>(table: Table<T, K>): ItemCache<T, K> {
     itemCaches.set(table.name, subCache);
   }
   return subCache;
+}
+
+function updateEntry<K, T>(table: Table<T, K>, key: K, value: Partial<T>) {
+  const item = getItemCache(table);
+  let entry = item.get(key);
+  if (!entry) {
+    entry = { stale: true, resolved: false, revision: 0 };
+    item.set(key, entry);
+  } else {
+    entry.promise = undefined;
+    entry.revision++;
+  }
+  entry.value = { ...entry.value, ...value } as T;
 }
 
 // This logic marks entries in the cache as stale based on any database change
@@ -86,12 +100,20 @@ function useCacheEntry<K, T>(
     };
   }, [forceRender]);
 
-  const entry = cache.get(key) || { stale: true, resolved: false };
+  const entry = cache.get(key) || {
+    stale: true,
+    resolved: false,
+    revision: 0,
+  };
   // Do we have stale (or no) data?
   if (entry.stale) {
-    entry.promise = compute(key).then((result) => {
+    const revision = entry.revision;
+    entry.stale = false;
+    const promise = compute(key).then((result) => {
+      if (revision !== entry.revision || promise !== entry.promise) {
+        return result;
+      }
       entry.promise = undefined;
-      entry.stale = false;
       entry.value = result;
       if (entry.resolved) {
         // We need to re-render because the current data is stale
@@ -101,6 +123,7 @@ function useCacheEntry<K, T>(
       }
       return result;
     });
+    entry.promise = promise;
     cache.set(key, entry);
   }
 
@@ -134,4 +157,17 @@ export function useDexieItem<T, K>(
 ): T | undefined {
   const cache = getItemCache(table);
   return useCacheEntry(cache, key, () => table.get(key), allowStale);
+}
+
+export function useDexieItemUpdate<T, K>(
+  table: Table<T, K>,
+  key: K,
+): (newValue: Partial<T>) => void {
+  return useCallback(
+    (value: Partial<T>) => {
+      table.update(key, value);
+      updateEntry(table, key, value);
+    },
+    [key, table],
+  );
 }
