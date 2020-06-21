@@ -9,7 +9,7 @@ import {
   FrameBufferInfo,
 } from '../lascaux/webgl/util/gl-framebuffer';
 import produce from 'immer';
-import { Layout } from '../ui/Layout';
+import { Layout } from './modules/Layout';
 
 type PointerData = {
   types: Record<string, boolean>;

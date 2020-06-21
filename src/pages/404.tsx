@@ -2,7 +2,7 @@ import { RouteComponentProps } from '@reach/router';
 import React from 'react';
 import styles from './error.module.css';
 import SwatchBookIcon from '../icons/fa/swatchbook.svg';
-import { Layout } from '../ui/Layout';
+import { Layout } from './modules/Layout';
 import { Icon } from '../ui/Icon';
 
 export function NotFoundPage(props: RouteComponentProps) {

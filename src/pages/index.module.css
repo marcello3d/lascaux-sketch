@@ -14,6 +14,12 @@
   background: #ffc5c5;
 }
 
+.features {
+  list-style: none;
+  padding-left: 0.2em;
+  line-height: 1.5;
+}
+
 @media only screen and (max-width: 640px) {
   .root {
     flex-direction: column;

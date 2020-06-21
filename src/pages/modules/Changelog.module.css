@@ -1,0 +1,12 @@
+.changelog {
+  display: grid;
+  grid-template-columns: auto 1fr;
+}
+.changelog h3 {
+  font-variant-numeric: tabular-nums;
+}
+.changelog > * {
+  margin: 5px 0;
+  padding-top: 5px;
+  /*border-top: solid 1px #eee;*/
+}

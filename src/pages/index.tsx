@@ -6,14 +6,21 @@ import LascauxLogoPath from './lascaux-logo.jpg';
 import PizzaSliceIcon from '../icons/fa/pizza-slice.svg';
 import GithubIcon from '../icons/fa/github.svg';
 import TwitterIcon from '../icons/fa/twitter.svg';
+import LayerGroupIcon from '../icons/fa/layer-group.svg';
+import TvRetroIcon from '../icons/fa/tv-retro.svg';
+import CalculatorIcon from '../icons/fa/calculator-alt.svg';
+import HddIcon from '../icons/fa/hdd.svg';
+import MicrochipIcon from '../icons/fa/microchip.svg';
+import SparklesIcon from '../icons/fa/sparkles.svg';
 
 import { db } from '../db/db';
 import { newDate, newId } from '../db/fields';
-import { Layout } from '../ui/Layout';
+import { Layout } from './modules/Layout';
 import { newDna } from '../lascaux/dna';
 import classNames from 'classnames';
-import { DrawingGrid } from '../ui/DrawingGrid';
+import { DrawingGrid } from './modules/DrawingGrid';
 import { Icon } from '../ui/Icon';
+import { Changelog } from './modules/Changelog';
 
 function validSize(input: string): number | undefined {
   if (!/^\d+$/.test(input)) {
@@ -59,8 +66,11 @@ export function IndexPage({ navigate }: RouteComponentProps) {
   return (
     <Layout className={styles.root}>
       <div className={styles.column}>
-        <h2>Local Drawings</h2>
-        <p>Drawings are saved in your browser's local storage.</p>
+        <h2>Your Drawings</h2>
+        <p>
+          Start drawing right now! Drawings are saved in your web browser's
+          storage.
+        </p>
         <form onSubmit={addDrawing}>
           <button
             onClick={addDrawing}
@@ -104,90 +114,73 @@ export function IndexPage({ navigate }: RouteComponentProps) {
             height={170}
           />
         </p>
-        <h2>About</h2>
         <p>
-          Lascaux Sketch 2 is an{' '}
-          <a href="https://github.com/marcello3d/lascaux-sketch/">
-            <Icon file={GithubIcon} alt="Github logo" />
-            open source
-          </a>{' '}
-          WebGL multi-layered painting tool written in TypeScript.
+          Lascaux Sketch 2 is an <b>open source</b> web-based digital painting
+          tool.
         </p>
         <p>
-          Lascaux Sketch was originally a Java Applet I wrote back in{' '}
+          <a href="https://github.com/marcello3d/lascaux-sketch/">
+            <Icon file={GithubIcon} alt="Github icon" />
+            github.com/marcello3d/lascaux-sketch
+          </a>
+        </p>
+        <p>
+          <a href="https://twitter.com/marcello3d/">
+            <Icon file={TwitterIcon} alt="Twitter icon" />
+            marcello3d
+          </a>
+        </p>
+        <h2>About</h2>
+        <p>
+          I built the first version of Lascaux Sketch back in{' '}
           <a href="https://web.archive.org/web/20041009175410/http://www.cellosoft.com/sketchstudio/">
             2002
           </a>{' '}
-          used on <a href="https://2draw.net/">2draw.net</a>.
+          for my site <a href="https://2draw.net/">2draw.net</a> as a side
+          project inspired by the{' '}
+          <a href="https://en.wiktionary.org/wiki/Oekaki">Oekaki</a> scene at
+          the time.
+        </p>
+        <p>
+          Lascaux Sketch 2 is a mashup of experiments I've done over the years
+          to build a new drawing app using modern web technologies.
         </p>
         <h2>Features</h2>
-
-        <ul>
-          <li>Multi-layer canvases up to 4000 ⨉ 4000</li>
-          <li>Hardware accelerated with WebGL</li>
-          <li>High quality Floating-point RGBA blending (where supported)</li>
-          <li>Saves in browser local storage</li>
-          <li>Full replayable animation history</li>
+        <ul className={styles.features}>
+          <li>
+            <Icon file={LayerGroupIcon} alt="Layer group icon" /> Multi-layer
+            canvas up to 4000 ⨉ 4000
+          </li>
+          <li>
+            <Icon file={MicrochipIcon} alt="Microchip icon" />{' '}
+            Hardware-accelerated with WebGL
+          </li>
+          <li>
+            <Icon file={CalculatorIcon} alt="Calculator icon" /> 64bit/128bit
+            RGBA blending (if supported)
+          </li>
+          <li>
+            <Icon file={TvRetroIcon} alt="Retro TV icon" /> Full animated stroke
+            and undo history
+          </li>
+          <li>
+            <Icon file={HddIcon} alt="HDD icon" /> Saves in browser local
+            storage
+          </li>
+          <li>
+            <Icon file={SparklesIcon} alt="Sparkles icon" /> More in the works,
+            follow along on <a href="https://twitter.com/marcello3d">Twitter</a>{' '}
+            and{' '}
+            <a href="https://github.com/marcello3d/lascaux-sketch/">Github</a>!
+          </li>
         </ul>
         <h2>Diagnostics</h2>
         <p>
-          Check out <Link to="/diag">diagnostics</Link> to see how Lascaux
-          Sketch handles your input device (tablet/mouse/touch screen)
+          Visit the <Link to="/diag">diagnostics page</Link> to see how Lascaux
+          Sketch handles your device and browser
         </p>
-
         <h2>Changelog</h2>
-
-        <h3>2020-06-20</h3>
-        <ul>
-          <li>Improve UI, add icons</li>
-          <li>Fix bugs where drawing list does not update</li>
-          <li>Prevent accidental dots when pinch zooming</li>
-        </ul>
-
-        <h3>2020-06-19</h3>
-        <ul>
-          <li>Add thumbnails</li>
-          <li>Block swipe back/forward on Chrome while drawing</li>
-        </ul>
-
-        <h3>2020-06-18</h3>
-        <ul>
-          <li>Canvas size option</li>
-        </ul>
-
-        <h3>2020-06-16</h3>
-        <ul>
-          <li>Added "Save PNG" button</li>
-        </ul>
-
-        <h3>2020-06-14</h3>
-        <ul>
-          <li>Version to header</li>
-          <li>Code/deployment reorganization</li>
-        </ul>
-
-        <h3>2020-06-13</h3>
-        <ul>
-          <li>Support for float16 (if float32 is not available)</li>
-          <li>Faster undo after reloading drawing</li>
-        </ul>
-
-        <h3>2020-06-09</h3>
-        <ul>
-          <li>Click to add a dot</li>
-          <li>Brush spacing and hardness sliders</li>
-          <li>
-            <a href="https://sentry.io">Sentry</a> error tracking
-          </li>
-          <li>Smoother brush rendering</li>
-        </ul>
-
-        <h3>2020-06-06</h3>
-        <ul>
-          <li>First public release!</li>
-          <li>Save drawings to local storage</li>
-          <li>Loading screen</li>
-        </ul>
+        <Changelog />
       </div>
     </Layout>
   );
