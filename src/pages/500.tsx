@@ -1,7 +1,7 @@
 import React from 'react';
 import styles from './error.module.css';
 import PooStormIcon from '../icons/fa/poo-storm.svg';
-import { Layout } from '../ui/Layout';
+import { Layout } from './modules/Layout';
 import { Icon } from '../ui/Icon';
 
 type Props = {

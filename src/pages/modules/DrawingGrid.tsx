@@ -1,11 +1,11 @@
-import { db, DbDrawing } from '../db/db';
-import { useDexieArray, useDexieItem } from '../db/useDexie';
+import { db, DbDrawing } from '../../db/db';
+import { useDexieArray, useDexieItem } from '../../db/useDexie';
 import React, { useMemo } from 'react';
 import { Link } from '@reach/router';
 import styles from './DrawingGrid.module.css';
-import { Icon } from './Icon';
-import IconImagePolaroid from '../icons/fa/image-polaroid.svg';
-import { useBlobAsUrl } from '../react-hooks/useBlobAsUrl';
+import { Icon } from '../../ui/Icon';
+import IconImagePolaroid from '../../icons/fa/image-polaroid.svg';
+import { useBlobAsUrl } from '../../react-hooks/useBlobAsUrl';
 
 const sortedDrawings = db.drawings.orderBy('createdAt').reverse();
 

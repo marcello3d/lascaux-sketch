@@ -1,6 +1,6 @@
 import styles from './loading.module.css';
 import React from 'react';
-import { Layout } from '../ui/Layout';
+import { Layout } from './modules/Layout';
 
 export function LoadingPage() {
   return (
