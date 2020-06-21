@@ -4,6 +4,8 @@ import { Link, RouteComponentProps } from '@reach/router';
 import styles from './index.module.css';
 import LascauxLogoPath from './lascaux-logo.jpg';
 import PizzaSliceIcon from '../icons/fa/pizza-slice.svg';
+import GithubIcon from '../icons/fa/github.svg';
+import TwitterIcon from '../icons/fa/twitter.svg';
 
 import { db } from '../db/db';
 import { newDate, newId } from '../db/fields';
@@ -104,13 +106,29 @@ export function IndexPage({ navigate }: RouteComponentProps) {
         </p>
         <h2>About</h2>
         <p>
+          Lascaux Sketch 2 is an{' '}
+          <a href="https://github.com/marcello3d/lascaux-sketch/">
+            <Icon file={GithubIcon} alt="Github logo" />
+            open source
+          </a>{' '}
+          WebGL multi-layered painting tool written in TypeScript.
+        </p>
+        <p>
           Lascaux Sketch was originally a Java Applet I wrote back in{' '}
           <a href="https://web.archive.org/web/20041009175410/http://www.cellosoft.com/sketchstudio/">
             2002
           </a>{' '}
-          used on <a href="https://2draw.net/">2draw.net</a>. This is a new open
-          source version built from the ground up using TypeScript and WebGL.
+          used on <a href="https://2draw.net/">2draw.net</a>.
         </p>
+        <h2>Features</h2>
+
+        <ul>
+          <li>Multi-layer canvases up to 4000 ⨉ 4000</li>
+          <li>Hardware accelerated with WebGL</li>
+          <li>High quality Floating-point RGBA blending (where supported)</li>
+          <li>Saves in browser local storage</li>
+          <li>Full replayable animation history</li>
+        </ul>
         <h2>Diagnostics</h2>
         <p>
           Check out <Link to="/diag">diagnostics</Link> to see how Lascaux
