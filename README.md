@@ -22,7 +22,20 @@ used on [2draw.net](https://2draw.net/). This is a new version built from the gr
 
 ## Code structure
 
-
+- `src/` main source code
+  - `db/` local-storage related files, including storage implementation
+  - `icons/` icon files (not open source!) 
+  - `lascaux/` **main drawing app logic** 
+    - `browser/` browser integration
+    - `data-model/` core data model for drawing (strokes, gotos, modes, storage interface)
+    - `test/` (tests? lol, not actually used)
+    - `util/` various helper utility functions
+    - `webgl/` all drawing, blending, and compositing logic
+  - `pages/` the logic for the various pages
+  - `react-hooks/` React helper hooks 
+  - `ui/` misc UI components
+- `public/` static files served on deployment
+- `patches/` [patch-package](https://www.npmjs.com/package/patch-package) patches for broken types
 
 ## Contributing
 
