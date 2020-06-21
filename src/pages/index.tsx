@@ -142,7 +142,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
           the time.
         </p>
         <p>
-          Lascaux Sketch 2 is a mashup of experiments I've done over the years.
+          This new version is a mashup of experiments I've done over the years.
           The goal is to build a sweet drawing app using modern web
           technologies.
         </p>
