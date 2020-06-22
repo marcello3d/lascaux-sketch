@@ -10,6 +10,8 @@ export function Changelog() {
         <li>
           <b>Open source!!!</b>
         </li>
+        <li>Group drawings by date</li>
+        <li>Rename drawings by clicking on their title</li>
       </ul>
 
       <h3>2020-06-20</h3>
