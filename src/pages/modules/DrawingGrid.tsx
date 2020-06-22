@@ -1,5 +1,5 @@
 import { db, DbDrawing } from '../../db/db';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Link } from '@reach/router';
 import styles from './DrawingGrid.module.css';
 import { Icon } from '../../ui/Icon';
@@ -53,7 +53,6 @@ export function DrawingGrid() {
 
 export function DrawingButton({ drawingId }: { drawingId: string }) {
   const [editing, startEdit, finishEdit] = useToggle();
-
   const drawing = useDexieItem(db.drawings, drawingId);
   const updateDrawing = useDexieItemUpdate(db.drawings, drawingId);
   const changeName = useCallback(
@@ -74,7 +73,7 @@ export function DrawingButton({ drawingId }: { drawingId: string }) {
     return <></>;
   }
   const {
-    name,
+    name = '',
     createdAt,
     dna: { width, height },
   } = drawing;

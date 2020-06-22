@@ -4,16 +4,16 @@ import { IDatabaseChange } from 'dexie-observable/api';
 import { useForceRender } from '../react-hooks/useForceRender';
 import { db } from './db';
 
-type PromiseExtendedOrValue<T> = PromiseExtended<T> | T;
+const tableCaches = new Map<string, Map<any, CacheEntry<any[]>>>();
 
-const tableCaches = new Map<string, Map<any, any>>();
-
+type Subscriber<T> = () => void;
 type CacheEntry<T> = {
   stale: boolean;
   promise?: PromiseExtended<T>;
   resolved: boolean;
   value?: T;
   revision: number;
+  subscribers: Set<Subscriber<T>>;
 };
 
 type CollectionCache<T, K> = Map<Collection<T, K>, CacheEntry<T[]>>;
@@ -40,17 +40,38 @@ function getItemCache<T, K>(table: Table<T, K>): ItemCache<T, K> {
   return subCache;
 }
 
+function newEntry<T>(): CacheEntry<T> {
+  return {
+    stale: true,
+    resolved: false,
+    revision: 0,
+    subscribers: new Set(),
+  };
+}
+
 function updateEntry<K, T>(table: Table<T, K>, key: K, value: Partial<T>) {
   const item = getItemCache(table);
   let entry = item.get(key);
   if (!entry) {
-    entry = { stale: true, resolved: false, revision: 0 };
+    entry = newEntry();
     item.set(key, entry);
   } else {
     entry.promise = undefined;
     entry.revision++;
   }
   entry.value = { ...entry.value, ...value } as T;
+  notifySubscribers(entry);
+}
+
+function notifySubscribers<T>(entry: CacheEntry<T>) {
+  for (const subscriber of entry.subscribers) {
+    subscriber();
+  }
+}
+
+function markEntryStale<T>(entry: CacheEntry<T>) {
+  entry.stale = true;
+  notifySubscribers(entry);
 }
 
 // This logic marks entries in the cache as stale based on any database change
@@ -63,16 +84,16 @@ db.on('changes').subscribe((changes: IDatabaseChange[]) => {
       if (tableCache) {
         // Mark all table cache entries as stale
         for (const entry of tableCache.values()) {
-          entry.stale = true;
+          markEntryStale(entry);
         }
       }
     }
     const itemCache = itemCaches.get(table);
     if (itemCache) {
       // Mark all item as stale by key
-      const item = itemCache.get(key);
-      if (item) {
-        item.stale = true;
+      const entry = itemCache.get(key);
+      if (entry) {
+        markEntryStale(entry);
       }
     }
   }
@@ -90,21 +111,17 @@ function useCacheEntry<K, T>(
   allowStale: boolean,
 ): T {
   const forceRender = useForceRender();
+  const entry = cache.get(key) || newEntry();
 
   // Whenever the database changes, re-render this component because it might be stale
   // Future optimization: only re-render on applicable changes
   useEffect(() => {
-    db.on('changes').subscribe(forceRender);
+    entry.subscribers.add(forceRender);
     return () => {
-      db.on('changes').unsubscribe(forceRender);
+      entry.subscribers.delete(forceRender);
     };
-  }, [forceRender]);
+  }, [entry.subscribers, forceRender]);
 
-  const entry = cache.get(key) || {
-    stale: true,
-    resolved: false,
-    revision: 0,
-  };
   // Do we have stale (or no) data?
   if (entry.stale) {
     const revision = entry.revision;
@@ -165,8 +182,8 @@ export function useDexieItemUpdate<T, K>(
 ): (newValue: Partial<T>) => void {
   return useCallback(
     (value: Partial<T>) => {
-      table.update(key, value);
       updateEntry(table, key, value);
+      table.update(key, value);
     },
     [key, table],
   );
