@@ -1,5 +1,5 @@
 import { db, DbDrawing } from '../../db/db';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Link } from '@reach/router';
 import styles from './DrawingGrid.module.css';
 import { Icon } from '../../ui/Icon';
