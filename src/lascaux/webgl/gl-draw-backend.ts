@@ -352,6 +352,11 @@ export class GlDrawBackend implements DrawBackend {
       }
     }
   }
+  private _deleteLayer(layer: number) {
+    const layerInfo = this._layers[layer];
+    this._layers.splice(layer, 1);
+    layerInfo.frameBuffer.destroy();
+  }
 
   getPng(): Promise<Blob> {
     const { canvas, _mainTextureVertexArray, pixelWidth, pixelHeight } = this;
@@ -449,6 +454,9 @@ export class GlDrawBackend implements DrawBackend {
   ): PromiseOrValue<void> {
     while (layers > this._layers.length) {
       this._addLayer();
+    }
+    while (layers < this._layers.length) {
+      this._deleteLayer(this._layers.length - 1);
     }
     const keys = Object.keys(tiles);
     if (keys.length === 0) {
