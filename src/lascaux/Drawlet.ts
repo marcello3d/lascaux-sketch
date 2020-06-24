@@ -83,6 +83,7 @@ export interface DrawBackend {
   afterExecute(): void;
   setTransform(translateX: number, translateY: number, scale: number): void;
   getInfo(): string | undefined;
+  getLayerCount(): number;
 }
 
 export type Snapshot = {
@@ -107,6 +108,7 @@ export type Transform = {
 export type LascauxUiState = {
   cursor: number;
   strokeCount: number;
+  layerCount: number;
   undo: number | undefined;
   redo: number | undefined;
   gotos: number[];

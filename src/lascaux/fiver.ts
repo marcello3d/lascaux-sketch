@@ -48,7 +48,6 @@ function initializeCommand(
     canvas.fillRects([[0, 0, width, height, r, g, b, 1]]);
   }
   return {
-    layers: 1,
     layer: 0,
     color: colors[(bg + 1) % colors.length],
     size: 8,

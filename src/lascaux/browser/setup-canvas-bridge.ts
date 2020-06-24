@@ -71,6 +71,7 @@ export default function createLascauxDomInstance(
       strokeCount: canvas.strokeCount,
       undo: editable ? drawingModel.computeUndo() : undefined,
       redo: editable ? drawingModel.computeRedo() : undefined,
+      layerCount: canvas.layerCount,
       gotos: drawingModel.getGotoIndexes(),
       mode: canvas.mode,
       playing,
@@ -174,7 +175,7 @@ export default function createLascauxDomInstance(
     },
 
     addLayer() {
-      const currentLayerCount = getUiState().mode.layers;
+      const currentLayerCount = getUiState().layerCount;
       addStroke(ADD_LAYER_EVENT);
       addStroke('%layers', currentLayerCount + 1);
       addStroke('%layer', currentLayerCount);
