@@ -286,6 +286,9 @@ export class CanvasModel {
   get strokeCount(): number {
     return this._drawing._strokeCount;
   }
+  get layerCount(): number {
+    return this._drawos.getLayerCount();
+  }
 
   get dom(): HTMLCanvasElement {
     return this._drawos.getDom();

@@ -952,4 +952,8 @@ export class GlDrawBackend implements DrawBackend {
     };
     return context;
   }
+
+  getLayerCount(): number {
+    return this._layers.length;
+  }
 }

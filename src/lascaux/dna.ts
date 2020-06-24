@@ -8,7 +8,6 @@ export type Dna = {
 };
 
 export type DrawingMode = {
-  layers: number;
   layer: number;
   cursor?: DrawletCursorPayload;
   color: string;

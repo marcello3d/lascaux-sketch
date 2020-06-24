@@ -266,9 +266,11 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
   );
   const layers = useMemo(() => {
     const array: React.ReactNode[] = [];
-    for (let i = updateObject.mode.layers - 1; i >= 0; i--) {
+    for (let i = updateObject.layerCount - 1; i >= 0; i--) {
       const layer = i;
-      const selected = updateObject.mode.layer === layer;
+      const selected =
+        Math.min(updateObject.layerCount - 1, updateObject.mode.layer) ===
+        layer;
       array.push(
         <Button
           key={i}
@@ -290,7 +292,7 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
       );
     }
     return array;
-  }, [updateObject.mode.layer, updateObject.mode.layers, canvasInstance]);
+  }, [updateObject.layerCount, updateObject.mode.layer, canvasInstance]);
 
   const onEraseChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {

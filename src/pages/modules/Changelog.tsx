@@ -5,6 +5,11 @@ import styles from './Changelog.module.css';
 export function Changelog() {
   return (
     <div className={styles.changelog}>
+      <h3>2020-06-23</h3>
+      <ul>
+        <li>Fix add layer undo</li>
+      </ul>
+
       <h3>2020-06-21</h3>
       <ul>
         <li>
