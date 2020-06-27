@@ -39,13 +39,11 @@ function initializeCommand(
   context: InitContext,
   canvas?: DrawingContext,
 ): DrawingMode {
-  const {
-    dna: { colors, width, height },
-  } = context;
+  const { colors } = context.dna;
   const bg = Math.floor(context.random() * colors.length);
   if (canvas) {
     const [r, g, b] = parseColor(colors[bg]);
-    canvas.fillRects([[0, 0, width, height, r, g, b, 1]]);
+    canvas.setBackgroundColor(r, g, b);
   }
   return {
     layer: 0,
