@@ -5,6 +5,11 @@ import styles from './Changelog.module.css';
 export function Changelog() {
   return (
     <div className={styles.changelog}>
+      <h3>2020-06-28</h3>
+      <ul>
+        <li>Fix erasing on first layer (all layers are RGBA now)</li>
+      </ul>
+
       <h3>2020-06-23</h3>
       <ul>
         <li>Fix add layer undo</li>
