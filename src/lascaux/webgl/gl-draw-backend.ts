@@ -2,8 +2,8 @@ import ProgramManager from './util/program-manager';
 import { Program, ProgramOf } from './util/program';
 
 import {
-  DrawingContext,
   DrawBackend,
+  DrawingContext,
   GetLinkFn,
   Links,
   Rects,
@@ -78,13 +78,17 @@ export class GlDrawBackend implements DrawBackend {
   private canvas: HTMLCanvasElement;
 
   private readonly _layers: Array<Layer> = [];
+  private _bgColor: [number, number, number, number] = [0, 0, 0, 0];
   private _tiles: Tiles = {};
   private _links: Links = {};
   private readonly gl: WebGLRenderingContext;
   private pixelRatio: number = 1;
   private _framebuffer: FrameBuffer | undefined;
 
+  // Viewport transform
+  private _textureRect: [number, number, number, number] = [0, 0, 0, 0];
   private _mainTextureVertexArray: Float32Array;
+
   private readonly _programManager: ProgramManager;
   private readonly _mainProgram: ProgramOf<typeof textureShader>;
   private readonly _textureProgram: ProgramOf<typeof textureShader>;
@@ -294,30 +298,32 @@ export class GlDrawBackend implements DrawBackend {
     this._addLayer();
   }
 
-  private _bindFrameBuffer(buffer?: FrameBuffer) {
-    if (this._framebuffer !== buffer) {
-      const { gl } = this;
-      gl.bindFramebuffer(gl.FRAMEBUFFER, buffer ? buffer.framebuffer : null);
-      gl.blendEquation(gl.FUNC_ADD);
-      if (buffer) {
-        // Not pre-multiplied
-        gl.blendFuncSeparate(
-          gl.SRC_ALPHA,
-          gl.ONE_MINUS_SRC_ALPHA,
-          gl.ONE,
-          gl.ONE_MINUS_SRC_ALPHA,
-        );
-      } else {
-        // Premultiplied
-        gl.blendFuncSeparate(
-          gl.ONE,
-          gl.ONE_MINUS_SRC_ALPHA,
-          gl.ONE,
-          gl.ONE_MINUS_SRC_ALPHA,
-        );
-      }
-      this._framebuffer = buffer;
+  private _bindFrameBuffer(buffer?: FrameBuffer): boolean {
+    if (this._framebuffer === buffer) {
+      return false;
     }
+    const { gl } = this;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, buffer ? buffer.framebuffer : null);
+    gl.blendEquation(gl.FUNC_ADD);
+    if (buffer) {
+      // Not pre-multiplied
+      gl.blendFuncSeparate(
+        gl.SRC_ALPHA,
+        gl.ONE_MINUS_SRC_ALPHA,
+        gl.ONE,
+        gl.ONE_MINUS_SRC_ALPHA,
+      );
+    } else {
+      // Premultiplied
+      gl.blendFuncSeparate(
+        gl.ONE,
+        gl.ONE_MINUS_SRC_ALPHA,
+        gl.ONE,
+        gl.ONE_MINUS_SRC_ALPHA,
+      );
+    }
+    this._framebuffer = buffer;
+    return true;
   }
   private _addLayer() {
     const { gl } = this;
@@ -369,7 +375,7 @@ export class GlDrawBackend implements DrawBackend {
       pixelHeight,
     );
     this.updateViewport(1);
-    this._redraw();
+    this._redraw(true);
     return new Promise<Blob | null>((resolve) => {
       canvas.toBlob(resolve, 'image/png');
     }).then((blob) => {
@@ -452,9 +458,7 @@ export class GlDrawBackend implements DrawBackend {
     { tiles, tileSize, layers }: Snapshot,
     getLink: GetLinkFn,
   ): PromiseOrValue<void> {
-    while (layers > this._layers.length) {
-      this._addLayer();
-    }
+    this.ensureLayers(layers);
     while (layers < this._layers.length) {
       this._deleteLayer(this._layers.length - 1);
     }
@@ -496,6 +500,12 @@ export class GlDrawBackend implements DrawBackend {
         },
       ),
     );
+  }
+
+  private ensureLayers(layers: number) {
+    while (layers > this._layers.length) {
+      this._addLayer();
+    }
   }
 
   getDom(): HTMLCanvasElement {
@@ -582,31 +592,57 @@ export class GlDrawBackend implements DrawBackend {
   }
 
   setTransform(translateX: number, translateY: number, scale: number): void {
+    const { pixelRatio, pixelWidth, pixelHeight } = this;
+    const scaledWidth = pixelWidth * scale;
+    const scaledHeight = pixelHeight * scale;
+    this._textureRect = [
+      translateX * pixelRatio,
+      translateY * pixelRatio,
+      scaledWidth * pixelRatio,
+      scaledHeight * pixelRatio,
+    ];
     this._mainTextureVertexArray = makeTextureVertexArray(
       translateX,
       translateY,
-      translateX + this.pixelWidth * scale,
-      translateY + this.pixelHeight * scale,
+      translateX + scaledWidth,
+      translateY + scaledHeight,
     );
     this._redraw();
   }
 
-  private _redraw() {
+  private _redraw(exportMode: boolean = false) {
     if (!this._mainProgram) {
       return;
     }
-    const gl = this.gl;
+    const {
+      _layers,
+      _bgColor: [r, g, b, a],
+      _textureRect: [x, y, w, h],
+      gl,
+      _mainTextureVertexArray,
+      _mainProgram,
+    } = this;
     this._bindFrameBuffer();
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-    gl.clearColor(0x33 / 255, 0x33 / 255, 0x33 / 255, 1);
+    if (!exportMode) {
+      gl.clearColor(0x33 / 255, 0x33 / 255, 0x33 / 255, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.enable(gl.SCISSOR_TEST);
+      // Only clear the area where the drawing will be
+      gl.scissor(x, gl.drawingBufferHeight - y - h, w, h);
+    }
+    gl.clearColor(r, g, b, a);
     gl.clear(gl.COLOR_BUFFER_BIT);
+    if (!exportMode) {
+      gl.disable(gl.SCISSOR_TEST);
+    }
 
-    const layers = this._layers;
+    const layers = _layers;
     for (let i = 0; i < layers.length; i++) {
       this._drawTexture(
-        this._mainProgram,
+        _mainProgram,
         layers[i].frameBuffer.texture,
-        this._mainTextureVertexArray,
+        _mainTextureVertexArray,
       );
     }
   }
@@ -696,11 +732,15 @@ export class GlDrawBackend implements DrawBackend {
   }
 
   private _prepareToDraw(layer: number) {
-    const { gl } = this;
-    this._bindFrameBuffer(this._layers[layer].frameBuffer);
-    gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
+    this.ensureLayers(layer + 1);
+    if (this._bindFrameBuffer(this._layers[layer].frameBuffer)) {
+      this.gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
+    }
   }
 
+  private _setBackgroundColor(r: number, g: number, b: number, a: number = 1) {
+    this._bgColor = [r, g, b, a];
+  }
   private _drawLine(
     layer: number,
     x1: number,
@@ -771,6 +811,8 @@ export class GlDrawBackend implements DrawBackend {
     const vertexColorArray = new Float32Array(rectCount * 4 * 4);
     const vertexIndexArray = new Uint16Array(rectCount * 6);
     let actualRects = 0;
+
+    this._prepareToDraw(layer);
     for (let i = 0, j = 0, k = 0, l = 0, m = 0; i < rectCount; i++) {
       const [x, y, w, h, r, g, b, a] = rects[i];
       let x1 = x;
@@ -801,7 +843,6 @@ export class GlDrawBackend implements DrawBackend {
         continue;
       }
 
-      this._prepareToDraw(layer);
       this.saveRect(layer, x, y, w, h);
 
       //  0 --- 1
@@ -855,7 +896,6 @@ export class GlDrawBackend implements DrawBackend {
     }
     if (actualRects > 0) {
       const gl = this.gl;
-
       if (erase) {
         gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
         gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_REVERSE_SUBTRACT);
@@ -948,6 +988,9 @@ export class GlDrawBackend implements DrawBackend {
       ) {
         const { layer } = state;
         os._drawLine(layer, x1, y1, size1, x2, y2, size2, r1, g1, b1, a1, true);
+      },
+      setBackgroundColor(r: number, g: number, b: number, a: number = 1) {
+        os._setBackgroundColor(r, g, b, a);
       },
     };
     return context;

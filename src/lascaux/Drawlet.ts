@@ -50,6 +50,7 @@ export type DrawingContext = {
     b2: number,
     a2: number,
   ): void;
+  setBackgroundColor(r: number, g: number, b: number, a?: number): void;
 };
 
 export type DrawletInitializeFn = (
