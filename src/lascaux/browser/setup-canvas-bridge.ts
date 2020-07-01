@@ -1,11 +1,7 @@
-import DrawingModel from '../data-model/DrawingModel';
+import DrawingModel, { MutateDocFn } from '../data-model/DrawingModel';
 import { LascauxDomInstance, LascauxUiState } from '../Drawlet';
 import pointerEventsBridge, { EventBridge } from './pointer-events-bridge';
-import {
-  ADD_LAYER_EVENT,
-  DrawletEvent,
-  GOTO_EVENT,
-} from '../data-model/events';
+import { DrawletEvent, GOTO_EVENT, LEGACY_ADD_LAYER_EVENT } from '../data-model/events';
 import { then } from 'promise-or-value';
 
 export default function createLascauxDomInstance(
@@ -144,6 +140,9 @@ export default function createLascauxDomInstance(
   function addStroke(name: string, payload: any = {}) {
     then(drawingModel.addStroke(name, Date.now(), payload), notifyRenderDone);
   }
+  function mutateDoc(name: string, payload: any = {}) {
+    then(drawingModel.addStroke(name, Date.now(), payload), notifyRenderDone);
+  }
 
   let eventBridge: EventBridge | undefined;
   return {
@@ -163,6 +162,10 @@ export default function createLascauxDomInstance(
       return canvas.getPng();
     },
 
+    mutateDoc(recipe:MutateDocFn) {
+      then(drawingModel.mutateDoc(recipe), notifyRenderDone);
+    }
+
     setMode(mode: string, value: any) {
       addStroke(`%${mode}`, value);
     },
@@ -176,7 +179,7 @@ export default function createLascauxDomInstance(
 
     addLayer() {
       const currentLayerCount = getUiState().layerCount;
-      addStroke(ADD_LAYER_EVENT);
+      addStroke(LEGACY_ADD_LAYER_EVENT);
       addStroke('%layers', currentLayerCount + 1);
       addStroke('%layer', currentLayerCount);
     },

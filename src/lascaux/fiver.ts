@@ -1,32 +1,32 @@
-import { DrawContext, DrawingContext, InitContext, Rect } from './Drawlet';
+import { DrawContext, DrawingContext, Rect } from './Drawlet';
 import {
-  ADD_LAYER_EVENT,
   DRAW_END_EVENT,
   DRAW_EVENT,
   DRAW_START_EVENT,
 } from './data-model/events';
 import parseColor from './util/parse-color';
 import { StorageModel } from './data-model/StorageModel';
-import DrawingModel, { getInitializeContext } from './data-model/DrawingModel';
+import DrawingModel from './data-model/DrawingModel';
 import { GlDrawBackend } from './webgl/gl-draw-backend';
-import { Dna, DrawingMode } from './dna';
+import { handleLegacyEvent, LegacyDna } from './legacy-model';
+import { Color, DrawingDoc, ROOT_USER } from './DrawingDoc';
+import seedrandom from 'seedrandom';
 
-export async function createDrawingModel(
-  dna: Dna,
+export async function createLegacyDnaDrawingModel(
+  dna: LegacyDna,
   storage: StorageModel,
 ): Promise<DrawingModel> {
   // This is convoluted
-  const initialMode = initializeCommand(getInitializeContext(dna));
+  const doc = dnaToDoc(dna);
   console.log(`[LOAD] Getting metadata...`);
-  const metadata = await storage.getMetadata(initialMode);
+  const metadata = await storage.getMetadata(doc);
   const drawing = new DrawingModel({
-    dna,
+    doc,
     editable: true,
     DrawOs: GlDrawBackend,
     snapshotStrokeCount: 250,
     storageModel: storage,
     metadata,
-    initializeCommand,
     handleCommand,
   });
   console.log(`[LOAD] Loading strokes...`);
@@ -35,53 +35,92 @@ export async function createDrawingModel(
   return drawing;
 }
 
-function initializeCommand(
-  context: InitContext,
-  canvas?: DrawingContext,
-): DrawingMode {
-  const { colors } = context.dna;
-  const bg = Math.floor(context.random() * colors.length);
-  if (canvas) {
-    const [r, g, b] = parseColor(colors[bg]);
-    canvas.setBackgroundColor(r, g, b);
-  }
+const FIVER_BRUSH = 'fiver';
+
+export function newDoc(
+  width: number,
+  height: number,
+  baseColor: Color = parseColor('#fff4e8'),
+  brushColor: Color = parseColor('#631c1c'),
+): DrawingDoc {
   return {
-    layer: 0,
-    color: colors[(bg + 1) % colors.length],
-    size: 8,
-    erase: false,
-    alpha: 1,
-    spacing: 0.05,
-    hardness: 1,
+    artboard: {
+      width,
+      height,
+      baseColor,
+      rootLayers: ['0'],
+      layers: {
+        '0': {
+          type: 'image',
+          x: 0,
+          y: 0,
+          opacity: 1,
+        },
+      },
+    },
+    users: {
+      [ROOT_USER]: {
+        layer: '0',
+        color: brushColor,
+        brush: FIVER_BRUSH,
+        brushes: {
+          [FIVER_BRUSH]: {
+            mode: 'paint',
+            size: 8,
+            opacity: 1.0,
+            flow: 1.0,
+            spacing: 0.05,
+            hardness: 1.0,
+          },
+        },
+      },
+    },
   };
 }
 
+function dnaToDoc(dna: LegacyDna): DrawingDoc {
+  const { width, height, colors, randomseed } = dna;
+  const random = seedrandom(randomseed + 0);
+  const bg = Math.floor(random() * colors.length);
+  const baseColor = parseColor(colors[bg]);
+  const brushColor = parseColor(colors[(bg + 1) % colors.length]);
+  return newDoc(width, height, baseColor, brushColor);
+}
+
 function handleCommand(
-  { dna, mode, state }: DrawContext,
+  { doc, user, state }: DrawContext,
   canvas: DrawingContext,
   event: string,
   payload: any,
-): void {
-  switch (event) {
-    case ADD_LAYER_EVENT:
-      canvas.addLayer();
-      break;
+): DrawingDoc {
+  const legacy = handleLegacyEvent(doc, user, event, payload);
+  if (legacy) {
+    return legacy;
+  }
+  const mode = doc.users[user];
+  const brush = mode.brushes[mode.brush];
+  const {
+    cursor,
+    layer,
+    color: [r, g, b, a],
+  } = mode;
+  const { hardness, spacing, size } = brush;
+  const erase = brush.mode === 'erase';
+  canvas.setLayer(layer);
 
+  switch (event) {
     case DRAW_START_EVENT: {
-      const { cursor, layer, alpha, hardness = 1, color, erase } = mode;
       const { x, y, pressure = 1 } = payload;
-      const size = mode.size * pressure;
-      const [r, g, b] = parseColor(color);
-      state.size = size;
-      state.a = alpha;
+      const pSize = size * pressure;
+      state.size = pSize;
+      state.a = a;
       state.x = x;
       state.y = y;
 
       // Don't draw initial point for touch so we can handle gestures
       if (cursor?.type !== 'touch') {
-        canvas.setLayer(layer);
         canvas.fillEllipses(
-          [[x - size / 2, y - size / 2, size, size, r, g, b, alpha]],
+          [[x - pSize / 2, y - pSize / 2, pSize, pSize, r, g, b, a]],
           hardness,
           erase,
         );
@@ -90,13 +129,8 @@ function handleCommand(
     }
 
     case DRAW_EVENT: {
-      const { color, layer, spacing = 0.05, hardness = 1 } = mode;
-      const [r, g, b] = parseColor(color);
-
-      canvas.setLayer(layer);
       const { x, y, pressure = 1 } = payload;
-      const alpha = mode.alpha;
-      const size = mode.size * pressure;
+      const pSize = size * pressure;
 
       let lastX = state.x;
       let lastY = state.y;
@@ -104,10 +138,10 @@ function handleCommand(
       let lastAlpha = state.a;
       let dx = x - lastX;
       let dy = y - lastY;
-      let dSize = size - lastSize;
-      let dAlpha = alpha - lastAlpha;
+      let dSize = pSize - lastSize;
+      let dAlpha = a - lastAlpha;
       let len = Math.sqrt(dy * dy + dx * dx);
-      const step = Math.max(0.5, spacing * size);
+      const step = Math.max(0.5, spacing * pSize);
       if (len >= step) {
         const rects: Rect[] = [];
         for (let t = step; t < len; t += step) {
@@ -138,15 +172,13 @@ function handleCommand(
           }
         }
         if (rects.length > 0) {
-          canvas.fillEllipses(rects, hardness, mode.erase);
+          canvas.fillEllipses(rects, hardness, erase);
         }
       }
-
-      state.a = alpha;
-
       break;
     }
     case DRAW_END_EVENT:
       break;
   }
+  return doc;
 }

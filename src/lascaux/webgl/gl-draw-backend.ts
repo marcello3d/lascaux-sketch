@@ -27,7 +27,7 @@ import { TypedArray } from '../util/typed-arrays';
 import { checkError, getOrThrow } from './util/gl-errors';
 import { setDrawingMatrix, setViewportMatrix } from './util/gl-matrix';
 import { copyRgbaPixels, RgbaImage } from '../util/rgba-image';
-import { Dna } from '../dna';
+import { LegacyDna } from '../legacy-model';
 
 function makeTextureVertexArray(
   x1: number,
@@ -69,7 +69,7 @@ type ChangedTile = [
 const ENABLE_HALF_FLOAT_SUPPORT = true;
 
 export class GlDrawBackend implements DrawBackend {
-  public readonly dna: Dna;
+  public readonly dna: LegacyDna;
   public readonly pixelWidth: number;
   public readonly pixelHeight: number;
   public readonly scale: number;
@@ -110,7 +110,7 @@ export class GlDrawBackend implements DrawBackend {
 
   private readonly _readBuffer: TypedArray;
 
-  constructor(dna: Dna, scale: number = 1, tileSize: number = 64) {
+  constructor(dna: LegacyDna, scale: number = 1, tileSize: number = 64) {
     this.dna = dna;
     this.tileSize = tileSize;
 

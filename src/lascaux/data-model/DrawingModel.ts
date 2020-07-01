@@ -1,4 +1,3 @@
-import seedrandom from 'seedrandom';
 import { PromiseOrValue, then } from 'promise-or-value';
 
 import jsonCopy from '../util/json-copy';
@@ -16,53 +15,43 @@ import ModeMap from './ModeMap';
 import SnapshotMap from './SnapshotMap';
 
 import {
+  DrawBackend,
   DrawContext,
   DrawingContext,
   DrawletHandleFn,
-  DrawletInitializeFn,
-  DrawBackend,
-  InitContext,
 } from '../Drawlet';
 import { Metadata, StorageModel } from './StorageModel';
-import { Dna, DrawingMode, DrawingState, makeInitialState } from '../dna';
-
-function getRandomFn(dna: Dna, cursor: number) {
-  let random: () => number;
-  return () => {
-    if (!random) {
-      // initialize on first use to avoid extra computation
-      random = seedrandom(dna.randomseed + cursor);
-    }
-    return random();
-  };
-}
-export function getInitializeContext(dna: Dna): InitContext {
-  return {
-    random: getRandomFn(dna, 0),
-    dna,
-  };
-}
+import {
+  DrawingMode,
+  DrawingState,
+  LegacyDna,
+  makeInitialState,
+} from '../legacy-model';
+import { DrawingDoc } from '../DrawingDoc';
 
 type DrawOsConstructor = new (
-  dna: Dna,
+  dna: LegacyDna,
   scale?: number,
   tileSize?: number,
 ) => DrawBackend;
 
+export type MutateDocFn = (doc: DrawingDoc) => DrawingDoc;
 /**
  * Manages all the stroke and goto data for a drawing, using StorageModel
  */
 export default class DrawingModel {
   readonly _storageModel: StorageModel;
-  readonly _dna: Dna;
+  readonly _initialDoc: DrawingDoc;
   private readonly _DrawOs: DrawOsConstructor;
-  private readonly _initializeCommand: DrawletInitializeFn;
   readonly _handleCommand: DrawletHandleFn;
-  private readonly _queue: Array<{
-    eventType: string;
-    time: number;
-    payload: any;
-  }> = [];
+  private readonly _queue: Array<
+    | {
+        eventType: string;
+        time: number;
+        payload: any;
+      }
+    | MutateDocFn
+  > = [];
   _strokeCount: number = 0;
   private _drawingCursor: number = 0;
   _snapshotMap!: SnapshotMap;
@@ -73,28 +62,25 @@ export default class DrawingModel {
   private _editCanvas: CanvasModel | undefined;
 
   constructor({
-    dna,
+    doc,
     editable,
     DrawOs,
     storageModel,
-    initializeCommand,
     handleCommand,
     metadata,
     snapshotStrokeCount = 5000,
   }: {
-    dna: Dna;
+    doc: DrawingDoc;
     editable: boolean;
     DrawOs: DrawOsConstructor;
     storageModel: StorageModel;
-    initializeCommand: DrawletInitializeFn;
     handleCommand: DrawletHandleFn;
     metadata: Metadata;
     snapshotStrokeCount: number;
   }) {
     this._storageModel = storageModel;
-    this._dna = dna;
+    this._initialDoc = doc;
     this._DrawOs = DrawOs;
-    this._initializeCommand = initializeCommand;
     this._handleCommand = handleCommand;
     this._queue = [];
     this._strokeCount = 0;
@@ -119,11 +105,6 @@ export default class DrawingModel {
 
   getInfo() {
     return this._editCanvas?._drawos.getInfo();
-  }
-
-  _initialize(canvas?: DrawingContext) {
-    const initializeCommand = this._initializeCommand;
-    return initializeCommand(getInitializeContext(this._dna), canvas);
   }
 
   get editCanvas() {
@@ -167,6 +148,10 @@ export default class DrawingModel {
     }
   }
 
+  mutateDoc(recipe: MutateDocFn) {
+    this._queue.push(recipe);
+    return this._runQueue();
+  }
   addStroke(
     eventType: string,
     time: number,
@@ -184,7 +169,11 @@ export default class DrawingModel {
     if (this._queue.length === 0) {
       return;
     }
-    const { eventType, time, payload } = this._queue.shift()!;
+    const next = this._queue.shift()!;
+    if (typeof next === 'function') {
+      return this._runQueue();
+    }
+    const { eventType, time, payload } = next;
 
     if (this._editCanvas) {
       const targetCursor = this._editCanvas.targetCursor;
@@ -342,12 +331,11 @@ export class CanvasModel {
 
   _makeDrawContext(): DrawContext {
     const {
-      _drawing: { _dna, _modeMap },
+      _drawing: { _modeMap },
       _state,
       _cursor,
     } = this;
     return {
-      random: getRandomFn(_dna, _cursor),
       mode: _modeMap.getMode(_cursor),
       dna: _dna,
       state: _state,

@@ -16,11 +16,11 @@ import SparklesIcon from '../icons/fa/sparkles.svg';
 import { db } from '../db/db';
 import { newDate, newId } from '../db/fields';
 import { Layout } from './modules/Layout';
-import { newDna } from '../lascaux/dna';
 import classNames from 'classnames';
 import { DrawingGrid } from './modules/DrawingGrid';
 import { Icon } from '../ui/Icon';
 import { Changelog } from './modules/Changelog';
+import { newDoc } from '../lascaux/fiver';
 
 function validSize(input: string): number | undefined {
   if (!/^\d+$/.test(input)) {
@@ -56,7 +56,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
       await db.drawings.add({
         id,
         createdAt: newDate(),
-        dna: newDna(width, height),
+        dna: newDoc(width, height),
       });
       navigate?.(`/drawings/${id}`);
     },

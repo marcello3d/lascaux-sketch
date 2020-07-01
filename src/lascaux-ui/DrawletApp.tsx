@@ -8,49 +8,31 @@ import React, {
 } from 'react';
 
 import styles from './DrawletApp.module.css';
-import { useAppendChild } from './react-hooks/useAppendChild';
+import { useAppendChild } from '../react-hooks/useAppendChild';
 import classNames from 'classnames';
-import { Slider } from './ui/Slider';
-import { Button } from './ui/Button';
-import useEventEffect from './react-hooks/useEventEffect';
-import { Layout } from './pages/modules/Layout';
-import { Header } from './pages/modules/Header';
-import FileDownloadIcon from './icons/fa/file-download.svg';
-import { Icon } from './ui/Icon';
-import { downloadFile, filenameDate } from './ui/download';
-import { LascauxDomInstance, LascauxUiState } from './lascaux/Drawlet';
-import DrawingModel from './lascaux/data-model/DrawingModel';
-import createLascauxDomInstance from './lascaux/browser/setup-canvas-bridge';
-import { DrawingMode } from './lascaux/dna';
-import { db } from './db/db';
-import { newDate } from './db/fields';
+import { Slider } from '../ui/Slider';
+import { Button } from '../ui/Button';
+import useEventEffect from '../react-hooks/useEventEffect';
+import { Layout } from '../pages/modules/Layout';
+import { Header } from '../pages/modules/Header';
+import FileDownloadIcon from '../icons/fa/file-download.svg';
+import { Icon } from '../ui/Icon';
+import { downloadFile, filenameDate } from '../ui/download';
+import { LascauxDomInstance, LascauxUiState } from '../lascaux/Drawlet';
+import DrawingModel from '../lascaux/data-model/DrawingModel';
+import createLascauxDomInstance from '../lascaux/browser/setup-canvas-bridge';
+import { DrawingMode } from '../lascaux/legacy-model';
+import { db } from '../db/db';
+import { newDate } from '../db/fields';
 
-import LayerPlusIcon from './icons/fa/layer-plus.svg';
-import PenSquareIcon from './icons/fa/pen-square.svg';
-import SquareIcon from './icons/fa/square.svg';
-import PlayIcon from './icons/fa/play.svg';
-import PauseIcon from './icons/fa/pause.svg';
-import UndoIcon from './icons/fa/undo.svg';
-import RedoIcon from './icons/fa/redo.svg';
-
-const colors: readonly string[] = [
-  '#ffffff', // white
-  '#33ccff', // light sky-blue
-  '#fddebf', // pale skin tone
-  '#ffffb9', // light yellow
-  '#ffff00', // yellow
-  '#0000ff', // blue
-  '#ff0000', // red
-  '#00ff00', // green
-  '#000000', // black
-  '#333399', // dark sky-blue
-  '#fca672', // darker skin tone
-  '#feae0a', // sandstone yellow
-  '#cc6600', // brownish-dark yellow
-  '#420066', // dark purple-ish blue
-  '#b00077', // dark magenta-ish red
-  '#006666', // dark blue-ish green
-];
+import LayerPlusIcon from '../icons/fa/layer-plus.svg';
+import PenSquareIcon from '../icons/fa/pen-square.svg';
+import SquareIcon from '../icons/fa/square.svg';
+import PlayIcon from '../icons/fa/play.svg';
+import PauseIcon from '../icons/fa/pause.svg';
+import UndoIcon from '../icons/fa/undo.svg';
+import RedoIcon from '../icons/fa/redo.svg';
+import { hexColorPalette } from './color-palette';
 
 function useUpdateMode<K extends keyof DrawingMode & string>(
   canvasInstance: LascauxDomInstance,
@@ -147,7 +129,7 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
   ]);
   const colorButtons = useMemo(
     () =>
-      colors.map((color, index) => {
+      hexColorPalette.map((color, index) => {
         const selected = color === updateObject.mode.color;
         return (
           <Button

@@ -1,17 +1,12 @@
 import { RgbaImage } from './util/rgba-image';
 import { PromiseOrValue } from 'promise-or-value';
-import { Dna, DrawingMode, DrawingState } from './dna';
-
-export type InitContext = {
-  dna: Dna;
-  random: () => number;
-};
+import { DrawingState } from './legacy-model';
+import { DrawingDoc, Id, IdMap } from './DrawingDoc';
 
 export type DrawContext = {
-  dna: Dna;
-  mode: DrawingMode;
+  doc: DrawingDoc;
+  user: string;
   state: DrawingState;
-  random: () => number;
 };
 
 /** x, y, w, h, r, g, b, a */
@@ -30,7 +25,7 @@ export type Rects = readonly Rect[];
 export type DrawingContext = {
   addLayer(): void;
 
-  setLayer(layer: number): void;
+  setLayer(layer: Id): void;
 
   fillRects(rects: Rects): void;
   fillEllipses(ellipses: Rects, hardness: number, erase?: boolean): void;
@@ -53,17 +48,12 @@ export type DrawingContext = {
   setBackgroundColor(r: number, g: number, b: number, a?: number): void;
 };
 
-export type DrawletInitializeFn = (
-  context: InitContext,
-  canvas?: DrawingContext,
-) => DrawingMode;
-
 export type DrawletHandleFn = (
   context: DrawContext,
   canvas: DrawingContext,
   event: string,
   payload: any,
-) => void;
+) => DrawingDoc;
 
 export type GetLinkFn = (link: string) => PromiseOrValue<RgbaImage | undefined>;
 
@@ -88,18 +78,18 @@ export interface DrawBackend {
 }
 
 export type Snapshot = {
+  doc: DrawingDoc;
+  layers: IdMap<Tiles>;
   tiles: Tiles;
   tileSize: number;
-  layers: number;
 };
-export type Links = Record<string, RgbaImage>;
+export type Tiles = IdMap<Tile>;
+export type Links = IdMap<RgbaImage>;
 export type Tile = {
-  layer: number;
   x: number;
   y: number;
   link: string | null;
 };
-export type Tiles = Record<string, Tile>;
 
 export type Transform = {
   translateX: number;
@@ -107,14 +97,16 @@ export type Transform = {
   scale: number;
 };
 export type LascauxUiState = {
+  doc: DrawingDoc;
+
+  playing: boolean;
   cursor: number;
   strokeCount: number;
-  layerCount: number;
+
   undo: number | undefined;
   redo: number | undefined;
   gotos: number[];
-  mode: DrawingMode;
-  playing: boolean;
+
   transform: Transform;
 };
 
