@@ -10,48 +10,28 @@ import {
   isModeEvent,
 } from './events';
 
-import GotoMap, { isSkipped, Skips } from './GotoMap';
+import GotoMap, { Skips } from './GotoMap';
 import ModeMap from './ModeMap';
 import SnapshotMap from './SnapshotMap';
 
-import {
-  DrawBackend,
-  DrawContext,
-  DrawingContext,
-  DrawletHandleFn,
-} from '../Drawlet';
+import { DrawletHandleFn } from '../Drawlet';
 import { Metadata, StorageModel } from './StorageModel';
-import {
-  DrawingMode,
-  DrawingState,
-  LegacyDna,
-  makeInitialState,
-} from '../legacy-model';
+import { DrawingMode } from '../legacy-model';
 import { DrawingDoc } from '../DrawingDoc';
+import { CanvasModel } from './CanvasModel';
 
-type DrawOsConstructor = new (
-  dna: LegacyDna,
-  scale?: number,
-  tileSize?: number,
-) => DrawBackend;
-
-export type MutateDocFn = (doc: DrawingDoc) => DrawingDoc;
 /**
  * Manages all the stroke and goto data for a drawing, using StorageModel
  */
 export default class DrawingModel {
   readonly _storageModel: StorageModel;
   readonly _initialDoc: DrawingDoc;
-  private readonly _DrawOs: DrawOsConstructor;
   readonly _handleCommand: DrawletHandleFn;
-  private readonly _queue: Array<
-    | {
-        eventType: string;
-        time: number;
-        payload: any;
-      }
-    | MutateDocFn
-  > = [];
+  private readonly _queue: Array<{
+    eventType: string;
+    time: number;
+    payload: any;
+  }> = [];
   _strokeCount: number = 0;
   private _drawingCursor: number = 0;
   _snapshotMap!: SnapshotMap;
@@ -64,7 +44,6 @@ export default class DrawingModel {
   constructor({
     doc,
     editable,
-    DrawOs,
     storageModel,
     handleCommand,
     metadata,
@@ -72,7 +51,6 @@ export default class DrawingModel {
   }: {
     doc: DrawingDoc;
     editable: boolean;
-    DrawOs: DrawOsConstructor;
     storageModel: StorageModel;
     handleCommand: DrawletHandleFn;
     metadata: Metadata;
@@ -80,7 +58,6 @@ export default class DrawingModel {
   }) {
     this._storageModel = storageModel;
     this._initialDoc = doc;
-    this._DrawOs = DrawOs;
     this._handleCommand = handleCommand;
     this._queue = [];
     this._strokeCount = 0;
@@ -104,7 +81,7 @@ export default class DrawingModel {
   }
 
   getInfo() {
-    return this._editCanvas?._drawos.getInfo();
+    return this._editCanvas?._backend.getInfo();
   }
 
   get editCanvas() {
@@ -119,7 +96,7 @@ export default class DrawingModel {
   }
 
   createCanvas(): CanvasModel {
-    return new CanvasModel(this, new this._DrawOs(this._dna));
+    return new CanvasModel(this);
   }
 
   snapshot() {
@@ -127,7 +104,7 @@ export default class DrawingModel {
     if (!this._editCanvas || !this._snapshotMap) {
       throw new Error('canvas not editable');
     }
-    const { snapshot, links } = this._editCanvas._drawos.getSnapshot();
+    const { snapshot, links } = this._editCanvas._backend.getSnapshot();
     const state = jsonCopy(this._editCanvas._state);
     this._strokesSinceSnapshot = 0;
     return this._snapshotMap.addSnapshot(cursor, { snapshot, links, state });
@@ -148,10 +125,6 @@ export default class DrawingModel {
     }
   }
 
-  mutateDoc(recipe: MutateDocFn) {
-    this._queue.push(recipe);
-    return this._runQueue();
-  }
   addStroke(
     eventType: string,
     time: number,
@@ -243,181 +216,5 @@ export default class DrawingModel {
       target: end,
       ...this._gotoMap.planGoto(start, end),
     };
-  }
-}
-
-export class CanvasModel {
-  readonly _drawing: DrawingModel;
-  readonly _drawos: DrawBackend;
-  _inGoto: boolean;
-  _cursor: number = 0;
-  _targetCursor: number = 0;
-  _state: DrawingState = makeInitialState();
-  constructor(drawing: DrawingModel, drawOs: DrawBackend) {
-    this._drawing = drawing;
-    this._drawos = drawOs;
-    this._inGoto = false;
-    this._initialize();
-  }
-
-  get cursor(): number {
-    return this._cursor;
-  }
-
-  get targetCursor(): number {
-    return this._targetCursor;
-  }
-
-  get mode(): DrawingMode {
-    return this._drawing._modeMap.getMode(this.strokeCount);
-  }
-
-  get strokeCount(): number {
-    return this._drawing._strokeCount;
-  }
-  get layerCount(): number {
-    return this._drawos.getLayerCount();
-  }
-
-  get dom(): HTMLCanvasElement {
-    return this._drawos.getDom();
-  }
-
-  getPng(): Promise<Blob> {
-    return this._drawos.getPng();
-  }
-
-  setTransform(translateX: number, translateY: number, scale: number): void {
-    this._drawos.setTransform(translateX, translateY, scale);
-  }
-
-  _initialize() {
-    this._cursor = 0;
-    this._state = makeInitialState();
-    this._drawos.initialize();
-    this._drawing._initialize(this._drawos.getDrawingContext());
-  }
-
-  _execute(
-    cursor: number,
-    eventType: string,
-    payload: any,
-  ): PromiseOrValue<void> {
-    this._targetCursor = cursor;
-    if (eventType === GOTO_EVENT) {
-      return this._goto(payload);
-    }
-    this._cursor = cursor;
-    if (isModeEvent(eventType)) {
-      return;
-    }
-    this._executeRaw(eventType, payload);
-    this._drawos.afterExecute();
-  }
-
-  _executeRaw(eventType: string, payload: any) {
-    if (eventType === GOTO_EVENT || isModeEvent(eventType)) {
-      return;
-    }
-    const exec = this._drawing._handleCommand;
-    // Call from local variable so `this` is null
-    exec(
-      this._makeDrawContext(),
-      this._drawos.getDrawingContext(),
-      eventType,
-      payload,
-    );
-  }
-
-  _makeDrawContext(): DrawContext {
-    const {
-      _drawing: { _modeMap },
-      _state,
-      _cursor,
-    } = this;
-    return {
-      mode: _modeMap.getMode(_cursor),
-      dna: _dna,
-      state: _state,
-    };
-  }
-
-  gotoEnd(): PromiseOrValue<void> {
-    return this.goto(this.strokeCount);
-  }
-
-  redraw() {
-    this._drawos.afterExecute();
-  }
-
-  goto(targetCursor: number): PromiseOrValue<void> {
-    this._targetCursor = targetCursor;
-    return this._goto(targetCursor);
-  }
-
-  async _goto(targetCursor: number): Promise<void> {
-    if (this._inGoto) {
-      return;
-    }
-
-    const { revert, skips, target } = this._drawing._planGoto(
-      this._cursor,
-      targetCursor,
-    );
-    if (target === undefined || skips === undefined) {
-      return;
-    }
-
-    this._inGoto = true;
-
-    // console.log(`goto ${this._cursor} -> ${targetCursor}: revert ${revert}, target ${target}, skips: ${skips.map(x => '[' + x + ']')}`)
-    // Revert back to nearest snapshot
-    const loadSnapshot = async (index: number) => {
-      if (index === 0) {
-        this._initialize();
-      } else {
-        const storageModel = this._drawing._storageModel;
-        const snap = await storageModel.getSnapshot(index);
-        const { state, snapshot } = snap;
-        await this._drawos.loadSnapshot(
-          snapshot,
-          storageModel.getSnapshotLink.bind(storageModel),
-        );
-        this._cursor = index;
-        this._state = jsonCopy(state);
-      }
-    };
-    // Do we need to rewind?
-    if (revert !== undefined) {
-      await loadSnapshot(
-        this._drawing._snapshotMap.getNearestSnapshotIndex(revert, skips),
-      );
-    } else {
-      // Can we skip ahead using snapshots?
-      const nearestSnapshotIndex = this._drawing._snapshotMap.getNearestSnapshotIndex(
-        target,
-        skips,
-      );
-      // Don't bother loading snapshot if we're not going to skip more than 100 steps with it
-      // (This is very common when playing back!)
-      const MIN_STEP_SKIP = 750;
-      if (
-        nearestSnapshotIndex !== 0 &&
-        nearestSnapshotIndex > this._cursor + MIN_STEP_SKIP
-      ) {
-        await loadSnapshot(nearestSnapshotIndex);
-      }
-    }
-
-    while (this._cursor < target) {
-      const stroke = await this._drawing._storageModel.getStroke(this._cursor);
-      const { type, payload } = stroke;
-      if (!isSkipped(skips, this._cursor++)) {
-        this._executeRaw(type, payload);
-      }
-    }
-
-    this._drawos.afterExecute();
-    this._inGoto = false;
   }
 }

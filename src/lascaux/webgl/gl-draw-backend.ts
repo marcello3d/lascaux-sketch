@@ -28,6 +28,8 @@ import { checkError, getOrThrow } from './util/gl-errors';
 import { setDrawingMatrix, setViewportMatrix } from './util/gl-matrix';
 import { copyRgbaPixels, RgbaImage } from '../util/rgba-image';
 import { LegacyDna } from '../legacy-model';
+import { DrawingDoc } from '../DrawingDoc';
+import { CanvasModel } from '../data-model/CanvasModel';
 
 function makeTextureVertexArray(
   x1: number,
@@ -69,7 +71,6 @@ type ChangedTile = [
 const ENABLE_HALF_FLOAT_SUPPORT = true;
 
 export class GlDrawBackend implements DrawBackend {
-  public readonly dna: LegacyDna;
   public readonly pixelWidth: number;
   public readonly pixelHeight: number;
   public readonly scale: number;
@@ -110,14 +111,17 @@ export class GlDrawBackend implements DrawBackend {
 
   private readonly _readBuffer: TypedArray;
 
-  constructor(dna: LegacyDna, scale: number = 1, tileSize: number = 64) {
-    this.dna = dna;
+  constructor(
+    private _doc: DrawingDoc,
+    scale: number = 1,
+    tileSize: number = 64,
+  ) {
     this.tileSize = tileSize;
 
     this.scale = scale;
 
-    const pixelWidth = Math.ceil(this.dna.width * scale);
-    const pixelHeight = Math.ceil(this.dna.height * scale);
+    const pixelWidth = Math.ceil(_doc.artboard.width * scale);
+    const pixelHeight = Math.ceil(_doc.artboard.height * scale);
     this.pixelWidth = pixelWidth;
     this.pixelHeight = pixelHeight;
 
@@ -267,6 +271,15 @@ export class GlDrawBackend implements DrawBackend {
     checkError(gl);
   }
 
+  updateDoc(doc: DrawingDoc): void {
+    if (
+      doc.artboard.width !== this._doc.artboard.width ||
+      doc.artboard.height !== this._doc.artboard.height
+    ) {
+      this._doc = doc;
+    }
+  }
+
   private updateViewport(pixelRatio = this.pixelRatio) {
     const { gl } = this;
     this._programManager.use(this._mainProgram);
@@ -354,7 +367,7 @@ export class GlDrawBackend implements DrawBackend {
         const key = getTileKey(layer, tilex, tiley);
         const x = tilex * tileSize;
         const y = tiley * tileSize;
-        _tiles[key] = { layer, x, y, link: null };
+        _tiles[key] = { x, y, link: null };
       }
     }
   }

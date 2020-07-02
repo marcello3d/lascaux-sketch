@@ -64,7 +64,8 @@ export type Snap = {
 };
 
 export interface DrawBackend {
-  initialize(): void;
+  initialize(doc: DrawingDoc): void;
+  updateDoc(doc: DrawingDoc): void;
   getSnapshot(): Snap;
   getPng(): Promise<Blob>;
   getDrawingContext(): DrawingContext;
@@ -115,9 +116,8 @@ export type LascauxDomInstance = {
   getUiState(): LascauxUiState;
   getPng(): Promise<Blob>;
   flush(): void;
-  setMode(mode: string, value: any): void;
+  updateDoc(recipe: (doc: DrawingDoc) => DrawingDoc): void;
   setScale(scale: number): void;
-  addLayer(): void;
   addGoto(cursor: number): void;
   setPlaying(playing: boolean): void;
   seekTo(cursor: number): void;

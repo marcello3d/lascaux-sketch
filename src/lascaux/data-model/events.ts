@@ -9,6 +9,8 @@ export const MODE_EVENT_REGEX = /^%(.*)$/;
 // This is just a normal mode event, but pulling it out as an example
 export const CURSOR_EVENT = '%cursor';
 
+export const PATCH_DOC = '!doc';
+
 // Legacy events
 export const LEGACY_ADD_LAYER_EVENT = 'add-layer';
 export const LEGACY_SET_LAYER_EVENT = '%layer';

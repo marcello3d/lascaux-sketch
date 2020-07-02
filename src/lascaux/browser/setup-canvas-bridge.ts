@@ -1,8 +1,10 @@
-import DrawingModel, { MutateDocFn } from '../data-model/DrawingModel';
+import DrawingModel from '../data-model/DrawingModel';
 import { LascauxDomInstance, LascauxUiState } from '../Drawlet';
 import pointerEventsBridge, { EventBridge } from './pointer-events-bridge';
-import { DrawletEvent, GOTO_EVENT, LEGACY_ADD_LAYER_EVENT } from '../data-model/events';
+import { DrawletEvent, GOTO_EVENT, PATCH_DOC } from '../data-model/events';
 import { then } from 'promise-or-value';
+import { DrawingDoc } from '../DrawingDoc';
+import { diff } from 'jsondiffpatch';
 
 export default function createLascauxDomInstance(
   drawingModel: DrawingModel,
@@ -25,7 +27,6 @@ export default function createLascauxDomInstance(
 
   const MS_PER_GOTO = 15;
 
-  const dna = drawingModel._dna;
   const canvas = editable
     ? drawingModel.editCanvas
     : drawingModel.createCanvas();
@@ -63,13 +64,12 @@ export default function createLascauxDomInstance(
 
   function getUiState(): LascauxUiState {
     return {
+      doc: canvas.doc,
       cursor: canvas.targetCursor,
       strokeCount: canvas.strokeCount,
       undo: editable ? drawingModel.computeUndo() : undefined,
       redo: editable ? drawingModel.computeRedo() : undefined,
-      layerCount: canvas.layerCount,
       gotos: drawingModel.getGotoIndexes(),
-      mode: canvas.mode,
       playing,
       transform,
     };
@@ -140,9 +140,6 @@ export default function createLascauxDomInstance(
   function addStroke(name: string, payload: any = {}) {
     then(drawingModel.addStroke(name, Date.now(), payload), notifyRenderDone);
   }
-  function mutateDoc(name: string, payload: any = {}) {
-    then(drawingModel.addStroke(name, Date.now(), payload), notifyRenderDone);
-  }
 
   let eventBridge: EventBridge | undefined;
   return {
@@ -162,12 +159,8 @@ export default function createLascauxDomInstance(
       return canvas.getPng();
     },
 
-    mutateDoc(recipe:MutateDocFn) {
-      then(drawingModel.mutateDoc(recipe), notifyRenderDone);
-    }
-
-    setMode(mode: string, value: any) {
-      addStroke(`%${mode}`, value);
+    updateDoc(recipe: (doc: DrawingDoc) => DrawingDoc) {
+      addStroke(PATCH_DOC, diff(canvas.doc, recipe(canvas.doc)));
     },
 
     setScale(scale: number) {
@@ -175,13 +168,6 @@ export default function createLascauxDomInstance(
         throw new Error('trying to set scale when not subscribed');
       }
       eventBridge.setScale(scale);
-    },
-
-    addLayer() {
-      const currentLayerCount = getUiState().layerCount;
-      addStroke(LEGACY_ADD_LAYER_EVENT);
-      addStroke('%layers', currentLayerCount + 1);
-      addStroke('%layer', currentLayerCount);
     },
 
     addGoto(cursor: number) {
@@ -201,8 +187,9 @@ export default function createLascauxDomInstance(
     subscribe() {
       eventBridge = pointerEventsBridge(
         canvas.dom,
-        dna.width,
-        dna.height,
+        // TODO: handle updates to artboard size
+        canvas.doc.artboard.width,
+        canvas.doc.artboard.height,
         transform,
         handleEvent,
         () => {

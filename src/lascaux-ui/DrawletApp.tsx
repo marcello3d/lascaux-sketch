@@ -32,29 +32,60 @@ import PlayIcon from '../icons/fa/play.svg';
 import PauseIcon from '../icons/fa/pause.svg';
 import UndoIcon from '../icons/fa/undo.svg';
 import RedoIcon from '../icons/fa/redo.svg';
-import { hexColorPalette } from './color-palette';
+import { hexColorPalette, rgbaColorPalette } from './color-palette';
+import { addLayer } from '../lascaux/DrawingDocUtil';
+import { Brush, ROOT_USER, UserMode } from '../lascaux/DrawingDoc';
+import produce from 'immer';
+import { toCssRgbaColor } from '../lascaux/util/parse-color';
 
-function useUpdateMode<K extends keyof DrawingMode & string>(
+function useUpdateMode<K extends keyof UserMode & string>(
   canvasInstance: LascauxDomInstance,
   updateObject: LascauxUiState,
   field: K,
 ): [
-  DrawingMode[K],
-  (newValue: DrawingMode[K]) => void,
-  (newValue: DrawingMode[K]) => void,
+  UserMode[K],
+  (newValue: UserMode[K]) => void,
+  (newValue: UserMode[K]) => void,
 ] {
-  const [tempValue, setTempValue] = useState<DrawingMode[K] | undefined>(
-    updateObject.mode[field],
-  );
+  const mode = updateObject.doc.users[ROOT_USER];
+  const value = mode[field];
+  const [tempValue, setTempValue] = useState<UserMode[K] | undefined>(value);
   const setValue = useCallback(
-    (alpha: DrawingMode[K]) => {
-      canvasInstance.setMode(field, alpha);
+    (alpha: UserMode[K]) => {
+      canvasInstance.updateDoc(
+        produce((doc) => {
+          doc.users[ROOT_USER][field] = alpha;
+        }),
+      );
       setTempValue(undefined);
     },
     [canvasInstance, field],
   );
 
-  return [tempValue ?? updateObject.mode[field], setTempValue, setValue];
+  return [tempValue ?? value, setTempValue, setValue];
+}
+
+function useUpdateBrush<K extends keyof Brush & string>(
+  canvasInstance: LascauxDomInstance,
+  updateObject: LascauxUiState,
+  field: K,
+): [Brush[K], (newValue: Brush[K]) => void, (newValue: Brush[K]) => void] {
+  const mode = updateObject.doc.users[ROOT_USER];
+  const value = mode.brushes[mode.brush][field];
+  const [tempValue, setTempValue] = useState<Brush[K] | undefined>(value);
+  const setValue = useCallback(
+    (alpha: Brush[K]) => {
+      canvasInstance.updateDoc(
+        produce((doc) => {
+          doc.users[ROOT_USER][field] = alpha;
+        }),
+      );
+      setTempValue(undefined);
+    },
+    [canvasInstance, field],
+  );
+
+  return [tempValue ?? value, setTempValue, setValue];
 }
 
 type Props = {
@@ -75,13 +106,13 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
 
   useEffect(() => {
     return () => {
-      canvasInstance.getPng().then((thumbnail) => {
-        return db.thumbnails.put({
+      canvasInstance.getPng().then((thumbnail) =>
+        db.thumbnails.put({
           drawingId,
           thumbnail,
           updatedAt: newDate(),
-        });
-      });
+        }),
+      );
     };
   }, [canvasInstance, drawingId]);
   useEventEffect(
@@ -104,46 +135,53 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
     });
   }, [canvasInstance]);
 
-  const [brushSize, setTempBrushSize, setBrushSize] = useUpdateMode(
+  const [brushSize, setTempBrushSize, setBrushSize] = useUpdateBrush(
     canvasInstance,
     updateObject,
     'size',
   );
-  const [brushOpacity, setTempBrushOpacity, setBrushOpacity] = useUpdateMode(
+  const [brushOpacity, setTempBrushOpacity, setBrushOpacity] = useUpdateBrush(
     canvasInstance,
     updateObject,
-    'alpha',
+    'opacity',
   );
-  const [brushSpacing, setTempBrushSpacing, setBrushSpacing] = useUpdateMode(
+  const [brushSpacing, setTempBrushSpacing, setBrushSpacing] = useUpdateBrush(
     canvasInstance,
     updateObject,
     'spacing',
   );
-  const [brushHardness, setTempBrushHardness, setBrushHardness] = useUpdateMode(
-    canvasInstance,
-    updateObject,
-    'hardness',
-  );
+  const [
+    brushHardness,
+    setTempBrushHardness,
+    setBrushHardness,
+  ] = useUpdateBrush(canvasInstance, updateObject, 'hardness');
   const setScale = useCallback((scale) => canvasInstance.setScale(scale), [
     canvasInstance,
   ]);
+  const selectedColor = updateObject.doc.users[ROOT_USER].color;
   const colorButtons = useMemo(
     () =>
-      hexColorPalette.map((color, index) => {
-        const selected = color === updateObject.mode.color;
+      rgbaColorPalette.map((color, index) => {
+        const selected = color === selectedColor;
         return (
           <Button
             key={index}
-            onClick={() => canvasInstance.setMode('color', color)}
+            onClick={() =>
+              canvasInstance.updateDoc(
+                produce((doc) => {
+                  doc.users[ROOT_USER].color = color;
+                }),
+              )
+            }
             className={styles.colorButton}
             style={{
-              backgroundColor: color,
+              backgroundColor: toCssRgbaColor(color),
               border: selected ? 'solid 2px white' : `solid 2px ${color}`,
             }}
           />
         );
       }),
-    [canvasInstance, updateObject.mode.color],
+    [canvasInstance, selectedColor],
   );
   const seek = useCallback(
     (cursor: number) => {
@@ -155,8 +193,8 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
   const togglePlay = useCallback(() => {
     canvasInstance.setPlaying(!updateObject.playing);
   }, [canvasInstance, updateObject.playing]);
-  const addLayer = useCallback(() => {
-    canvasInstance.addLayer();
+  const onAddLayer = useCallback(() => {
+    canvasInstance.updateDoc((doc) => addLayer(doc));
   }, [canvasInstance]);
   const undo = useCallback(() => {
     if (updateObject.undo) {
@@ -363,7 +401,7 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
         {zoomSlider}
         <label className={styles.toolLabel}>Layers</label>
         <span className={styles.layers}>{layers}</span>
-        <Button onClick={addLayer}>
+        <Button onClick={onAddLayer}>
           <Icon file={LayerPlusIcon} alt="Layer plus icon" />
           Add Layer
         </Button>

@@ -13,7 +13,6 @@ import {
 import { addLayer } from './DrawingDocUtil';
 import { produce } from 'immer';
 import parseColor from './util/parse-color';
-import { StrokePayload } from './data-model/StorageModel';
 import { DrawingDoc, Id } from './DrawingDoc';
 
 export type LegacyDna = {
