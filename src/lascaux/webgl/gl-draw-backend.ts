@@ -27,7 +27,7 @@ import { TypedArray } from '../util/typed-arrays';
 import { checkError, getOrThrow } from './util/gl-errors';
 import { setDrawingMatrix, setViewportMatrix } from './util/gl-matrix';
 import { copyRgbaPixels, RgbaImage } from '../util/rgba-image';
-import { DrawingDoc, IdMap } from '../DrawingDoc';
+import { DrawingDoc } from '../DrawingDoc';
 
 function makeTextureVertexArray(
   x1: number,
@@ -267,17 +267,19 @@ export class GlDrawBackend implements DrawBackend {
     checkError(gl);
   }
 
-  setDoc(doc: DrawingDoc): void {
+  setDoc(newDoc: DrawingDoc): void {
+    const oldDoc = this._doc;
+    this._doc = newDoc;
     if (
-      !this._doc ||
-      doc.artboard.width !== this._doc.artboard.width ||
-      doc.artboard.height !== this._doc.artboard.height
+      !oldDoc ||
+      newDoc.artboard.width !== oldDoc.artboard.width ||
+      newDoc.artboard.height !== oldDoc.artboard.height
     ) {
       // do something when artboard changes size
     }
-    if (!this._doc || doc.artboard.layers !== this._doc.artboard.layers) {
+    if (!oldDoc || newDoc.artboard.layers !== oldDoc.artboard.layers) {
       const existingLayers = new Set<string>(this._layers.keys());
-      for (const layer of Object.keys(this._doc.artboard.layers)) {
+      for (const layer of Object.keys(newDoc.artboard.layers)) {
         if (existingLayers.has(layer)) {
           existingLayers.delete(layer);
           continue;
@@ -294,7 +296,6 @@ export class GlDrawBackend implements DrawBackend {
         }
       }
     }
-    this._doc = doc;
   }
 
   private updateViewport(pixelRatio = this.pixelRatio) {
@@ -654,9 +655,16 @@ export class GlDrawBackend implements DrawBackend {
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
     if (baseColor) {
-      gl.enable(gl.SCISSOR_TEST);
-      // Only clear the area where the drawing will be
-      gl.scissor(x, gl.drawingBufferHeight - y - h, w, h);
+      if (!exportMode) {
+        gl.enable(gl.SCISSOR_TEST);
+        // Only clear the area where the drawing will be
+        gl.scissor(
+          Math.floor(x),
+          Math.floor(gl.drawingBufferHeight - y - h),
+          Math.floor(w),
+          Math.floor(h),
+        );
+      }
       const [r, g, b, a] = baseColor;
       gl.clearColor(r, g, b, a);
       gl.clear(gl.COLOR_BUFFER_BIT);

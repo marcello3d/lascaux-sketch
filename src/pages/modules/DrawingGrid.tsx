@@ -5,13 +5,13 @@ import styles from './DrawingGrid.module.css';
 import { Icon } from '../../ui/Icon';
 import IconImagePolaroid from '../../icons/fa/image-polaroid.svg';
 import { useBlobAsUrl } from '../../react-hooks/useBlobAsUrl';
-import { useToggle } from '../../react-hooks/useToggle';
 
 import {
   useDexieArray,
   useDexieItem,
   useDexieItemUpdate,
 } from '../../db/useDexie';
+import { EditName } from '../../ui/EditName';
 
 const sortedDrawings = db.drawings.orderBy('createdAt').reverse();
 
@@ -52,28 +52,23 @@ export function DrawingGrid() {
 }
 
 export function DrawingButton({ drawingId }: { drawingId: string }) {
-  const [editing, startEdit, finishEdit] = useToggle();
   const drawing = useDexieItem(db.drawings, drawingId);
   const updateDrawing = useDexieItemUpdate(db.drawings, drawingId);
   const changeName = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      updateDrawing({ name: event.target.value });
+    (name: string) => {
+      updateDrawing({ name });
     },
     [updateDrawing],
-  );
-  const onSubmit = useCallback(
-    (event: React.FormEvent) => {
-      event.preventDefault();
-      finishEdit();
-    },
-    [finishEdit],
   );
 
   if (!drawing) {
     return <></>;
   }
-  const { name = '', createdAt, dna, doc } = drawing;
-  const { width, height } = dna ?? doc?.artboard ?? { width: 0, height: 0 };
+  const {
+    name = '',
+    createdAt,
+    dna: { width, height } = { width: 0, height: 0 },
+  } = drawing;
   return (
     <div className={styles.drawing}>
       <Link to={`drawings/${drawingId}`}>
@@ -81,21 +76,13 @@ export function DrawingButton({ drawingId }: { drawingId: string }) {
           <DrawingThumbnail drawingId={drawingId} />
         </div>
       </Link>
-      {editing ? (
-        <form onSubmit={onSubmit}>
-          <input
-            className={styles.editName}
-            value={name}
-            onChange={changeName}
-            autoFocus={true}
-            onBlur={finishEdit}
-          />
-        </form>
-      ) : (
-        <div className={styles.name} onClick={startEdit}>
-          {name || 'Untitled'}
-        </div>
-      )}
+      <EditName
+        text={name}
+        onChangeText={changeName}
+        placeholder="Untitled"
+        textClassName={styles.name}
+        inputClassName={styles.editName}
+      />
       <div className={styles.size}>
         {width} ⨉ {height}
       </div>

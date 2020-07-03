@@ -1,15 +1,13 @@
 import 'dexie-observable';
 import Dexie, { Table } from 'dexie';
 import { Stroke } from '../lascaux/data-model/StorageModel';
-import { LegacyDna } from '../lascaux/legacy-model';
-import { DrawingDoc } from '../lascaux/DrawingDoc';
+import { Dna } from '../lascaux/legacy-model';
 
 export type DbDrawing = {
   id: string;
   name?: string;
   createdAt: string;
-  dna?: LegacyDna;
-  doc?: DrawingDoc;
+  dna: Dna;
 };
 
 export type DbStroke = {

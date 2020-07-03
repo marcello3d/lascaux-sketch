@@ -16,14 +16,10 @@ export function DrawingPage(props: DrawingPageProps) {
   if (!drawing) {
     return <NotFoundPage {...props} />;
   }
-  const { dna, doc, id } = drawing;
+  const { dna, id } = drawing;
   const drawingModel = getOrMakeDrawingModel(id, () => {
-    const foundDoc = dna ? dnaToDoc(dna) : doc;
-    if (!foundDoc) {
-      throw new Error('unexpectedly no dna or doc');
-    }
     const storage = new DexieStorageModel(id);
-    return createDrawingModel(foundDoc, storage).catch((err) => err);
+    return createDrawingModel(dnaToDoc(dna), storage).catch((err) => err);
   });
   if (drawingModel instanceof Error || drawingModel instanceof Promise) {
     throw drawingModel;

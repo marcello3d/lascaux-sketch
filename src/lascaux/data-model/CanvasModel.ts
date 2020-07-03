@@ -1,12 +1,18 @@
 import { DrawBackend, DrawContext } from '../Drawlet';
 import { DrawingDoc, ROOT_USER } from '../DrawingDoc';
-import { DrawingMode, DrawingState, makeInitialState } from '../legacy-model';
+import {
+  DrawingState,
+  handleLegacyEvent,
+  makeInitialState,
+} from '../legacy-model';
 import { PromiseOrValue } from 'promise-or-value';
-import { GOTO_EVENT, isModeEvent } from './events';
+import { GOTO_EVENT, PATCH_DOC_EVENT } from './events';
 import jsonCopy from '../util/json-copy';
 import { isSkipped } from './GotoMap';
 import DrawingModel from './DrawingModel';
 import { GlDrawBackend } from '../webgl/gl-draw-backend';
+import { diff, formatters, patch } from 'jsondiffpatch';
+import produce from 'immer';
 
 export class CanvasModel {
   readonly _drawing: DrawingModel;
@@ -32,10 +38,6 @@ export class CanvasModel {
 
   get targetCursor(): number {
     return this._targetCursor;
-  }
-
-  get mode(): DrawingMode {
-    return this._drawing._modeMap.getMode(this.strokeCount);
   }
 
   get doc(): DrawingDoc {
@@ -65,8 +67,11 @@ export class CanvasModel {
   _initialize() {
     this._cursor = 0;
     this._state = makeInitialState();
-    this._doc = this._drawing._initialDoc;
-    this._backend.setDoc(this._doc);
+    this.setDoc(this._drawing._initialDoc);
+  }
+  private setDoc(doc: DrawingDoc) {
+    this._doc = doc;
+    this._backend.setDoc(doc);
   }
 
   _execute(
@@ -79,16 +84,34 @@ export class CanvasModel {
       return this._goto(payload);
     }
     this._cursor = cursor;
-    if (isModeEvent(eventType)) {
-      return;
-    }
     this._executeRaw(eventType, payload);
   }
 
   _executeRaw(eventType: string, payload: any) {
-    if (eventType === GOTO_EVENT || isModeEvent(eventType)) {
+    if (eventType === GOTO_EVENT) {
       return;
     }
+
+    if (eventType === PATCH_DOC_EVENT) {
+      // console.log(`PATCH_DOC_EVENT :::${JSON.stringify(payload, null, 2)}`);
+      this.setDoc(
+        produce(this._doc, (doc) => {
+          patch(doc, payload);
+        }),
+      );
+      return;
+    }
+    const legacy = handleLegacyEvent(this._doc, ROOT_USER, eventType, payload);
+    if (legacy) {
+      if (legacy !== this._doc) {
+        // console.log(
+        //   `${eventType}:::${JSON.stringify(diff(this._doc, legacy), null, 2)}`,
+        // );
+        this.setDoc(legacy);
+      }
+      return;
+    }
+
     const exec = this._drawing._handleCommand;
     // Call from local variable so `this` is null
     exec(

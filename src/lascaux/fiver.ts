@@ -7,7 +7,7 @@ import {
 import parseColor from './util/parse-color';
 import { StorageModel } from './data-model/StorageModel';
 import DrawingModel from './data-model/DrawingModel';
-import { handleLegacyEvent, LegacyDna } from './legacy-model';
+import { Dna, isLegacyDna } from './legacy-model';
 import { Color, DrawingDoc, ROOT_USER } from './DrawingDoc';
 import seedrandom from 'seedrandom';
 
@@ -16,7 +16,7 @@ export async function createDrawingModel(
   storage: StorageModel,
 ) {
   console.log(`[LOAD] Getting metadata...`);
-  const metadata = await storage.getMetadata(doc);
+  const metadata = await storage.getMetadata();
   const drawing = new DrawingModel({
     doc,
     editable: true,
@@ -32,7 +32,7 @@ export async function createDrawingModel(
 }
 
 export async function createLegacyDnaDrawingModel(
-  dna: LegacyDna,
+  dna: Dna,
   storage: StorageModel,
 ): Promise<DrawingModel> {
   return await createDrawingModel(dnaToDoc(dna), storage);
@@ -55,9 +55,6 @@ export function newDoc(
       layers: {
         '0': {
           type: 'image',
-          x: 0,
-          y: 0,
-          opacity: 1,
         },
       },
     },
@@ -81,8 +78,12 @@ export function newDoc(
   };
 }
 
-export function dnaToDoc(dna: LegacyDna): DrawingDoc {
-  const { width, height, colors, randomseed } = dna;
+function legacyDnaToDoc(
+  dna: Dna & { randomseed: string; colors: string[] },
+  width: number,
+  height: number,
+) {
+  const { colors, randomseed } = dna;
   const random = seedrandom(randomseed + 0);
   const bg = Math.floor(random() * colors.length);
   const baseColor = parseColor(colors[bg]);
@@ -90,16 +91,20 @@ export function dnaToDoc(dna: LegacyDna): DrawingDoc {
   return newDoc(width, height, baseColor, brushColor);
 }
 
+export function dnaToDoc(dna: Dna): DrawingDoc {
+  const { width, height } = dna;
+  if (isLegacyDna(dna)) {
+    return legacyDnaToDoc(dna, width, height);
+  }
+  return newDoc(width, height);
+}
+
 function handleCommand(
   { doc, user, state }: DrawContext,
   ctx: DrawingContext,
   event: string,
   payload: any,
-): DrawingDoc {
-  const legacy = handleLegacyEvent(doc, user, event, payload);
-  if (legacy) {
-    return legacy;
-  }
+): void {
   const mode = doc.users[user];
   const brush = mode.brushes[mode.brush];
   const {
@@ -183,5 +188,4 @@ function handleCommand(
     case DRAW_END_EVENT:
       break;
   }
-  return doc;
 }

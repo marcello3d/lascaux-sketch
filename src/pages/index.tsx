@@ -20,7 +20,6 @@ import classNames from 'classnames';
 import { DrawingGrid } from './modules/DrawingGrid';
 import { Icon } from '../ui/Icon';
 import { Changelog } from './modules/Changelog';
-import { newDoc } from '../lascaux/fiver';
 
 function validSize(input: string): number | undefined {
   if (!/^\d+$/.test(input)) {
@@ -56,7 +55,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
       await db.drawings.add({
         id,
         createdAt: newDate(),
-        doc: newDoc(width, height),
+        dna: { width, height },
       });
       navigate?.(`/drawings/${id}`);
     },

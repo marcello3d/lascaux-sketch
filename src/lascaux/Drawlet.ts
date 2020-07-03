@@ -2,6 +2,7 @@ import { RgbaImage } from './util/rgba-image';
 import { PromiseOrValue } from 'promise-or-value';
 import { DrawingState } from './legacy-model';
 import { DrawingDoc, Id, IdMap } from './DrawingDoc';
+import { Draft } from 'immer';
 
 export type DrawContext = {
   doc: DrawingDoc;
@@ -37,7 +38,7 @@ export type DrawletHandleFn = (
   canvas: DrawingContext,
   event: string,
   payload: any,
-) => DrawingDoc;
+) => void;
 
 export type GetLinkFn = (link: string) => PromiseOrValue<RgbaImage | undefined>;
 
@@ -98,7 +99,7 @@ export type LascauxDomInstance = {
   getUiState(): LascauxUiState;
   getPng(): Promise<Blob>;
   flush(): void;
-  updateDoc(recipe: (doc: DrawingDoc) => DrawingDoc): void;
+  produceDoc(recipe: (draft: Draft<DrawingDoc>) => void): void;
   setScale(scale: number): void;
   addGoto(cursor: number): void;
   setPlaying(playing: boolean): void;

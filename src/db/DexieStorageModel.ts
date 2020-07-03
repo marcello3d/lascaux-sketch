@@ -11,7 +11,6 @@ import { Snap } from '../lascaux/Drawlet';
 import { RgbaImage } from '../lascaux/util/rgba-image';
 import GotoMap from '../lascaux/data-model/GotoMap';
 import SnapshotMap from '../lascaux/data-model/SnapshotMap';
-import ModeMap from '../lascaux/data-model/ModeMap';
 import DrawingModel from '../lascaux/data-model/DrawingModel';
 
 import { db, DbStroke } from './db';
@@ -71,11 +70,10 @@ export class DexieStorageModel implements StorageModel {
     return lastPromise;
   }
 
-  async getMetadata(initialMode: object): Promise<Metadata> {
+  async getMetadata(): Promise<Metadata> {
     return {
       strokeCount: 0,
       gotoMap: new GotoMap(),
-      modeMap: new ModeMap(initialMode),
       snapshotMap: new SnapshotMap(this),
     };
   }

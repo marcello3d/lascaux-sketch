@@ -2,13 +2,11 @@ import { Snap } from '../Drawlet';
 import SnapshotMap from './SnapshotMap';
 import GotoMap from './GotoMap';
 import { PromiseOrValue } from 'promise-or-value';
-import ModeMap from './ModeMap';
 import DrawingModel from './DrawingModel';
 import { RgbaImage } from '../util/rgba-image';
 
 export type Metadata = {
   gotoMap: GotoMap;
-  modeMap: ModeMap<any>;
   strokeCount: number;
   snapshotMap: SnapshotMap;
 };
@@ -21,7 +19,7 @@ export type Stroke = {
 
 export interface StorageModel {
   replay(model: DrawingModel): PromiseOrValue<void>;
-  getMetadata(initialMode: object): PromiseOrValue<Metadata>;
+  getMetadata(): PromiseOrValue<Metadata>;
   addStroke(type: string, time: number, payload: StrokePayload): void;
   getStroke(index: number): PromiseOrValue<Stroke>;
   addSnapshot(index: number, snapshot: Snap): PromiseOrValue<void>;

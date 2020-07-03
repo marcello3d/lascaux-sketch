@@ -104,8 +104,9 @@
   display: flex;
   border-radius: 0;
   flex-direction: row;
+  align-items: center;
   background: #444;
-  padding: 4px;
+  padding: 0;
   margin: 0;
 }
 .layerName {

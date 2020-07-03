@@ -1,37 +1,32 @@
 import {
-  DrawletCursorPayload,
+  getNormalizedModePayload,
+  isLegacyModeEvent,
   LEGACY_ADD_LAYER_EVENT,
-  LEGACY_SET_ALPHA_EVENT,
-  LEGACY_SET_COLOR_EVENT,
-  LEGACY_SET_CURSOR_EVENT,
-  LEGACY_SET_ERASE_EVENT,
-  LEGACY_SET_HARDNESS_EVENT,
-  LEGACY_SET_LAYER_EVENT,
-  LEGACY_SET_SIZE_EVENT,
-  LEGACY_SET_SPACING_EVENT,
+  LEGACY_ALPHA_MODE,
+  LEGACY_COLOR_MODE,
+  LEGACY_CURSOR_MODE,
+  LEGACY_ERASE_MODE,
+  LEGACY_HARDNESS_MODE,
+  LEGACY_LAYER_MODE,
+  LEGACY_SIZE_MODE,
+  LEGACY_SPACING_MODE,
 } from './data-model/events';
 import { addLayer } from './DrawingDocUtil';
 import { produce } from 'immer';
 import parseColor from './util/parse-color';
 import { DrawingDoc, Id } from './DrawingDoc';
 
-export type LegacyDna = {
+export type Dna = {
   width: number;
   height: number;
+};
+export type LegacyDna = Dna & {
   randomseed: string;
   colors: string[];
 };
-
-export type DrawingMode = {
-  layer: number;
-  cursor?: DrawletCursorPayload;
-  color: string;
-  erase: boolean;
-  size: number;
-  alpha: number;
-  spacing: number;
-  hardness: number;
-};
+export function isLegacyDna(dna: Dna): dna is LegacyDna {
+  return 'colors' in (dna as LegacyDna);
+}
 
 export type DrawingState = {
   size: number;
@@ -55,57 +50,64 @@ export function handleLegacyEvent(
   event: string,
   payload: any,
 ): DrawingDoc | undefined {
-  switch (event) {
-    case LEGACY_ADD_LAYER_EVENT:
-      // Legacy add layer logic
-      return addLayer(doc, String(doc.artboard.rootLayers.length), user);
-
-    case LEGACY_SET_LAYER_EVENT:
-      return produce(doc, (state) => {
-        state.users[user].layer = String(payload);
-      });
-
-    case LEGACY_SET_CURSOR_EVENT:
-      return produce(doc, (state) => {
-        state.users[user].cursor = payload;
-      });
-
-    case LEGACY_SET_COLOR_EVENT:
-      return produce(doc, (state) => {
-        const mode = state.users[user];
-        const alpha = mode.color[3];
-        mode.color = parseColor(payload);
-        mode.color[3] = alpha;
-      });
-
-    case LEGACY_SET_ERASE_EVENT:
-      return produce(doc, (state) => {
-        const mode = state.users[user];
-        mode.brushes[mode.brush].mode = payload ? 'erase' : 'paint';
-      });
-
-    case LEGACY_SET_SIZE_EVENT:
-      return produce(doc, (state) => {
-        const mode = state.users[user];
-        mode.brushes[mode.brush].size = payload;
-      });
-
-    case LEGACY_SET_ALPHA_EVENT:
-      return produce(doc, (state) => {
-        state.users[user].color[3] = payload;
-      });
-
-    case LEGACY_SET_SPACING_EVENT:
-      return produce(doc, (state) => {
-        const mode = state.users[user];
-        mode.brushes[mode.brush].spacing = payload;
-      });
-
-    case LEGACY_SET_HARDNESS_EVENT:
-      return produce(doc, (state) => {
-        const mode = state.users[user];
-        mode.brushes[mode.brush].hardness = payload;
-      });
+  if (event === LEGACY_ADD_LAYER_EVENT) {
+    return produce(doc, (state) =>
+      addLayer(state, user, String(state.artboard.rootLayers.length)),
+    );
+  }
+  if (isLegacyModeEvent(event)) {
+    return handleLegacyModeEvent(doc, user, event, payload);
   }
   return undefined;
+}
+
+function handleLegacyModeEvent(
+  doc: DrawingDoc,
+  user: string,
+  eventType: string,
+  eventPayload: any,
+): DrawingDoc {
+  return produce(doc, (state) => {
+    const mode = state.users[user];
+    const normalized = getNormalizedModePayload(eventType, eventPayload);
+    const brush = mode.brushes[mode.brush];
+    for (const modeName of Object.keys(normalized)) {
+      const payload = normalized[modeName];
+      switch (modeName) {
+        case LEGACY_LAYER_MODE:
+          state.users[user].layer = String(payload);
+          break;
+
+        case LEGACY_CURSOR_MODE:
+          state.users[user].cursor = payload;
+          break;
+
+        case LEGACY_COLOR_MODE:
+          const alpha = mode.color[3];
+          mode.color = parseColor(payload);
+          mode.color[3] = alpha;
+          break;
+
+        case LEGACY_ERASE_MODE:
+          brush.mode = payload ? 'erase' : 'paint';
+          break;
+
+        case LEGACY_SIZE_MODE:
+          brush.size = payload;
+          break;
+
+        case LEGACY_ALPHA_MODE:
+          state.users[user].color[3] = payload;
+          break;
+
+        case LEGACY_SPACING_MODE:
+          brush.spacing = payload;
+          break;
+
+        case LEGACY_HARDNESS_MODE:
+          brush.hardness = payload;
+          break;
+      }
+    }
+  });
 }

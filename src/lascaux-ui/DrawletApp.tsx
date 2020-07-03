@@ -40,8 +40,8 @@ import {
   ROOT_USER,
   UserMode,
 } from '../lascaux/DrawingDoc';
-import produce from 'immer';
 import { toCssRgbaColor } from '../lascaux/util/parse-color';
+import { EditName } from '../ui/EditName';
 
 function useUpdateMode<K extends keyof UserMode & string>(
   canvasInstance: LascauxDomInstance,
@@ -57,11 +57,9 @@ function useUpdateMode<K extends keyof UserMode & string>(
   const [tempValue, setTempValue] = useState<UserMode[K] | undefined>(value);
   const setValue = useCallback(
     (alpha: UserMode[K]) => {
-      canvasInstance.updateDoc(
-        produce((doc) => {
-          doc.users[ROOT_USER][field] = alpha;
-        }),
-      );
+      canvasInstance.produceDoc((draft) => {
+        draft.users[ROOT_USER][field] = alpha;
+      });
       setTempValue(undefined);
     },
     [canvasInstance, field],
@@ -80,14 +78,12 @@ function useUpdateBrush<K extends keyof Brush & string>(
   const [tempValue, setTempValue] = useState<Brush[K] | undefined>(value);
   const setValue = useCallback(
     (alpha: Brush[K]) => {
-      canvasInstance.updateDoc(
-        produce((doc) => {
-          doc.users[ROOT_USER][field] = alpha;
-        }),
-      );
+      canvasInstance.produceDoc((draft) => {
+        draft.users[ROOT_USER].brushes[mode.brush][field] = alpha;
+      });
       setTempValue(undefined);
     },
-    [canvasInstance, field],
+    [canvasInstance, field, mode.brush],
   );
 
   return [tempValue ?? value, setTempValue, setValue];
@@ -172,11 +168,9 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
           <Button
             key={index}
             onClick={() =>
-              canvasInstance.updateDoc(
-                produce((doc) => {
-                  doc.users[ROOT_USER].color = color;
-                }),
-              )
+              canvasInstance.produceDoc((draft) => {
+                draft.users[ROOT_USER].color = color;
+              })
             }
             className={styles.colorButton}
             style={{
@@ -199,7 +193,7 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
     canvasInstance.setPlaying(!updateObject.playing);
   }, [canvasInstance, updateObject.playing]);
   const onAddLayer = useCallback(() => {
-    canvasInstance.updateDoc((doc) => addLayer(doc));
+    canvasInstance.produceDoc((draft) => addLayer(draft, ROOT_USER));
   }, [canvasInstance]);
   const undo = useCallback(() => {
     if (updateObject.undo) {
@@ -292,36 +286,43 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
 
   const onChangeLayer = useCallback(
     (layerId: string) => {
-      canvasInstance.updateDoc(
-        produce((doc) => {
-          doc.users[ROOT_USER].layer = layerId;
-        }),
-      );
+      canvasInstance.produceDoc((doc) => {
+        doc.users[ROOT_USER].layer = layerId;
+      });
+    },
+    [canvasInstance],
+  );
+  const onRenameLayer = useCallback(
+    (layerId: string, newName: string) => {
+      canvasInstance.produceDoc((doc) => {
+        doc.artboard.layers[layerId].name = newName;
+      });
     },
     [canvasInstance],
   );
   const layers = useMemo(() => {
-    return updateObject.doc.artboard.rootLayers.map((id) => (
-      <Layer
-        key={id}
-        id={id}
-        user={ROOT_USER}
-        doc={updateObject.doc}
-        onChange={onChangeLayer}
-      />
-    ));
+    return updateObject.doc.artboard.rootLayers
+      .map((id) => (
+        <Layer
+          key={id}
+          id={id}
+          user={ROOT_USER}
+          doc={updateObject.doc}
+          onSelectLayer={onChangeLayer}
+          onRenameLayer={onRenameLayer}
+        />
+      ))
+      .reverse();
   }, [onChangeLayer, updateObject.doc]);
 
   const onEraseChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      canvasInstance.updateDoc(
-        produce((doc) => {
-          const mode = doc.users[ROOT_USER];
-          mode.brushes[mode.brush].mode = event.target.checked
-            ? 'erase'
-            : 'paint';
-        }),
-      );
+      canvasInstance.produceDoc((draft) => {
+        const mode = draft.users[ROOT_USER];
+        mode.brushes[mode.brush].mode = event.target.checked
+          ? 'erase'
+          : 'paint';
+      });
     },
     [canvasInstance],
   );
@@ -441,25 +442,33 @@ function Layer({
   id,
   doc,
   user,
-  onChange,
+  onSelectLayer,
+  onRenameLayer,
 }: {
   id: string;
   doc: DrawingDoc;
   user: Id;
-  onChange: (id: string) => void;
+  onSelectLayer: (id: string) => void;
+  onRenameLayer: (id: string, newName: string) => void;
 }) {
   const selected = id === doc.users[user].layer;
   const layer = doc.artboard.layers[id];
   const onClick = useCallback(() => {
     if (!selected) {
-      onChange(id);
+      onSelectLayer(id);
     }
-  }, [selected, onChange, id]);
+  }, [selected, onSelectLayer, id]);
   const name = useMemo(
     () =>
       layer.name ??
       `Layer #${Object.keys(doc.artboard.layers).indexOf(id) + 1}`,
     [layer.name, doc.artboard.layers, id],
+  );
+  const onChangeName = useCallback(
+    (name: string) => {
+      onRenameLayer(id, name);
+    },
+    [id, onRenameLayer],
   );
   return (
     <>
@@ -473,12 +482,20 @@ function Layer({
           file={selected ? PenSquareIcon : SquareIcon}
           alt={selected ? 'Selected layer' : 'Unselected layer'}
         />
-        <span className={styles.layerName}>{name}</span>
+        <EditName text={name} onChangeText={onChangeName} doubleClick={true} />
       </Button>
       {layer.type === 'group' &&
-        layer.layers.map((id) => (
-          <Layer id={id} doc={doc} user={user} onChange={onChange} />
-        ))}
+        layer.layers
+          .map((id) => (
+            <Layer
+              id={id}
+              doc={doc}
+              user={user}
+              onSelectLayer={onSelectLayer}
+              onRenameLayer={onRenameLayer}
+            />
+          ))
+          .reverse()}
     </>
   );
 }

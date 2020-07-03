@@ -1,10 +1,15 @@
 import DrawingModel from '../data-model/DrawingModel';
 import { LascauxDomInstance, LascauxUiState } from '../Drawlet';
 import pointerEventsBridge, { EventBridge } from './pointer-events-bridge';
-import { DrawletEvent, GOTO_EVENT, PATCH_DOC } from '../data-model/events';
+import {
+  DrawletEvent,
+  GOTO_EVENT,
+  PATCH_DOC_EVENT,
+} from '../data-model/events';
 import { then } from 'promise-or-value';
 import { DrawingDoc } from '../DrawingDoc';
 import { diff } from 'jsondiffpatch';
+import produce, { Draft } from 'immer';
 
 export default function createLascauxDomInstance(
   drawingModel: DrawingModel,
@@ -159,8 +164,8 @@ export default function createLascauxDomInstance(
       return canvas.getPng();
     },
 
-    updateDoc(recipe: (doc: DrawingDoc) => DrawingDoc) {
-      addStroke(PATCH_DOC, diff(canvas.doc, recipe(canvas.doc)));
+    produceDoc(recipe: (draft: Draft<DrawingDoc>) => void) {
+      addStroke(PATCH_DOC_EVENT, diff(canvas.doc, produce(canvas.doc, recipe)));
     },
 
     setScale(scale: number) {

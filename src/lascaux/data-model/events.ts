@@ -9,25 +9,25 @@ export const MODE_EVENT_REGEX = /^%(.*)$/;
 // This is just a normal mode event, but pulling it out as an example
 export const CURSOR_EVENT = '%cursor';
 
-export const PATCH_DOC = '!doc';
+export const PATCH_DOC_EVENT = '!doc';
 
 // Legacy events
 export const LEGACY_ADD_LAYER_EVENT = 'add-layer';
-export const LEGACY_SET_LAYER_EVENT = '%layer';
-export const LEGACY_SET_CURSOR_EVENT = '%cursor';
-export const LEGACY_SET_COLOR_EVENT = '%color';
-export const LEGACY_SET_ERASE_EVENT = '%erase';
-export const LEGACY_SET_SIZE_EVENT = '%size';
-export const LEGACY_SET_ALPHA_EVENT = '%alpha';
-export const LEGACY_SET_SPACING_EVENT = '%spacing';
-export const LEGACY_SET_HARDNESS_EVENT = '%hardness';
+export const LEGACY_LAYER_MODE = 'layer';
+export const LEGACY_CURSOR_MODE = 'cursor';
+export const LEGACY_COLOR_MODE = 'color';
+export const LEGACY_ERASE_MODE = 'erase';
+export const LEGACY_SIZE_MODE = 'size';
+export const LEGACY_ALPHA_MODE = 'alpha';
+export const LEGACY_SPACING_MODE = 'spacing';
+export const LEGACY_HARDNESS_MODE = 'hardness';
 
 // Normal events
 export const DRAW_START_EVENT = 'start';
 export const DRAW_EVENT = 'draw';
 export const DRAW_END_EVENT = 'end';
 
-export function isModeEvent(eventType: string) {
+export function isLegacyModeEvent(eventType: string) {
   return MODE_EVENT_REGEX.test(eventType);
 }
 export function isKeyframeEvent(eventType: string) {

@@ -39,9 +39,8 @@ export type Artboard = Readonly<{
 
 export type LayerShared = Readonly<{
   name?: string;
-  x: number;
-  y: number;
-  opacity: number;
+  pos?: { x: number; y: number };
+  opacity?: number;
 }>;
 
 export type Layer = LayerGroup | ImageLayer;

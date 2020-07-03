@@ -2,21 +2,13 @@ import { PromiseOrValue, then } from 'promise-or-value';
 
 import jsonCopy from '../util/json-copy';
 
-import {
-  DRAW_END_EVENT,
-  getNormalizedModePayload,
-  GOTO_EVENT,
-  isKeyframeEvent,
-  isModeEvent,
-} from './events';
+import { DRAW_END_EVENT, GOTO_EVENT, isKeyframeEvent } from './events';
 
 import GotoMap, { Skips } from './GotoMap';
-import ModeMap from './ModeMap';
 import SnapshotMap from './SnapshotMap';
 
 import { DrawletHandleFn } from '../Drawlet';
 import { Metadata, StorageModel } from './StorageModel';
-import { DrawingMode } from '../legacy-model';
 import { DrawingDoc } from '../DrawingDoc';
 import { CanvasModel } from './CanvasModel';
 
@@ -35,7 +27,6 @@ export default class DrawingModel {
   _strokeCount: number = 0;
   private _drawingCursor: number = 0;
   _snapshotMap!: SnapshotMap;
-  _modeMap!: ModeMap<DrawingMode>;
   private _gotoMap!: GotoMap;
   private _snapshotStrokeCount: number = 0;
   private _strokesSinceSnapshot: number = 0;
@@ -65,14 +56,13 @@ export default class DrawingModel {
     if (!metadata) {
       throw new Error('unexpected state');
     }
-    const { strokeCount, gotoMap, modeMap, snapshotMap } = metadata;
+    const { strokeCount, gotoMap, snapshotMap } = metadata;
     this._gotoMap = gotoMap;
     this._snapshotMap = snapshotMap;
     if (strokeCount > 0) {
       this._strokeCount = strokeCount;
       this._drawingCursor = this._gotoMap.dereference(strokeCount);
     }
-    this._modeMap = modeMap;
     if (editable) {
       this._snapshotStrokeCount = snapshotStrokeCount;
       this._strokesSinceSnapshot = 0;
@@ -169,15 +159,9 @@ export default class DrawingModel {
       this._gotoMap.addKeyframe(index);
     }
     const isGoto = eventType === GOTO_EVENT;
-    const isMode = isModeEvent(eventType);
     this._strokeCount++;
     if (isGoto) {
       this._drawingCursor = this._gotoMap.addGoto(index, payload);
-    } else if (isMode) {
-      this._modeMap.addMode(
-        index,
-        getNormalizedModePayload(eventType, payload),
-      );
     } else {
       this._drawingCursor = this._strokeCount;
     }
