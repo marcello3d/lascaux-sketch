@@ -87,6 +87,7 @@ export type Snapshot = {
 export type Tiles = IdMap<Tile>;
 export type Links = IdMap<RgbaImage>;
 export type Tile = {
+  layer: string;
   x: number;
   y: number;
   link: string | null;

@@ -367,7 +367,7 @@ export class GlDrawBackend implements DrawBackend {
         const key = getTileKey(layer, tilex, tiley);
         const x = tilex * tileSize;
         const y = tiley * tileSize;
-        _tiles[key] = { x, y, link: null };
+        _tiles[key] = { layer, x, y, link: null };
       }
     }
   }

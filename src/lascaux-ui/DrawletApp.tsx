@@ -34,7 +34,14 @@ import UndoIcon from '../icons/fa/undo.svg';
 import RedoIcon from '../icons/fa/redo.svg';
 import { hexColorPalette, rgbaColorPalette } from './color-palette';
 import { addLayer } from '../lascaux/DrawingDocUtil';
-import { Brush, ROOT_USER, UserMode } from '../lascaux/DrawingDoc';
+import {
+  Artboard,
+  Brush,
+  DrawingDoc,
+  Id,
+  ROOT_USER,
+  UserMode,
+} from '../lascaux/DrawingDoc';
 import produce from 'immer';
 import { toCssRgbaColor } from '../lascaux/util/parse-color';
 
@@ -284,41 +291,49 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
     ),
     [updateObject.strokeCount, updateObject.cursor, seek],
   );
-  const layers = useMemo(() => {
-    const array: React.ReactNode[] = [];
-    for (let i = updateObject.layerCount - 1; i >= 0; i--) {
-      const layer = i;
-      const selected =
-        Math.min(updateObject.layerCount - 1, updateObject.mode.layer) ===
-        layer;
-      array.push(
-        <Button
-          key={i}
-          className={classNames(styles.layer, {
-            [styles.layerSelected]: selected,
-          })}
-          onClick={() => {
-            if (!selected) {
-              canvasInstance.setMode('layer', layer);
-            }
-          }}
-        >
-          <Icon
-            file={selected ? PenSquareIcon : SquareIcon}
-            alt={selected ? 'Selected layer' : 'Unselected layer'}
-          />
-          <span className={styles.layerName}>Layer #{i + 1}</span>
-        </Button>,
+
+  const onChangeLayer = useCallback(
+    (layerId: string) => {
+      canvasInstance.updateDoc(
+        produce((doc) => {
+          doc.users[ROOT_USER].layer = layerId;
+        }),
       );
-    }
-    return array;
-  }, [updateObject.layerCount, updateObject.mode.layer, canvasInstance]);
+    },
+    [canvasInstance],
+  );
+  const layers = useMemo(() => {
+    return updateObject.doc.artboard.rootLayers.map((id) => (
+      <Layer
+        key={id}
+        id={id}
+        user={ROOT_USER}
+        doc={updateObject.doc}
+        onChange={onChangeLayer}
+      />
+    ));
+  }, [onChangeLayer, updateObject.doc]);
 
   const onEraseChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      canvasInstance.setMode('erase', event.target.checked);
+      canvasInstance.updateDoc(
+        produce((doc) => {
+          const mode = doc.users[ROOT_USER];
+          mode.brushes[mode.brush].mode = event.target.checked
+            ? 'erase'
+            : 'paint';
+        }),
+      );
     },
     [canvasInstance],
+  );
+
+  const mode = updateObject.doc.users[ROOT_USER];
+  const brush = mode.brushes[mode.brush];
+
+  const currentColorStyle = useMemo(
+    () => ({ backgroundColor: toCssRgbaColor(mode.color) }),
+    [mode.color],
   );
   return (
     <Layout
@@ -356,17 +371,14 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
           <label className={styles.value}>
             <input
               type="checkbox"
-              checked={updateObject.mode.erase}
+              checked={brush.mode === 'erase'}
               onChange={onEraseChange}
             />{' '}
             Erase
           </label>
         </div>
         <div className={styles.colorButtons}>
-          <div
-            className={styles.currentColor}
-            style={{ backgroundColor: updateObject.mode.color }}
-          />
+          <div className={styles.currentColor} style={currentColorStyle} />
           {colorButtons}
         </div>
         <label className={styles.toolLabel}>
@@ -424,5 +436,51 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
       <div className={styles.right} />
       <div className={styles.status} />
     </Layout>
+  );
+}
+
+function Layer({
+  id,
+  doc,
+  user,
+  onChange,
+}: {
+  id: string;
+  doc: DrawingDoc;
+  user: Id;
+  onChange: (id: string) => void;
+}) {
+  const selected = id === doc.users[user].layer;
+  const layer = doc.artboard.layers[id];
+  const onClick = useCallback(() => {
+    if (!selected) {
+      onChange(id);
+    }
+  }, [selected, onChange, id]);
+  const name = useMemo(
+    () =>
+      layer.name ??
+      `Layer #${Object.keys(doc.artboard.layers).indexOf(id) + 1}`,
+    [layer.name, doc.artboard.layers, id],
+  );
+  return (
+    <>
+      <Button
+        className={classNames(styles.layer, {
+          [styles.layerSelected]: selected,
+        })}
+        onClick={onClick}
+      >
+        <Icon
+          file={selected ? PenSquareIcon : SquareIcon}
+          alt={selected ? 'Selected layer' : 'Unselected layer'}
+        />
+        <span className={styles.layerName}>{name}</span>
+      </Button>
+      {layer.type === 'group' &&
+        layer.layers.map((id) => (
+          <Layer id={id} doc={doc} user={user} onChange={onChange} />
+        ))}
+    </>
   );
 }

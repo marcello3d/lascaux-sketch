@@ -7,7 +7,6 @@ import {
 import parseColor from './util/parse-color';
 import { StorageModel } from './data-model/StorageModel';
 import DrawingModel from './data-model/DrawingModel';
-import { GlDrawBackend } from './webgl/gl-draw-backend';
 import { handleLegacyEvent, LegacyDna } from './legacy-model';
 import { Color, DrawingDoc, ROOT_USER } from './DrawingDoc';
 import seedrandom from 'seedrandom';
@@ -23,7 +22,6 @@ export async function createLegacyDnaDrawingModel(
   const drawing = new DrawingModel({
     doc,
     editable: true,
-    DrawOs: GlDrawBackend,
     snapshotStrokeCount: 250,
     storageModel: storage,
     metadata,
