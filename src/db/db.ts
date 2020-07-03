@@ -2,12 +2,14 @@ import 'dexie-observable';
 import Dexie, { Table } from 'dexie';
 import { Stroke } from '../lascaux/data-model/StorageModel';
 import { LegacyDna } from '../lascaux/legacy-model';
+import { DrawingDoc } from '../lascaux/DrawingDoc';
 
 export type DbDrawing = {
   id: string;
   name?: string;
   createdAt: string;
-  dna: LegacyDna;
+  dna?: LegacyDna;
+  doc?: DrawingDoc;
 };
 
 export type DbStroke = {

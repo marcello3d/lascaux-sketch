@@ -56,7 +56,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
       await db.drawings.add({
         id,
         createdAt: newDate(),
-        dna: newDoc(width, height),
+        doc: newDoc(width, height),
       });
       navigate?.(`/drawings/${id}`);
     },

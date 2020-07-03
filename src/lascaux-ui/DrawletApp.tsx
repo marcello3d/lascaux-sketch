@@ -21,7 +21,6 @@ import { downloadFile, filenameDate } from '../ui/download';
 import { LascauxDomInstance, LascauxUiState } from '../lascaux/Drawlet';
 import DrawingModel from '../lascaux/data-model/DrawingModel';
 import createLascauxDomInstance from '../lascaux/browser/setup-canvas-bridge';
-import { DrawingMode } from '../lascaux/legacy-model';
 import { db } from '../db/db';
 import { newDate } from '../db/fields';
 
@@ -32,10 +31,9 @@ import PlayIcon from '../icons/fa/play.svg';
 import PauseIcon from '../icons/fa/pause.svg';
 import UndoIcon from '../icons/fa/undo.svg';
 import RedoIcon from '../icons/fa/redo.svg';
-import { hexColorPalette, rgbaColorPalette } from './color-palette';
+import { rgbaColorPalette } from './color-palette';
 import { addLayer } from '../lascaux/DrawingDocUtil';
 import {
-  Artboard,
   Brush,
   DrawingDoc,
   Id,

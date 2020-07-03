@@ -11,12 +11,10 @@ import { handleLegacyEvent, LegacyDna } from './legacy-model';
 import { Color, DrawingDoc, ROOT_USER } from './DrawingDoc';
 import seedrandom from 'seedrandom';
 
-export async function createLegacyDnaDrawingModel(
-  dna: LegacyDna,
+export async function createDrawingModel(
+  doc: DrawingDoc,
   storage: StorageModel,
-): Promise<DrawingModel> {
-  // This is convoluted
-  const doc = dnaToDoc(dna);
+) {
   console.log(`[LOAD] Getting metadata...`);
   const metadata = await storage.getMetadata(doc);
   const drawing = new DrawingModel({
@@ -31,6 +29,13 @@ export async function createLegacyDnaDrawingModel(
   await storage.replay(drawing);
   console.log(`[LOAD] Loaded strokes!`);
   return drawing;
+}
+
+export async function createLegacyDnaDrawingModel(
+  dna: LegacyDna,
+  storage: StorageModel,
+): Promise<DrawingModel> {
+  return await createDrawingModel(dnaToDoc(dna), storage);
 }
 
 const FIVER_BRUSH = 'fiver';
@@ -76,7 +81,7 @@ export function newDoc(
   };
 }
 
-function dnaToDoc(dna: LegacyDna): DrawingDoc {
+export function dnaToDoc(dna: LegacyDna): DrawingDoc {
   const { width, height, colors, randomseed } = dna;
   const random = seedrandom(randomseed + 0);
   const bg = Math.floor(random() * colors.length);
@@ -87,7 +92,7 @@ function dnaToDoc(dna: LegacyDna): DrawingDoc {
 
 function handleCommand(
   { doc, user, state }: DrawContext,
-  canvas: DrawingContext,
+  ctx: DrawingContext,
   event: string,
   payload: any,
 ): DrawingDoc {
@@ -104,7 +109,6 @@ function handleCommand(
   } = mode;
   const { hardness, spacing, size } = brush;
   const erase = brush.mode === 'erase';
-  canvas.setLayer(layer);
 
   switch (event) {
     case DRAW_START_EVENT: {
@@ -117,7 +121,8 @@ function handleCommand(
 
       // Don't draw initial point for touch so we can handle gestures
       if (cursor?.type !== 'touch') {
-        canvas.fillEllipses(
+        ctx.fillEllipses(
+          layer,
           [[x - pSize / 2, y - pSize / 2, pSize, pSize, r, g, b, a]],
           hardness,
           erase,
@@ -170,7 +175,7 @@ function handleCommand(
           }
         }
         if (rects.length > 0) {
-          canvas.fillEllipses(rects, hardness, erase);
+          ctx.fillEllipses(layer, rects, hardness, erase);
         }
       }
       break;

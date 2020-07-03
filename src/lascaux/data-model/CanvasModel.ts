@@ -66,7 +66,7 @@ export class CanvasModel {
     this._cursor = 0;
     this._state = makeInitialState();
     this._doc = this._drawing._initialDoc;
-    this._backend.initialize(this._doc);
+    this._backend.setDoc(this._doc);
   }
 
   _execute(
@@ -83,7 +83,6 @@ export class CanvasModel {
       return;
     }
     this._executeRaw(eventType, payload);
-    this._backend.afterExecute();
   }
 
   _executeRaw(eventType: string, payload: any) {
@@ -113,7 +112,7 @@ export class CanvasModel {
   }
 
   redraw() {
-    this._backend.afterExecute();
+    this._backend.repaint();
   }
 
   goto(targetCursor: number): PromiseOrValue<void> {
@@ -183,7 +182,7 @@ export class CanvasModel {
       }
     }
 
-    this._backend.afterExecute();
+    this._backend.repaint();
     this._inGoto = false;
   }
 }

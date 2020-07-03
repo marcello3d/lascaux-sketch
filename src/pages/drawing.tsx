@@ -6,7 +6,7 @@ import { db } from '../db/db';
 import { DexieStorageModel } from '../db/DexieStorageModel';
 import { NotFoundPage } from './404';
 import { getOrMakeDrawingModel } from '../db/drawlet-cache';
-import { createLegacyDnaDrawingModel } from '../lascaux/fiver';
+import { createDrawingModel, dnaToDoc } from '../lascaux/fiver';
 
 type DrawingPageProps = { drawingId?: string } & RouteComponentProps;
 
@@ -16,12 +16,15 @@ export function DrawingPage(props: DrawingPageProps) {
   if (!drawing) {
     return <NotFoundPage {...props} />;
   }
-  const { dna, id } = drawing;
-  const drawingModel = getOrMakeDrawingModel(id, () =>
-    createLegacyDnaDrawingModel(dna, new DexieStorageModel(id)).catch(
-      (error) => error,
-    ),
-  );
+  const { dna, doc, id } = drawing;
+  const drawingModel = getOrMakeDrawingModel(id, () => {
+    const foundDoc = dna ? dnaToDoc(dna) : doc;
+    if (!foundDoc) {
+      throw new Error('unexpectedly no dna or doc');
+    }
+    const storage = new DexieStorageModel(id);
+    return createDrawingModel(foundDoc, storage).catch((err) => err);
+  });
   if (drawingModel instanceof Error || drawingModel instanceof Promise) {
     throw drawingModel;
   }

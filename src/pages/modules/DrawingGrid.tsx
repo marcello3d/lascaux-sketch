@@ -72,11 +72,8 @@ export function DrawingButton({ drawingId }: { drawingId: string }) {
   if (!drawing) {
     return <></>;
   }
-  const {
-    name = '',
-    createdAt,
-    dna: { width, height },
-  } = drawing;
+  const { name = '', createdAt, dna, doc } = drawing;
+  const { width, height } = dna ?? doc?.artboard ?? { width: 0, height: 0 };
   return (
     <div className={styles.drawing}>
       <Link to={`drawings/${drawingId}`}>

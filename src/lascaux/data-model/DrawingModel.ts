@@ -140,6 +140,9 @@ export default class DrawingModel {
 
   _runQueue(): PromiseOrValue<void> {
     if (this._queue.length === 0) {
+      if (this._editCanvas) {
+        this._editCanvas._backend.repaint();
+      }
       return;
     }
     const next = this._queue.shift()!;
