@@ -33,13 +33,7 @@ import UndoIcon from '../icons/fa/undo.svg';
 import RedoIcon from '../icons/fa/redo.svg';
 import { rgbaColorPalette } from './color-palette';
 import { addLayer } from '../lascaux/DrawingDocUtil';
-import {
-  Brush,
-  DrawingDoc,
-  Id,
-  ROOT_USER,
-  UserMode,
-} from '../lascaux/DrawingDoc';
+import { Brush, DrawingDoc, Id, ROOT_USER } from '../lascaux/DrawingDoc';
 import { toCssRgbaColor } from '../lascaux/util/parse-color';
 import { EditName } from '../ui/EditName';
 

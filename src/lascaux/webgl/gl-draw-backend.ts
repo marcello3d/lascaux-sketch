@@ -9,6 +9,7 @@ import {
   Rects,
   Snap,
   Snapshot,
+  SnapshotAndLinks,
   Tiles,
 } from '../Drawlet';
 import { ellipseShader } from './glsl-shaders/ellipse';
@@ -27,7 +28,7 @@ import { TypedArray } from '../util/typed-arrays';
 import { checkError, getOrThrow } from './util/gl-errors';
 import { setDrawingMatrix, setViewportMatrix } from './util/gl-matrix';
 import { copyRgbaPixels, RgbaImage } from '../util/rgba-image';
-import { DrawingDoc } from '../DrawingDoc';
+import { DrawingDoc, IdMap } from '../DrawingDoc';
 
 function makeTextureVertexArray(
   x1: number,
@@ -44,8 +45,8 @@ function makeTextureVertexArray(
   ])
 }
 
-function getTileKey(layer: string, tilex: number, tiley: number): string {
-  return layer + '.' + tilex + '.' + tiley;
+function getTileKey(tilex: number, tiley: number): string {
+  return tilex + '.' + tiley;
 }
 
 type LayerInfo = {
@@ -56,6 +57,7 @@ type LayerInfo = {
     minY: number;
     maxY: number;
   };
+  tiles: Tiles;
   frameBuffer: FrameBuffer;
 };
 
@@ -78,9 +80,6 @@ export class GlDrawBackend implements DrawBackend {
 
   private _doc: DrawingDoc;
   private readonly _layers = new Map<string, LayerInfo>();
-  private _baseColor: [number, number, number, number] = [0, 0, 0, 0];
-  private _tiles: Tiles = {};
-  private _links: Links = {};
   private readonly gl: WebGLRenderingContext;
   private pixelRatio: number = 1;
   private _framebuffer: FrameBuffer | undefined;
@@ -348,15 +347,9 @@ export class GlDrawBackend implements DrawBackend {
     this._framebuffer = buffer;
     return true;
   }
+
   private makeLayer(layer: string): LayerInfo {
-    const {
-      gl,
-      pixelWidth,
-      pixelHeight,
-      _frameBufferType,
-      tileSize,
-      _tiles,
-    } = this;
+    const { gl, pixelWidth, pixelHeight, _frameBufferType, tileSize } = this;
 
     // Added layer
     const frameBuffer = createFrameBuffer(
@@ -370,17 +363,20 @@ export class GlDrawBackend implements DrawBackend {
     this.bindFrameBuffer(frameBuffer);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
+
+    const tiles: Tiles = {};
+
     const tilex2 = Math.floor(this.pixelWidth / tileSize - 1);
     const tiley2 = Math.floor(this.pixelHeight / tileSize - 1);
     for (let tiley = 0; tiley <= tiley2; tiley++) {
       for (let tilex = 0; tilex <= tilex2; tilex++) {
-        const key = getTileKey(layer, tilex, tiley);
+        const key = getTileKey(tilex, tiley);
         const x = tilex * tileSize;
         const y = tiley * tileSize;
-        _tiles[key] = { layer, x, y, link: null };
+        tiles[key] = { x, y, link: null };
       }
     }
-    return { frameBuffer };
+    return { frameBuffer, tiles };
   }
 
   getPng(): Promise<Blob> {
@@ -409,21 +405,17 @@ export class GlDrawBackend implements DrawBackend {
     });
   }
 
-  getSnapshot(): Snap {
+  getSnapshot(): SnapshotAndLinks {
     const links: Links = {};
     const start = Date.now();
-    const {
-      tileSize,
-      _tiles,
-      _readBuffer,
-      _layers,
-      _frameBufferInfo,
-      gl,
-    } = this;
+    const { tileSize, _readBuffer, _layers, _frameBufferInfo, gl } = this;
     const { WriteTypedArray, glReadType } = _frameBufferInfo;
     let changedTiles = 0;
+    const layers: IdMap<Tiles> = {};
     for (const [layerId, layer] of _layers.entries()) {
       const { changed } = layer;
+      const layerTiles = { ...layer.tiles };
+      layers[layerId] = layerTiles;
       if (!changed) {
         continue;
       }
@@ -452,74 +444,68 @@ export class GlDrawBackend implements DrawBackend {
           tileSize,
         );
         const link = Math.random().toString(36).slice(3);
-        _tiles[key] = { layer: layerId, x, y, link };
+        layerTiles[key] = { x, y, link };
         links[link] = tile;
         changedTiles++;
       }
       delete layer.changed;
     }
-    const snapshot = {
+    console.log(
+      `snapshot generated in ${
+        Date.now() - start
+      } ms: ${changedTiles} changed tiles, ${Object.keys(links).length} links`,
+    );
+    return {
       snapshot: {
-        doc: this._doc,
         tileSize,
-        tiles: { ..._tiles },
+        layers,
       },
       links,
     };
-    console.log(
-      `snapshot generated in ${Date.now() - start} ms: ${
-        Object.keys(_tiles).length
-      } tile(s), ${changedTiles} changed, ${Object.keys(links).length} links`,
-    );
-    return snapshot;
   }
 
   loadSnapshot(
-    { doc, tiles, tileSize }: Snapshot,
+    { layers, tileSize }: Snapshot,
     getLink: GetLinkFn,
   ): PromiseOrValue<void> {
-    this.setDoc(doc);
-
-    const keys = Object.keys(tiles);
-    if (keys.length === 0) {
-      return;
-    }
-
     return waitAll(
-      keys.map(
-        (key): PromiseOrValue<void> => {
-          const { layer, x, y, link } = tiles[key];
-          const layerInfo = this._layers.get(layer);
-          if (!layerInfo) {
-            throw new Error('unknown layer!');
-          }
-          if (
-            (!layerInfo.changed || !layerInfo.changed.tiles[key]) &&
-            this._tiles[key] &&
-            this._tiles[key].link === link
-          ) {
-            // Already have this tile loaded
-            this._tiles[key] = tiles[key];
-            return undefined;
-          }
-          if (link === null) {
-            this._clearTile(layer, x, y);
-            this._tiles[key] = tiles[key];
-            return undefined;
-          }
-          // Get tile
-          return then(getLink(link), (image) => {
-            if (!image) {
-              return;
-            }
-            this._tiles[key] = tiles[key];
-            if (layerInfo.changed) {
-              delete layerInfo.changed.tiles[key];
-            }
-            this.putTile(layerInfo, x, y, image);
-          });
-        },
-      ),
+      Object.keys(layers).map((layerId) => {
+        const layerInfo = this._layers.get(layerId);
+        if (!layerInfo) {
+          throw new Error('unknown layer!');
+        }
+        const { changed, tiles } = layerInfo;
+        const snapshotTiles = layers[layerId];
+        return waitAll(
+          Object.keys(snapshotTiles).map(
+            (key): PromiseOrValue<void> => {
+              const tile = snapshotTiles[key];
+              const { x, y, link } = tile;
+              if (!changed?.tiles[key] && tiles[key]?.link === link) {
+                // Already have this tile loaded
+                tiles[key] = tile;
+                return undefined;
+              }
+              if (link === null) {
+                this._clearTile(layerInfo, x, y);
+                tiles[key] = tile;
+                return undefined;
+              }
+              // Get tile
+              return then(getLink(link), (image) => {
+                if (!image) {
+                  return;
+                }
+                tiles[key] = tile;
+                if (layerInfo.changed) {
+                  delete layerInfo.changed.tiles[key];
+                }
+                this.putTile(layerInfo, x, y, image);
+              });
+            },
+          ),
+        );
+      }),
     );
   }
 
@@ -568,7 +554,7 @@ export class GlDrawBackend implements DrawBackend {
     changed.maxY = Math.max(changed.maxY, (tiley2 + 1) * tileSize);
     for (let tiley = tiley1; tiley <= tiley2; tiley++) {
       for (let tilex = tilex1; tilex <= tilex2; tilex++) {
-        const key = getTileKey(layer, tilex, tiley);
+        const key = getTileKey(tilex, tiley);
         if (!changed.tiles[key]) {
           changed.tiles[key] = [tilex * tileSize, tiley * tileSize];
         }
@@ -603,8 +589,8 @@ export class GlDrawBackend implements DrawBackend {
       pixels,
     );
   }
-  private _clearTile(layer: string, x: number, y: number) {
-    if (!this.bindToLayerId(layer)) {
+  private _clearTile(layer: LayerInfo, x: number, y: number) {
+    if (!this.bindToLayer(layer)) {
       return;
     }
     const { gl, tileSize } = this;
@@ -980,11 +966,17 @@ export class GlDrawBackend implements DrawBackend {
     }
   }
   getInfo(): string {
-    return `WebGL ${this._frameBufferInfo.writeTypeName} (${
-      this._frameBufferBits
-    } bit): ${this.pixelWidth}x${this.pixelHeight} (${
-      Object.keys(this._tiles).length
-    } tiles)`;
+    const {
+      pixelHeight,
+      pixelWidth,
+      _layers,
+      _frameBufferBits,
+      _frameBufferInfo,
+    } = this;
+    const layerIds = Object.keys(_layers);
+    const tileCount =
+      layerIds.length * Object.keys(_layers.get(layerIds[0]) ?? {}).length;
+    return `WebGL ${_frameBufferInfo.writeTypeName} (${_frameBufferBits} bit): ${pixelWidth}x${pixelHeight} (${tileCount} tiles)`;
   }
 
   getDrawingContext(): DrawingContext {

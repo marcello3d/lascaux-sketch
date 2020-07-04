@@ -1,11 +1,15 @@
 import { DrawletCursorPayload } from './data-model/events';
 
+export type Dna = {
+  width: number;
+  height: number;
+};
+
 export type Id = string;
 export type IdMap<T> = { [id: string]: T };
 export type Color = [number, number, number, number];
 
 export const ROOT_USER: Id = 'ROOT';
-export const ROOT_LAYER: Id = 'ROOT';
 
 export type DrawingDoc = Readonly<{
   artboard: Artboard;

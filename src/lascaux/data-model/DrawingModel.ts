@@ -94,10 +94,12 @@ export default class DrawingModel {
     if (!this._editCanvas || !this._snapshotMap) {
       throw new Error('canvas not editable');
     }
-    const { snapshot, links } = this._editCanvas._backend.getSnapshot();
-    const state = jsonCopy(this._editCanvas._state);
     this._strokesSinceSnapshot = 0;
-    return this._snapshotMap.addSnapshot(cursor, { snapshot, links, state });
+    return this._snapshotMap.addSnapshot(cursor, {
+      ...this._editCanvas._backend.getSnapshot(),
+      doc: this._editCanvas.doc,
+      state: jsonCopy(this._editCanvas._state),
+    });
   }
 
   flush() {

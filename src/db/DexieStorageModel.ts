@@ -25,15 +25,15 @@ export class DexieStorageModel implements StorageModel {
   constructor(private readonly drawingId: string) {}
 
   addSnapshot(index: number, snapshot: Snap): void {
-    this.snapshots[index] = snapshot;
-  }
-
-  addSnapshotLink(link: string, image: RgbaImage | undefined): void {
-    if (image) {
-      this.snapshotLinks[link] = image;
-    } else {
-      delete this.snapshotLinks[link];
+    const { links } = snapshot;
+    for (const linkId of Object.keys(links)) {
+      if (links[linkId]) {
+        this.snapshotLinks[linkId] = links[linkId];
+      } else {
+        delete this.snapshotLinks[linkId];
+      }
     }
+    this.snapshots[index] = snapshot;
   }
 
   addStroke(type: string, time: number, payload: StrokePayload): void {

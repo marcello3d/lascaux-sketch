@@ -45,12 +45,13 @@ export type GetLinkFn = (link: string) => PromiseOrValue<RgbaImage | undefined>;
 export type Snap = {
   snapshot: Snapshot;
   links: Links;
-  state?: object;
+  doc: DrawingDoc;
+  state: object;
 };
 
 export interface DrawBackend {
   setDoc(doc: DrawingDoc): void;
-  getSnapshot(): Snap;
+  getSnapshot(): SnapshotAndLinks;
   getPng(): Promise<Blob>;
   getDrawingContext(): DrawingContext;
   loadSnapshot(snapshot: Snapshot, getLink: GetLinkFn): PromiseOrValue<void>;
@@ -62,14 +63,16 @@ export interface DrawBackend {
 }
 
 export type Snapshot = {
-  doc: DrawingDoc;
-  tiles: Tiles;
+  layers: IdMap<Tiles>;
   tileSize: number;
+};
+export type SnapshotAndLinks = {
+  snapshot: Snapshot;
+  links: Links;
 };
 export type Tiles = IdMap<Tile>;
 export type Links = IdMap<RgbaImage>;
 export type Tile = {
-  layer: Id;
   x: number;
   y: number;
   link: string | null;

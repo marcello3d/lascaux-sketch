@@ -11,7 +11,7 @@ import jsonCopy from '../util/json-copy';
 import { isSkipped } from './GotoMap';
 import DrawingModel from './DrawingModel';
 import { GlDrawBackend } from '../webgl/gl-draw-backend';
-import { patch } from 'jsondiffpatch';
+import { formatters, patch } from 'jsondiffpatch';
 import produce from 'immer';
 
 export class CanvasModel {
@@ -94,7 +94,9 @@ export class CanvasModel {
 
     if (eventType === PATCH_DOC_EVENT) {
       if (payload) {
-        // console.log(`PATCH_DOC_EVENT :::${JSON.stringify(payload, null, 2)}`);
+        console.log(
+          `PATCH_DOC_EVENT :::${formatters.console.format(payload, {})}`,
+        );
         this.setDoc(
           produce(this._doc, (draft) => {
             patch(draft, payload);
@@ -106,9 +108,6 @@ export class CanvasModel {
     const legacy = handleLegacyEvent(this._doc, ROOT_USER, eventType, payload);
     if (legacy) {
       if (legacy !== this._doc) {
-        // console.log(
-        //   `${eventType}:::${JSON.stringify(diff(this._doc, legacy), null, 2)}`,
-        // );
         this.setDoc(legacy);
       }
       return;
@@ -168,7 +167,9 @@ export class CanvasModel {
       } else {
         const storageModel = this._drawing._storageModel;
         const snap = await storageModel.getSnapshot(index);
-        const { state, snapshot } = snap;
+        const { doc, state, snapshot } = snap;
+        console.log(`Loading snapshot: `, snap);
+        this.setDoc(doc);
         await this._backend.loadSnapshot(
           snapshot,
           storageModel.getSnapshotLink.bind(storageModel),

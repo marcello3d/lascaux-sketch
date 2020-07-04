@@ -7,8 +7,8 @@ import {
 import parseColor from './util/parse-color';
 import { StorageModel } from './data-model/StorageModel';
 import DrawingModel from './data-model/DrawingModel';
-import { Dna, isLegacyDna } from './legacy-model';
-import { Color, DrawingDoc, ROOT_USER } from './DrawingDoc';
+import { isLegacyDna } from './legacy-model';
+import { Color, Dna, DrawingDoc, ROOT_USER } from './DrawingDoc';
 import seedrandom from 'seedrandom';
 
 export async function createDrawingModel(

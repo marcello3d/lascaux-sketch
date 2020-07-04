@@ -14,12 +14,8 @@ import {
 import { addLayer } from './DrawingDocUtil';
 import { produce } from 'immer';
 import parseColor from './util/parse-color';
-import { DrawingDoc, Id } from './DrawingDoc';
+import { Dna, DrawingDoc, Id } from './DrawingDoc';
 
-export type Dna = {
-  width: number;
-  height: number;
-};
 export type LegacyDna = Dna & {
   randomseed: string;
   colors: string[];

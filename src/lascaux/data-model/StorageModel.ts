@@ -23,10 +23,6 @@ export interface StorageModel {
   addStroke(type: string, time: number, payload: StrokePayload): void;
   getStroke(index: number): PromiseOrValue<Stroke>;
   addSnapshot(index: number, snapshot: Snap): PromiseOrValue<void>;
-  addSnapshotLink(
-    link: string,
-    image: RgbaImage | undefined,
-  ): PromiseOrValue<void>;
   getSnapshot(index: number): PromiseOrValue<Snap>;
   getSnapshotLink(link: string): PromiseOrValue<RgbaImage>;
   flush(): PromiseOrValue<void>;

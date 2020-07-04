@@ -10,31 +10,13 @@ export default class SnapshotMap {
     this._indexes = indexes;
   }
 
-  addSnapshot(
-    index: number,
-    { state, snapshot, links }: Snap,
-  ): PromiseOrValue<void> {
+  addSnapshot(index: number, snap: Snap): PromiseOrValue<void> {
     this._indexes.push(index);
     if (index < this._indexes[this._indexes.length - 1]) {
       this._indexes.sort();
     }
 
-    const promises = [];
-
-    if (links) {
-      const linkIds = Object.keys(links);
-      for (const linkId of linkIds) {
-        if (links[linkId]) {
-          promises.push(
-            this._storageModel.addSnapshotLink(linkId, links[linkId]),
-          );
-        }
-      }
-    }
-
-    return then(waitAll(promises), () =>
-      this._storageModel.addSnapshot(index, { state, links, snapshot }),
-    );
+    return this._storageModel.addSnapshot(index, snap);
   }
 
   getNearestSnapshotIndex(targetIndex: number, skips: Skips): number {
