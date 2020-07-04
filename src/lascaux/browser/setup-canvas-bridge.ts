@@ -165,7 +165,10 @@ export default function createLascauxDomInstance(
     },
 
     produceDoc(recipe: (draft: Draft<DrawingDoc>) => void) {
-      addStroke(PATCH_DOC_EVENT, diff(canvas.doc, produce(canvas.doc, recipe)));
+      const payload = diff(canvas.doc, produce(canvas.doc, recipe));
+      if (payload) {
+        addStroke(PATCH_DOC_EVENT, payload);
+      }
     },
 
     setScale(scale: number) {

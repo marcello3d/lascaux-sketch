@@ -43,31 +43,6 @@ import {
 import { toCssRgbaColor } from '../lascaux/util/parse-color';
 import { EditName } from '../ui/EditName';
 
-function useUpdateMode<K extends keyof UserMode & string>(
-  canvasInstance: LascauxDomInstance,
-  updateObject: LascauxUiState,
-  field: K,
-): [
-  UserMode[K],
-  (newValue: UserMode[K]) => void,
-  (newValue: UserMode[K]) => void,
-] {
-  const mode = updateObject.doc.users[ROOT_USER];
-  const value = mode[field];
-  const [tempValue, setTempValue] = useState<UserMode[K] | undefined>(value);
-  const setValue = useCallback(
-    (alpha: UserMode[K]) => {
-      canvasInstance.produceDoc((draft) => {
-        draft.users[ROOT_USER][field] = alpha;
-      });
-      setTempValue(undefined);
-    },
-    [canvasInstance, field],
-  );
-
-  return [tempValue ?? value, setTempValue, setValue];
-}
-
 function useUpdateBrush<K extends keyof Brush & string>(
   canvasInstance: LascauxDomInstance,
   updateObject: LascauxUiState,

@@ -11,7 +11,7 @@ import jsonCopy from '../util/json-copy';
 import { isSkipped } from './GotoMap';
 import DrawingModel from './DrawingModel';
 import { GlDrawBackend } from '../webgl/gl-draw-backend';
-import { diff, formatters, patch } from 'jsondiffpatch';
+import { patch } from 'jsondiffpatch';
 import produce from 'immer';
 
 export class CanvasModel {
@@ -93,12 +93,14 @@ export class CanvasModel {
     }
 
     if (eventType === PATCH_DOC_EVENT) {
-      // console.log(`PATCH_DOC_EVENT :::${JSON.stringify(payload, null, 2)}`);
-      this.setDoc(
-        produce(this._doc, (doc) => {
-          patch(doc, payload);
-        }),
-      );
+      if (payload) {
+        // console.log(`PATCH_DOC_EVENT :::${JSON.stringify(payload, null, 2)}`);
+        this.setDoc(
+          produce(this._doc, (draft) => {
+            patch(draft, payload);
+          }),
+        );
+      }
       return;
     }
     const legacy = handleLegacyEvent(this._doc, ROOT_USER, eventType, payload);
