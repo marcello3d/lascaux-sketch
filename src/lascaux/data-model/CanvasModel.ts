@@ -11,7 +11,7 @@ import jsonCopy from '../util/json-copy';
 import { isSkipped } from './GotoMap';
 import DrawingModel from './DrawingModel';
 import { GlDrawBackend } from '../webgl/gl-draw-backend';
-import { formatters, patch } from 'jsondiffpatch';
+import { diff, formatters, patch } from 'jsondiffpatch';
 import produce from 'immer';
 
 export class CanvasModel {
@@ -29,7 +29,7 @@ export class CanvasModel {
     this._drawing = drawing;
     this._backend = new GlDrawBackend(this._doc);
     this._inGoto = false;
-    this._initialize();
+    this.reset();
   }
 
   get cursor(): number {
@@ -64,12 +64,17 @@ export class CanvasModel {
     this._backend.setTransform(translateX, translateY, scale);
   }
 
-  _initialize() {
+  private reset() {
     this._cursor = 0;
     this._state = makeInitialState();
-    this.setDoc(this._drawing._initialDoc);
+    const doc = this._drawing._initialDoc;
+    console.log(`canvas.reset :::`, doc);
+    this._backend.reset(doc);
+    this._doc = doc;
   }
+
   private setDoc(doc: DrawingDoc) {
+    console.log(`canvas.setDoc :::`, diff(this._doc, doc));
     this._doc = doc;
     this._backend.setDoc(doc);
   }
@@ -94,9 +99,6 @@ export class CanvasModel {
 
     if (eventType === PATCH_DOC_EVENT) {
       if (payload) {
-        console.log(
-          `PATCH_DOC_EVENT :::${formatters.console.format(payload, {})}`,
-        );
         this.setDoc(
           produce(this._doc, (draft) => {
             patch(draft, payload);
@@ -163,7 +165,8 @@ export class CanvasModel {
     // Revert back to nearest snapshot
     const loadSnapshot = async (index: number) => {
       if (index === 0) {
-        this._initialize();
+        console.log(`Reinitializing`);
+        this.reset();
       } else {
         const storageModel = this._drawing._storageModel;
         const snap = await storageModel.getSnapshot(index);

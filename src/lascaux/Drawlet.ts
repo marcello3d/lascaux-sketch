@@ -50,6 +50,7 @@ export type Snap = {
 };
 
 export interface DrawBackend {
+  reset(doc: DrawingDoc): void;
   setDoc(doc: DrawingDoc): void;
   getSnapshot(): SnapshotAndLinks;
   getPng(): Promise<Blob>;

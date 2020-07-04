@@ -265,6 +265,15 @@ export class GlDrawBackend implements DrawBackend {
 
     checkError(gl);
   }
+  reset(doc: DrawingDoc) {
+    for (const layerInfo of this._layers.values()) {
+      layerInfo.frameBuffer.destroy();
+    }
+    this._layers.clear();
+    // @ts-ignore
+    this._doc = undefined;
+    this.setDoc(doc);
+  }
 
   setDoc(newDoc: DrawingDoc): void {
     const oldDoc = this._doc;
