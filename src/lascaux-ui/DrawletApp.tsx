@@ -134,11 +134,12 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
   const setScale = useCallback((scale) => canvasInstance.setScale(scale), [
     canvasInstance,
   ]);
-  const selectedColor = mode.color;
+  const selectedColorCss = toCssRgbaColor(mode.color);
   const colorButtons = useMemo(
     () =>
       rgbaColorPalette.map((color, index) => {
-        const selected = color === selectedColor;
+        const colorCss = toCssRgbaColor(color);
+        const selected = colorCss === selectedColorCss;
         return (
           <Button
             key={index}
@@ -149,13 +150,13 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
             }
             className={styles.colorButton}
             style={{
-              backgroundColor: toCssRgbaColor(color),
+              backgroundColor: colorCss,
               border: selected ? 'solid 2px white' : `solid 2px ${color}`,
             }}
           />
         );
       }),
-    [canvasInstance, selectedColor],
+    [canvasInstance, selectedColorCss],
   );
   const seek = useCallback(
     (cursor: number) => {
@@ -295,8 +296,8 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
   const brush = mode.brushes[mode.brush];
 
   const currentColorStyle = useMemo(
-    () => ({ backgroundColor: toCssRgbaColor(mode.color) }),
-    [mode.color],
+    () => ({ backgroundColor: selectedColorCss }),
+    [selectedColorCss],
   );
   return (
     <Layout

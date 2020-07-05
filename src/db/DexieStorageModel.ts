@@ -2,15 +2,12 @@ import Dexie from 'dexie';
 import { PromiseOrValue } from 'promise-or-value';
 
 import {
-  Metadata,
   StorageModel,
   Stroke,
   StrokePayload,
 } from '../lascaux/data-model/StorageModel';
 import { Snap } from '../lascaux/Drawlet';
 import { RgbaImage } from '../lascaux/util/rgba-image';
-import GotoMap from '../lascaux/data-model/GotoMap';
-import SnapshotMap from '../lascaux/data-model/SnapshotMap';
 import DrawingModel from '../lascaux/data-model/DrawingModel';
 
 import { db, DbStroke } from './db';
@@ -68,14 +65,6 @@ export class DexieStorageModel implements StorageModel {
       lastPromise = model.addStroke(type, time, payload);
     }
     return lastPromise;
-  }
-
-  async getMetadata(): Promise<Metadata> {
-    return {
-      strokeCount: 0,
-      gotoMap: new GotoMap(),
-      snapshotMap: new SnapshotMap(this),
-    };
   }
 
   getSnapshot(index: number): Snap {

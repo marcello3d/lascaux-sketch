@@ -16,13 +16,11 @@ export async function createDrawingModel(
   storage: StorageModel,
 ) {
   console.log(`[LOAD] Getting metadata...`);
-  const metadata = await storage.getMetadata();
   const drawing = new DrawingModel({
     doc,
     editable: true,
     snapshotStrokeCount: 250,
     storageModel: storage,
-    metadata,
     handleCommand,
   });
   console.log(`[LOAD] Loading strokes...`);

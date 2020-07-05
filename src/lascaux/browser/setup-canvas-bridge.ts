@@ -59,7 +59,7 @@ export default function createLascauxDomInstance(
           );
           newTransform = false;
         }
-        canvas.redraw();
+        canvas.repaint();
         notifyRenderDone();
       });
     }
