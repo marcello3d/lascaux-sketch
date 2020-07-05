@@ -341,7 +341,6 @@ export class GlDrawingContext implements DrawingContext {
         gl.ONE,
         gl.ONE_MINUS_SRC_ALPHA,
       );
-      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     }
     this._framebuffer = buffer;
   }
@@ -621,6 +620,7 @@ export class GlDrawingContext implements DrawingContext {
       _artboard: { baseColor, rootLayers },
     } = this;
     this.bindFrameBuffer();
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     if (!exportMode) {
       gl.clearColor(0x33 / 255, 0x33 / 255, 0x33 / 255, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
