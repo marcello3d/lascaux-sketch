@@ -8,10 +8,9 @@ import {
   PATCH_MODE_EVENT,
 } from '../data-model/events';
 import { then } from 'promise-or-value';
-import { Artboard, DrawingDoc, LOCAL_USER, UserMode } from '../DrawingDoc';
+import { Artboard, LOCAL_USER, UserMode } from '../DrawingDoc';
 import { diff } from 'jsondiffpatch';
 import produce, { Draft } from 'immer';
-import { Mode } from 'fs';
 
 export default function createLascauxDomInstance(
   drawingModel: DrawingModel,
