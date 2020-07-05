@@ -5,11 +5,13 @@ import {
   DrawletEvent,
   GOTO_EVENT,
   PATCH_DOC_EVENT,
+  PATCH_MODE_EVENT,
 } from '../data-model/events';
 import { then } from 'promise-or-value';
-import { DrawingDoc } from '../DrawingDoc';
+import { Artboard, DrawingDoc, LOCAL_USER, UserMode } from '../DrawingDoc';
 import { diff } from 'jsondiffpatch';
 import produce, { Draft } from 'immer';
+import { Mode } from 'fs';
 
 export default function createLascauxDomInstance(
   drawingModel: DrawingModel,
@@ -69,7 +71,8 @@ export default function createLascauxDomInstance(
 
   function getUiState(): LascauxUiState {
     return {
-      doc: canvas.doc,
+      artboard: canvas.doc.artboard,
+      mode: canvas.latestMode,
       cursor: canvas.targetCursor,
       strokeCount: canvas.strokeCount,
       undo: editable ? drawingModel.computeUndo() : undefined,
@@ -164,10 +167,23 @@ export default function createLascauxDomInstance(
       return canvas.getPng();
     },
 
-    produceDoc(recipe: (draft: Draft<DrawingDoc>) => void) {
-      const payload = diff(canvas.doc, produce(canvas.doc, recipe));
+    mutateArtboard(recipe: (draft: Draft<Artboard>) => void) {
+      const payload = diff(
+        canvas.doc,
+        produce(canvas.doc, (draft) => {
+          recipe(draft.artboard);
+        }),
+      );
       if (payload) {
         addStroke(PATCH_DOC_EVENT, payload);
+      }
+    },
+
+    mutateMode(recipe: (draft: Draft<UserMode>) => void) {
+      const mode = canvas.doc.users[LOCAL_USER];
+      const payload = diff(mode, produce(mode, recipe));
+      if (payload) {
+        addStroke(PATCH_MODE_EVENT, payload);
       }
     },
 

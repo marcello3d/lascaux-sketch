@@ -20,7 +20,7 @@ export default class SnapshotMap {
 
   getNearestSnapshotIndex(targetIndex: number, skips: Skips): number {
     const indexes = this._indexes;
-    // binary search mode map
+    // binary search
     let min = 0;
     let max = indexes.length - 1;
     while (min <= max) {

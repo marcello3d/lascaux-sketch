@@ -9,7 +9,6 @@ import React, {
 
 import styles from './DrawletApp.module.css';
 import { useAppendChild } from '../react-hooks/useAppendChild';
-import classNames from 'classnames';
 import { Slider } from '../ui/Slider';
 import { Button } from '../ui/Button';
 import useEventEffect from '../react-hooks/useEventEffect';
@@ -22,37 +21,34 @@ import { LascauxDomInstance, LascauxUiState } from '../lascaux/Drawlet';
 import DrawingModel from '../lascaux/data-model/DrawingModel';
 import createLascauxDomInstance from '../lascaux/browser/setup-canvas-bridge';
 import { db } from '../db/db';
-import { newDate } from '../db/fields';
+import { newDate, newId } from '../db/fields';
 
 import LayerPlusIcon from '../icons/fa/layer-plus.svg';
-import PenSquareIcon from '../icons/fa/pen-square.svg';
-import SquareIcon from '../icons/fa/square.svg';
 import PlayIcon from '../icons/fa/play.svg';
 import PauseIcon from '../icons/fa/pause.svg';
 import UndoIcon from '../icons/fa/undo.svg';
 import RedoIcon from '../icons/fa/redo.svg';
 import { rgbaColorPalette } from './color-palette';
 import { addLayer } from '../lascaux/DrawingDocUtil';
-import { Brush, DrawingDoc, Id, ROOT_USER } from '../lascaux/DrawingDoc';
+import { Brush, UserMode } from '../lascaux/DrawingDoc';
 import { toCssRgbaColor } from '../lascaux/util/parse-color';
-import { EditName } from '../ui/EditName';
+import { LayerList } from './LayerList';
 
 function useUpdateBrush<K extends keyof Brush & string>(
   canvasInstance: LascauxDomInstance,
-  updateObject: LascauxUiState,
+  { brush, brushes }: UserMode,
   field: K,
 ): [Brush[K], (newValue: Brush[K]) => void, (newValue: Brush[K]) => void] {
-  const mode = updateObject.doc.users[ROOT_USER];
-  const value = mode.brushes[mode.brush][field];
+  const value = brushes[brush][field];
   const [tempValue, setTempValue] = useState<Brush[K] | undefined>(value);
   const setValue = useCallback(
     (alpha: Brush[K]) => {
-      canvasInstance.produceDoc((draft) => {
-        draft.users[ROOT_USER].brushes[mode.brush][field] = alpha;
+      canvasInstance.mutateMode((draft) => {
+        draft.brushes[brush][field] = alpha;
       });
       setTempValue(undefined);
     },
-    [canvasInstance, field, mode.brush],
+    [canvasInstance, field, brush],
   );
 
   return [tempValue ?? value, setTempValue, setValue];
@@ -94,7 +90,17 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
     { passive: false },
   );
 
-  const updateObject = updateObjectState || canvasInstance.getUiState();
+  const {
+    artboard,
+    mode,
+    redo,
+    cursor,
+    transform,
+    playing,
+    undo,
+    strokeCount,
+  } = updateObjectState || canvasInstance.getUiState();
+
   useLayoutEffect(() => canvasInstance.subscribe(), [canvasInstance]);
 
   useAppendChild(drawletContainerRef, drawingModel.editCanvas.dom);
@@ -107,28 +113,28 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
 
   const [brushSize, setTempBrushSize, setBrushSize] = useUpdateBrush(
     canvasInstance,
-    updateObject,
+    mode,
     'size',
   );
-  const [brushOpacity, setTempBrushOpacity, setBrushOpacity] = useUpdateBrush(
+  const [brushFlow, setTempBrushFlow, setBrushFlow] = useUpdateBrush(
     canvasInstance,
-    updateObject,
-    'opacity',
+    mode,
+    'flow',
   );
   const [brushSpacing, setTempBrushSpacing, setBrushSpacing] = useUpdateBrush(
     canvasInstance,
-    updateObject,
+    mode,
     'spacing',
   );
   const [
     brushHardness,
     setTempBrushHardness,
     setBrushHardness,
-  ] = useUpdateBrush(canvasInstance, updateObject, 'hardness');
+  ] = useUpdateBrush(canvasInstance, mode, 'hardness');
   const setScale = useCallback((scale) => canvasInstance.setScale(scale), [
     canvasInstance,
   ]);
-  const selectedColor = updateObject.doc.users[ROOT_USER].color;
+  const selectedColor = mode.color;
   const colorButtons = useMemo(
     () =>
       rgbaColorPalette.map((color, index) => {
@@ -137,8 +143,8 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
           <Button
             key={index}
             onClick={() =>
-              canvasInstance.produceDoc((draft) => {
-                draft.users[ROOT_USER].color = color;
+              canvasInstance.mutateMode((draft) => {
+                draft.color = color;
               })
             }
             className={styles.colorButton}
@@ -159,21 +165,27 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
   );
 
   const togglePlay = useCallback(() => {
-    canvasInstance.setPlaying(!updateObject.playing);
-  }, [canvasInstance, updateObject.playing]);
+    canvasInstance.setPlaying(!playing);
+  }, [canvasInstance, playing]);
   const onAddLayer = useCallback(() => {
-    canvasInstance.produceDoc((draft) => addLayer(draft, ROOT_USER));
+    const newLayerId = newId();
+    canvasInstance.mutateArtboard((draft) => {
+      addLayer(draft, newLayerId);
+    });
+    canvasInstance.mutateMode((draft) => {
+      draft.layer = newLayerId;
+    });
   }, [canvasInstance]);
-  const undo = useCallback(() => {
-    if (updateObject.undo) {
-      canvasInstance.addGoto(updateObject.undo);
+  const onUndo = useCallback(() => {
+    if (undo) {
+      canvasInstance.addGoto(undo);
     }
-  }, [canvasInstance, updateObject.undo]);
-  const redo = useCallback(() => {
-    if (updateObject.redo) {
-      canvasInstance.addGoto(updateObject.redo);
+  }, [canvasInstance, undo]);
+  const onRedo = useCallback(() => {
+    if (redo) {
+      canvasInstance.addGoto(redo);
     }
-  }, [canvasInstance, updateObject.redo]);
+  }, [canvasInstance, redo]);
 
   const sizeSlider = useMemo(
     () => (
@@ -187,18 +199,18 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
     ),
     [brushSize, setBrushSize, setTempBrushSize],
   );
-  const opacitySlider = useMemo(
+  const flowSlider = useMemo(
     () => (
       <Slider
         min={0.01}
         max={1.0}
         step={0.01}
-        value={brushOpacity}
-        onChange={setTempBrushOpacity}
-        onAfterChange={setBrushOpacity}
+        value={brushFlow}
+        onChange={setTempBrushFlow}
+        onAfterChange={setBrushFlow}
       />
     ),
-    [brushOpacity, setBrushOpacity, setTempBrushOpacity],
+    [brushFlow, setBrushFlow, setTempBrushFlow],
   );
   const spacingSlider = useMemo(
     () => (
@@ -233,62 +245,46 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
         step={0.05}
         marks={[1]}
         max={5}
-        value={updateObject.transform.scale}
+        value={transform.scale}
         onChange={setScale}
       />
     ),
-    [setScale, updateObject.transform.scale],
+    [setScale, transform.scale],
   );
   const playbackSlider = useMemo(
     () => (
       <Slider
         min={0}
         step={1}
-        max={updateObject.strokeCount}
-        value={updateObject.cursor}
+        max={strokeCount}
+        value={cursor}
         onChange={seek}
         className={styles.cursorSlider}
       />
     ),
-    [updateObject.strokeCount, updateObject.cursor, seek],
+    [strokeCount, cursor, seek],
   );
 
-  const onChangeLayer = useCallback(
+  const onSelectLayer = useCallback(
     (layerId: string) => {
-      canvasInstance.produceDoc((doc) => {
-        doc.users[ROOT_USER].layer = layerId;
+      canvasInstance.mutateMode((draft) => {
+        draft.layer = layerId;
       });
     },
     [canvasInstance],
   );
   const onRenameLayer = useCallback(
     (layerId: string, newName: string) => {
-      canvasInstance.produceDoc((doc) => {
-        doc.artboard.layers[layerId].name = newName;
+      canvasInstance.mutateArtboard((draft) => {
+        draft.layers[layerId].name = newName;
       });
     },
     [canvasInstance],
   );
-  const layers = useMemo(() => {
-    return updateObject.doc.artboard.rootLayers
-      .map((id) => (
-        <Layer
-          key={id}
-          id={id}
-          user={ROOT_USER}
-          doc={updateObject.doc}
-          onSelectLayer={onChangeLayer}
-          onRenameLayer={onRenameLayer}
-        />
-      ))
-      .reverse();
-  }, [onChangeLayer, onRenameLayer, updateObject.doc]);
-
   const onEraseChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      canvasInstance.produceDoc((draft) => {
-        const mode = draft.users[ROOT_USER];
-        mode.brushes[mode.brush].mode = event.target.checked
+      canvasInstance.mutateMode((draft) => {
+        draft.brushes[draft.brush].mode = event.target.checked
           ? 'erase'
           : 'paint';
       });
@@ -296,7 +292,6 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
     [canvasInstance],
   );
 
-  const mode = updateObject.doc.users[ROOT_USER];
   const brush = mode.brushes[mode.brush];
 
   const currentColorStyle = useMemo(
@@ -317,18 +312,18 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
       className={styles.root}
     >
       <div className={styles.tools}>
-        <Button disabled={updateObject.strokeCount === 0} onClick={togglePlay}>
+        <Button disabled={strokeCount === 0} onClick={togglePlay}>
           <Icon
-            file={updateObject.playing ? PauseIcon : PlayIcon}
-            alt={updateObject.playing ? 'Pause' : 'Play'}
+            file={playing ? PauseIcon : PlayIcon}
+            alt={playing ? 'Pause' : 'Play'}
           />
         </Button>
         {playbackSlider}
-        <Button disabled={updateObject.undo === undefined} onClick={undo}>
+        <Button disabled={undo === undefined} onClick={onUndo}>
           <Icon file={UndoIcon} alt="Undo icon" />
           Undo
         </Button>
-        <Button disabled={updateObject.redo === undefined} onClick={redo}>
+        <Button disabled={redo === undefined} onClick={onRedo}>
           <Icon file={RedoIcon} alt="Redo icon" />
           Redo
         </Button>
@@ -355,11 +350,9 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
         {sizeSlider}
         <label className={styles.toolLabel}>
           Opacity{' '}
-          <span className={styles.value}>
-            {(brushOpacity * 100).toFixed(0)}%
-          </span>
+          <span className={styles.value}>{(brushFlow * 100).toFixed(0)}%</span>
         </label>
-        {opacitySlider}
+        {flowSlider}
         <label className={styles.toolLabel}>
           Spacing{' '}
           <span className={styles.value}>{brushSpacing.toFixed(2)}x</span>
@@ -375,12 +368,20 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
         <label className={styles.toolLabel}>
           Zoom{' '}
           <span className={styles.value}>
-            {(updateObject.transform.scale * 100).toFixed(0)}%
+            {(transform.scale * 100).toFixed(0)}%
           </span>
         </label>
         {zoomSlider}
         <label className={styles.toolLabel}>Layers</label>
-        <span className={styles.layers}>{layers}</span>
+        <span className={styles.layers}>
+          <LayerList
+            ids={artboard.rootLayers}
+            artboard={artboard}
+            mode={mode}
+            onSelectLayer={onSelectLayer}
+            onRenameLayer={onRenameLayer}
+          />
+        </span>
         <Button onClick={onAddLayer}>
           <Icon file={LayerPlusIcon} alt="Layer plus icon" />
           Add Layer
@@ -404,67 +405,5 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
       <div className={styles.right} />
       <div className={styles.status} />
     </Layout>
-  );
-}
-
-function Layer({
-  id,
-  doc,
-  user,
-  onSelectLayer,
-  onRenameLayer,
-}: {
-  id: string;
-  doc: DrawingDoc;
-  user: Id;
-  onSelectLayer: (id: string) => void;
-  onRenameLayer: (id: string, newName: string) => void;
-}) {
-  const selected = id === doc.users[user].layer;
-  const layer = doc.artboard.layers[id];
-  const onClick = useCallback(() => {
-    if (!selected) {
-      onSelectLayer(id);
-    }
-  }, [selected, onSelectLayer, id]);
-  const name = useMemo(
-    () =>
-      layer.name ??
-      `Layer #${Object.keys(doc.artboard.layers).indexOf(id) + 1}`,
-    [layer.name, doc.artboard.layers, id],
-  );
-  const onChangeName = useCallback(
-    (name: string) => {
-      onRenameLayer(id, name);
-    },
-    [id, onRenameLayer],
-  );
-  return (
-    <>
-      <Button
-        className={classNames(styles.layer, {
-          [styles.layerSelected]: selected,
-        })}
-        onClick={onClick}
-      >
-        <Icon
-          file={selected ? PenSquareIcon : SquareIcon}
-          alt={selected ? 'Selected layer' : 'Unselected layer'}
-        />
-        <EditName text={name} onChangeText={onChangeName} doubleClick={true} />
-      </Button>
-      {layer.type === 'group' &&
-        layer.layers
-          .map((id) => (
-            <Layer
-              id={id}
-              doc={doc}
-              user={user}
-              onSelectLayer={onSelectLayer}
-              onRenameLayer={onRenameLayer}
-            />
-          ))
-          .reverse()}
-    </>
   );
 }

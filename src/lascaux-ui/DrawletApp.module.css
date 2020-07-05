@@ -92,29 +92,6 @@
   outline: none;
   border-radius: 3px;
 }
-.layers {
-  display: flex;
-  flex-direction: column;
-  border: solid 1px #888;
-}
-.layer + .layer {
-  border-top: solid 1px #888;
-}
-.layer {
-  display: flex;
-  border-radius: 0;
-  flex-direction: row;
-  align-items: center;
-  background: #444;
-  padding: 0;
-  margin: 0;
-}
-.layerName {
-  flex-grow: 1;
-}
-.layerSelected {
-  background: #666;
-}
 .left {
   grid-area: left;
   flex-shrink: 0;

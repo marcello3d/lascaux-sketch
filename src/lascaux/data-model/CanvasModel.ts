@@ -1,33 +1,36 @@
-import { DrawBackend, DrawContext } from '../Drawlet';
-import { DrawingDoc, ROOT_USER } from '../DrawingDoc';
+import { DrawBackend } from '../Drawlet';
+import { DrawingDoc, Id, LOCAL_USER, UserMode } from '../DrawingDoc';
 import {
   DrawingState,
   handleLegacyEvent,
+  isLegacyEvent,
   makeInitialState,
 } from '../legacy-model';
 import { PromiseOrValue } from 'promise-or-value';
-import { GOTO_EVENT, PATCH_DOC_EVENT } from './events';
+import { GOTO_EVENT, PATCH_DOC_EVENT, PATCH_MODE_EVENT } from './events';
 import jsonCopy from '../util/json-copy';
 import { isSkipped } from './GotoMap';
 import DrawingModel from './DrawingModel';
 import { GlDrawBackend } from '../webgl/gl-draw-backend';
 import { patch } from 'jsondiffpatch';
-import produce from 'immer';
+import produce, { Draft } from 'immer';
 
 export class CanvasModel {
   readonly _drawing: DrawingModel;
   readonly _backend: DrawBackend;
 
   private _doc: DrawingDoc;
+  private _latestMode: UserMode;
   private _inGoto: boolean;
   private _cursor: number = 0;
   private _targetCursor: number = 0;
   _state: DrawingState = makeInitialState();
 
-  constructor(drawing: DrawingModel) {
+  constructor(drawing: DrawingModel, private readonly userId: Id = LOCAL_USER) {
     this._doc = drawing._initialDoc;
+    this._latestMode = drawing._initialDoc.users[userId];
     this._drawing = drawing;
-    this._backend = new GlDrawBackend(this._doc);
+    this._backend = new GlDrawBackend(this._doc.artboard);
     this._inGoto = false;
     this.reset();
   }
@@ -42,6 +45,10 @@ export class CanvasModel {
 
   get doc(): DrawingDoc {
     return this._doc;
+  }
+
+  get latestMode(): UserMode {
+    return this._latestMode;
   }
 
   get strokeCount(): number {
@@ -68,16 +75,16 @@ export class CanvasModel {
     this._cursor = 0;
     this._state = makeInitialState();
     const doc = this._drawing._initialDoc;
-    this._backend.reset(doc);
+    this._backend.reset(doc.artboard);
     this._doc = doc;
   }
 
   private setDoc(doc: DrawingDoc) {
     this._doc = doc;
-    this._backend.setDoc(doc);
+    this._backend.setArtboard(doc.artboard);
   }
 
-  _execute(
+  addStroke(
     cursor: number,
     eventType: string,
     payload: any,
@@ -87,51 +94,54 @@ export class CanvasModel {
       return this._goto(payload);
     }
     this._cursor = cursor;
-    this._executeRaw(eventType, payload);
+    if (this._latestMode !== this._doc.users[LOCAL_USER]) {
+      this.mutateDoc((draft) => {
+        draft.users[LOCAL_USER] = this._latestMode;
+      });
+    }
+    this.execute(eventType, payload, true);
     this._backend.repaint();
+    this._latestMode = this._doc.users[LOCAL_USER];
   }
 
-  _executeRaw(eventType: string, payload: any) {
-    if (eventType === GOTO_EVENT) {
+  private mutateDoc(recipe: (draft: Draft<DrawingDoc>) => void) {
+    this.setDoc(produce(this._doc, recipe));
+  }
+
+  private execute(eventType: string, payload: any, useLatestMode: boolean) {
+    switch (eventType) {
+      case GOTO_EVENT:
+        return;
+      case PATCH_DOC_EVENT:
+        if (payload) {
+          this.mutateDoc((draft) => {
+            patch(draft.artboard, payload);
+          });
+        }
+        return;
+      case PATCH_MODE_EVENT:
+        if (payload) {
+          this.mutateDoc((draft) => {
+            patch(draft.users[this.userId], payload);
+          });
+        }
+        return;
+    }
+    if (isLegacyEvent(eventType)) {
+      this.mutateDoc((draft) => {
+        handleLegacyEvent(draft, this.userId, eventType, payload);
+      });
       return;
     }
 
-    if (eventType === PATCH_DOC_EVENT) {
-      if (payload) {
-        this.setDoc(
-          produce(this._doc, (draft) => {
-            patch(draft, payload);
-          }),
-        );
-      }
-      return;
-    }
-    const legacy = handleLegacyEvent(this._doc, ROOT_USER, eventType, payload);
-    if (legacy) {
-      if (legacy !== this._doc) {
-        this.setDoc(legacy);
-      }
-      return;
-    }
-
-    const exec = this._drawing._handleCommand;
-    // Call from local variable so `this` is null
-    exec(
-      this._makeDrawContext(),
+    this._drawing._handleCommand(
+      this._doc.users[this.userId],
+      this._state,
       this._backend.getDrawingContext(),
       eventType,
       payload,
     );
   }
-
-  _makeDrawContext(): DrawContext {
-    return {
-      doc: this._doc,
-      user: ROOT_USER,
-      state: this._state,
-    };
-  }
-
   gotoEnd(): PromiseOrValue<void> {
     return this.goto(this.strokeCount);
   }
@@ -150,7 +160,7 @@ export class CanvasModel {
       return;
     }
 
-    const { revert, skips, target } = this._drawing._planGoto(
+    const { revert, skips, target } = this._drawing.planGoto(
       this._cursor,
       targetCursor,
     );
@@ -207,7 +217,7 @@ export class CanvasModel {
       }
       const { type, payload } = stroke;
       if (!isSkipped(skips, this._cursor++)) {
-        this._executeRaw(type, payload);
+        this.execute(type, payload, false);
       }
     }
 

@@ -1,4 +1,4 @@
-import { DrawContext, DrawingContext, Rect } from './Drawlet';
+import { DrawingContext, Rect } from './Drawlet';
 import {
   DRAW_END_EVENT,
   DRAW_EVENT,
@@ -7,8 +7,8 @@ import {
 import parseColor from './util/parse-color';
 import { StorageModel } from './data-model/StorageModel';
 import DrawingModel from './data-model/DrawingModel';
-import { isLegacyDna } from './legacy-model';
-import { Color, Dna, DrawingDoc, ROOT_USER } from './DrawingDoc';
+import { DrawingState, isLegacyDna } from './legacy-model';
+import { Color, Dna, DrawingDoc, LOCAL_USER, UserMode } from './DrawingDoc';
 import seedrandom from 'seedrandom';
 
 export async function createDrawingModel(
@@ -59,7 +59,7 @@ export function newDoc(
       },
     },
     users: {
-      [ROOT_USER]: {
+      [LOCAL_USER]: {
         layer: '0',
         color: brushColor,
         brush: FIVER_BRUSH,
@@ -100,27 +100,26 @@ export function dnaToDoc(dna: Dna): DrawingDoc {
 }
 
 function handleCommand(
-  { doc, user, state }: DrawContext,
+  mode: UserMode,
+  state: DrawingState,
   ctx: DrawingContext,
   event: string,
   payload: any,
 ): void {
-  const mode = doc.users[user];
   const brush = mode.brushes[mode.brush];
   const {
     cursor,
     layer,
-    color: [r, g, b, a],
+    color: [r, g, b],
   } = mode;
-  const { hardness, spacing, size } = brush;
+  const { hardness, spacing, size, flow } = brush;
   const erase = brush.mode === 'erase';
-
   switch (event) {
     case DRAW_START_EVENT: {
       const { x, y, pressure = 1 } = payload;
       const pSize = size * pressure;
       state.size = pSize;
-      state.a = a;
+      state.a = flow;
       state.x = x;
       state.y = y;
 
@@ -128,7 +127,7 @@ function handleCommand(
       if (cursor?.type !== 'touch') {
         ctx.fillEllipses(
           layer,
-          [[x - pSize / 2, y - pSize / 2, pSize, pSize, r, g, b, a]],
+          [[x - pSize / 2, y - pSize / 2, pSize, pSize, r, g, b, flow]],
           hardness,
           erase,
         );
@@ -147,7 +146,7 @@ function handleCommand(
       let dx = x - lastX;
       let dy = y - lastY;
       let dSize = pSize - lastSize;
-      let dAlpha = a - lastAlpha;
+      let dAlpha = flow - lastAlpha;
       let len = Math.sqrt(dy * dy + dx * dx);
       const step = Math.max(0.5, spacing * pSize);
       if (len >= step) {

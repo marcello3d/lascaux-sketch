@@ -27,7 +27,7 @@ import { TypedArray } from '../util/typed-arrays';
 import { checkError, getOrThrow } from './util/gl-errors';
 import { setDrawingMatrix, setViewportMatrix } from './util/gl-matrix';
 import { copyRgbaPixels, RgbaImage } from '../util/rgba-image';
-import { DrawingDoc, IdMap } from '../DrawingDoc';
+import { Artboard, IdMap } from '../DrawingDoc';
 
 function makeTextureVertexArray(
   x1: number,
@@ -77,7 +77,7 @@ export class GlDrawBackend implements DrawBackend {
 
   private canvas: HTMLCanvasElement;
 
-  private _doc: DrawingDoc;
+  private _artboard: Artboard;
   private readonly _layers = new Map<string, LayerInfo>();
   private readonly gl: WebGLRenderingContext;
   private pixelRatio: number = 1;
@@ -108,15 +108,14 @@ export class GlDrawBackend implements DrawBackend {
 
   private readonly _readBuffer: TypedArray;
 
-  constructor(doc: DrawingDoc, scale: number = 1, tileSize: number = 64) {
+  constructor(artboard: Artboard, tileSize: number = 64) {
     this.tileSize = tileSize;
 
-    this.scale = scale;
+    this.scale = 1;
 
-    const pixelWidth = Math.ceil(doc.artboard.width * scale);
-    const pixelHeight = Math.ceil(doc.artboard.height * scale);
-    this.pixelWidth = pixelWidth;
-    this.pixelHeight = pixelHeight;
+    const { width, height } = artboard;
+    this.pixelWidth = width;
+    this.pixelHeight = height;
 
     const canvas = document.createElement('canvas');
 
@@ -197,7 +196,7 @@ export class GlDrawBackend implements DrawBackend {
       readTypeName,
       writeTypeName,
     } = this._frameBufferInfo;
-    this._readBuffer = new ReadTypedArray(pixelWidth * pixelHeight * 4);
+    this._readBuffer = new ReadTypedArray(width * height * 4);
     this._frameBufferBits = new WriteTypedArray(1).BYTES_PER_ELEMENT * 8 * 4;
 
     console.log(
@@ -229,18 +228,10 @@ export class GlDrawBackend implements DrawBackend {
     };
     window.addEventListener('resize', updateCanvasAndGl, false);
 
-    this._textureProgram = this._createTextureProgram(
-      gl,
-      pixelWidth,
-      pixelHeight,
-    );
-    this._ellipseProgram = this._createEllipseProgram(
-      gl,
-      pixelWidth,
-      pixelHeight,
-    );
-    this._rectProgram = this._createRectProgram(gl, pixelWidth, pixelHeight);
-    this._lineProgram = this._createLineProgram(gl, pixelWidth, pixelHeight);
+    this._textureProgram = this._createTextureProgram(gl, width, height);
+    this._ellipseProgram = this._createEllipseProgram(gl, width, height);
+    this._rectProgram = this._createRectProgram(gl, width, height);
+    this._lineProgram = this._createLineProgram(gl, width, height);
 
     this._mainVertexBuffer = getOrThrow(gl.createBuffer(), 'createBuffer');
     this._positionVertexBuffer = getOrThrow(gl.createBuffer(), 'createBuffer');
@@ -257,36 +248,35 @@ export class GlDrawBackend implements DrawBackend {
       this.pixelHeight,
     );
 
-    this.setDoc(doc);
-    this._doc = doc;
+    this.setArtboard(artboard);
+    this._artboard = artboard;
 
     updateCanvasAndGl();
 
     checkError(gl);
   }
-  reset(doc: DrawingDoc) {
+  reset(artboard: Artboard) {
     for (const layerInfo of this._layers.values()) {
       layerInfo.frameBuffer.destroy();
     }
     this._layers.clear();
-    // @ts-ignore
-    this._doc = undefined;
-    this.setDoc(doc);
+    this._artboard = undefined!;
+    this.setArtboard(artboard);
   }
 
-  setDoc(newDoc: DrawingDoc): void {
-    const oldDoc = this._doc;
-    this._doc = newDoc;
+  setArtboard(newArtboard: Artboard): void {
+    const oldArtboard = this._artboard;
+    this._artboard = newArtboard;
     if (
-      !oldDoc ||
-      newDoc.artboard.width !== oldDoc.artboard.width ||
-      newDoc.artboard.height !== oldDoc.artboard.height
+      !oldArtboard ||
+      newArtboard.width !== oldArtboard.width ||
+      newArtboard.height !== oldArtboard.height
     ) {
-      // do something when artboard changes size
+      // do something when artboard changes size....not sure what
     }
-    if (!oldDoc || newDoc.artboard.layers !== oldDoc.artboard.layers) {
+    if (!oldArtboard || newArtboard.layers !== oldArtboard.layers) {
       const existingLayers = new Set<string>(this._layers.keys());
-      for (const layer of Object.keys(newDoc.artboard.layers)) {
+      for (const layer of Object.keys(newArtboard.layers)) {
         if (existingLayers.has(layer)) {
           existingLayers.delete(layer);
           continue;
@@ -629,9 +619,7 @@ export class GlDrawBackend implements DrawBackend {
       gl,
       _mainTextureVertexArray,
       _mainProgram,
-      _doc: {
-        artboard: { baseColor, rootLayers },
-      },
+      _artboard: { baseColor, rootLayers },
     } = this;
     this.bindFrameBuffer();
     if (!exportMode) {
@@ -823,7 +811,6 @@ export class GlDrawBackend implements DrawBackend {
     hardness: number,
     erase: boolean = false,
   ) {
-    const { width, height } = this._doc.artboard;
     // Build list of vertices
     const rectCount = rects.length;
     if (rectCount === 0) {
@@ -837,13 +824,14 @@ export class GlDrawBackend implements DrawBackend {
     const vertexIndexArray = new Uint16Array(rectCount * 6);
     let actualRects = 0;
 
+    const { pixelWidth, pixelHeight } = this;
     for (let i = 0, j = 0, k = 0, l = 0, m = 0; i < rectCount; i++) {
       const [x, y, w, h, r, g, b, a] = rects[i];
       let x1 = x;
       let y1 = y;
       let x2 = x1 + w;
       let y2 = y1 + h;
-      if (x2 < 0 || y2 < 0 || x1 > width || y1 > height) {
+      if (x2 < 0 || y2 < 0 || x1 > pixelWidth || y1 > pixelHeight) {
         continue;
       }
       // Add margin for antialiasing
@@ -851,21 +839,6 @@ export class GlDrawBackend implements DrawBackend {
       y1 -= 1;
       x2 += 1;
       x2 += 1;
-      if (x1 < 0) {
-        x1 = 0;
-      }
-      if (y1 < 0) {
-        y1 = 0;
-      }
-      if (x2 > width) {
-        x2 = width;
-      }
-      if (y2 > height) {
-        y2 = height;
-      }
-      if (x2 <= x1 || y2 <= y1) {
-        continue;
-      }
 
       this.saveRect(layerInfo, x, y, w, h);
 
@@ -979,20 +952,15 @@ export class GlDrawBackend implements DrawBackend {
   }
 
   getDrawingContext(): DrawingContext {
-    const os = this;
-    const context: DrawingContext = {
-      fillRects(layer: string, rects: Rects) {
-        os._fillRectEllipses(os.getLayerInfo(layer), rects, false, 1);
-      },
-
-      fillEllipses(
+    return {
+      fillEllipses: (
         layer: string,
         ellipses: Rects,
         hardness: number,
         erase: boolean,
-      ) {
-        os._fillRectEllipses(
-          os.getLayerInfo(layer),
+      ) => {
+        this._fillRectEllipses(
+          this.getLayerInfo(layer),
           ellipses,
           true,
           hardness,
@@ -1000,7 +968,6 @@ export class GlDrawBackend implements DrawBackend {
         );
       },
     };
-    return context;
   }
 
   getLayerCount(): number {

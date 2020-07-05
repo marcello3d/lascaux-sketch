@@ -10,6 +10,7 @@ export const MODE_EVENT_REGEX = /^%(.*)$/;
 export const CURSOR_EVENT = '%cursor';
 
 export const PATCH_DOC_EVENT = '!doc';
+export const PATCH_MODE_EVENT = '!mode';
 
 // Legacy events
 export const LEGACY_ADD_LAYER_EVENT = 'add-layer';

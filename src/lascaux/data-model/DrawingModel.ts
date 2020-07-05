@@ -106,7 +106,7 @@ export default class DrawingModel {
     return this._storageModel.flush();
   }
 
-  _recordStroke(eventType: string, time: number, payload: any) {
+  private _recordStroke(eventType: string, time: number, payload: any) {
     this._storageModel.addStroke(eventType, time, payload);
     this._strokesSinceSnapshot++;
     if (
@@ -127,10 +127,10 @@ export default class DrawingModel {
       time,
       payload,
     });
-    return this._runQueue();
+    return this.processQueue();
   }
 
-  _runQueue(): PromiseOrValue<void> {
+  private processQueue(): PromiseOrValue<void> {
     if (this._queue.length === 0) {
       if (this._editCanvas) {
         this._editCanvas._backend.repaint();
@@ -139,7 +139,7 @@ export default class DrawingModel {
     }
     const next = this._queue.shift()!;
     if (typeof next === 'function') {
-      return this._runQueue();
+      return this.processQueue();
     }
     const { eventType, time, payload } = next;
 
@@ -169,14 +169,14 @@ export default class DrawingModel {
     }
     if (this._editCanvas) {
       return then(
-        this._editCanvas._execute(this._strokeCount, eventType, payload),
+        this._editCanvas.addStroke(this._strokeCount, eventType, payload),
         () => {
           this._recordStroke(eventType, time, payload);
-          this._runQueue();
+          this.processQueue();
         },
       );
     }
-    return this._runQueue();
+    return this.processQueue();
   }
 
   getGotoIndexes() {
@@ -191,7 +191,7 @@ export default class DrawingModel {
     return this._gotoMap.computeRedo(this._drawingCursor);
   }
 
-  _planGoto(
+  planGoto(
     start: number,
     end: number,
   ): { target?: number; revert?: number; skips?: Skips } {

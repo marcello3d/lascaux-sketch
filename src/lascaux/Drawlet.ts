@@ -1,14 +1,8 @@
 import { RgbaImage } from './util/rgba-image';
 import { PromiseOrValue } from 'promise-or-value';
 import { DrawingState } from './legacy-model';
-import { DrawingDoc, Id, IdMap } from './DrawingDoc';
+import { Artboard, DrawingDoc, Id, IdMap, UserMode } from './DrawingDoc';
 import { Draft } from 'immer';
-
-export type DrawContext = {
-  doc: DrawingDoc;
-  user: string;
-  state: DrawingState;
-};
 
 /** x, y, w, h, r, g, b, a */
 export type Rect = readonly [
@@ -24,7 +18,6 @@ export type Rect = readonly [
 export type Rects = readonly Rect[];
 
 export type DrawingContext = {
-  fillRects(layer: Id, rects: Rects): void;
   fillEllipses(
     layer: Id,
     ellipses: Rects,
@@ -34,8 +27,9 @@ export type DrawingContext = {
 };
 
 export type DrawletHandleFn = (
-  context: DrawContext,
-  canvas: DrawingContext,
+  mode: UserMode,
+  state: DrawingState,
+  ctx: DrawingContext,
   event: string,
   payload: any,
 ) => void;
@@ -50,8 +44,8 @@ export type Snap = {
 };
 
 export interface DrawBackend {
-  reset(doc: DrawingDoc): void;
-  setDoc(doc: DrawingDoc): void;
+  reset(artboard: Artboard): void;
+  setArtboard(artboard: Artboard): void;
   getSnapshot(): SnapshotAndLinks;
   getPng(): Promise<Blob>;
   getDrawingContext(): DrawingContext;
@@ -85,7 +79,8 @@ export type Transform = {
   scale: number;
 };
 export type LascauxUiState = {
-  doc: DrawingDoc;
+  artboard: Artboard;
+  mode: UserMode;
 
   playing: boolean;
   cursor: number;
@@ -103,7 +98,8 @@ export type LascauxDomInstance = {
   getUiState(): LascauxUiState;
   getPng(): Promise<Blob>;
   flush(): void;
-  produceDoc(recipe: (draft: Draft<DrawingDoc>) => void): void;
+  mutateArtboard(recipe: (draft: Draft<Artboard>) => void): void;
+  mutateMode(recipe: (draft: Draft<UserMode>) => void): void;
   setScale(scale: number): void;
   addGoto(cursor: number): void;
   setPlaying(playing: boolean): void;
