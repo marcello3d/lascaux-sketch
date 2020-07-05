@@ -282,7 +282,7 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
         />
       ))
       .reverse();
-  }, [onChangeLayer, updateObject.doc]);
+  }, [onChangeLayer, onRenameLayer, updateObject.doc]);
 
   const onEraseChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
