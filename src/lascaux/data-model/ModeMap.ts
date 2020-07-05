@@ -16,7 +16,6 @@ export default class ModeMap {
       throw new Error('modes must be added in order');
     }
 
-    console.log(`mode **has** changed at ${strokeIndex}`, mode);
     this._indexes.push(strokeIndex);
     this._modeMap[strokeIndex] = mode;
 

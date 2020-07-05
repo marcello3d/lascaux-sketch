@@ -60,10 +60,6 @@
   flex-grow: 0;
   user-select: none;
 }
-.currentColor {
-  height: 30px;
-  margin: 1px;
-}
 .toolLabel {
   margin-top: 10px;
   margin-bottom: 3px;
@@ -78,19 +74,6 @@
 }
 .toolLabel:first-child {
   margin-top: 0;
-}
-.colorButtons {
-  background: #000;
-  padding: 1px;
-  display: inline-block;
-  text-align: center;
-}
-.colorButton {
-  width: 30px;
-  height: 30px;
-  margin: 0.5px;
-  outline: none;
-  border-radius: 3px;
 }
 .left {
   grid-area: left;

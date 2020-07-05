@@ -15,5 +15,7 @@ export default function parseColor(cssHexColor: string): Color {
 }
 
 export function toCssRgbaColor([r, g, b, a]: Color) {
-  return `rgba(${r * 255},${g * 255},${b * 255},${a})`;
+  return `rgba(${(r * 255).toFixed(1)},${(g * 255).toFixed(1)},${(
+    b * 255
+  ).toFixed(1)},${a})`;
 }

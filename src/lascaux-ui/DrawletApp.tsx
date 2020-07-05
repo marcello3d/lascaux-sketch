@@ -28,11 +28,10 @@ import PlayIcon from '../icons/fa/play.svg';
 import PauseIcon from '../icons/fa/pause.svg';
 import UndoIcon from '../icons/fa/undo.svg';
 import RedoIcon from '../icons/fa/redo.svg';
-import { rgbaColorPalette } from './color-palette';
 import { addLayer } from '../lascaux/DrawingDocUtil';
-import { Brush, UserMode } from '../lascaux/DrawingDoc';
-import { toCssRgbaColor } from '../lascaux/util/parse-color';
+import { Brush, Color, UserMode } from '../lascaux/DrawingDoc';
 import { LayerList } from './LayerList';
+import { ColorChooser } from './ColorChooser';
 
 function useUpdateBrush<K extends keyof Brush & string>(
   canvasInstance: LascauxDomInstance,
@@ -134,30 +133,7 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
   const setScale = useCallback((scale) => canvasInstance.setScale(scale), [
     canvasInstance,
   ]);
-  const selectedColorCss = toCssRgbaColor(mode.color);
-  const colorButtons = useMemo(
-    () =>
-      rgbaColorPalette.map((color, index) => {
-        const colorCss = toCssRgbaColor(color);
-        const selected = colorCss === selectedColorCss;
-        return (
-          <Button
-            key={index}
-            onClick={() =>
-              canvasInstance.mutateMode((draft) => {
-                draft.color = color;
-              })
-            }
-            className={styles.colorButton}
-            style={{
-              backgroundColor: colorCss,
-              border: selected ? 'solid 2px white' : `solid 2px ${color}`,
-            }}
-          />
-        );
-      }),
-    [canvasInstance, selectedColorCss],
-  );
+
   const seek = useCallback(
     (cursor: number) => {
       canvasInstance.seekTo(cursor);
@@ -293,12 +269,15 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
     [canvasInstance],
   );
 
+  const onChangeColor = useCallback(
+    (color: Color) =>
+      canvasInstance.mutateMode((draft) => {
+        draft.color = color;
+      }),
+    [canvasInstance],
+  );
   const brush = mode.brushes[mode.brush];
 
-  const currentColorStyle = useMemo(
-    () => ({ backgroundColor: selectedColorCss }),
-    [selectedColorCss],
-  );
   return (
     <Layout
       header={
@@ -341,10 +320,7 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
             Erase
           </label>
         </div>
-        <div className={styles.colorButtons}>
-          <div className={styles.currentColor} style={currentColorStyle} />
-          {colorButtons}
-        </div>
+        <ColorChooser color={mode.color} onChangeColor={onChangeColor} />
         <label className={styles.toolLabel}>
           Size <span className={styles.value}>{brushSize}</span>
         </label>
