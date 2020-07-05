@@ -2,7 +2,6 @@ import ProgramManager from './util/program-manager';
 import { Program, ProgramOf } from './util/program';
 
 import {
-  DrawBackend,
   DrawingContext,
   GetLinkFn,
   Links,
@@ -69,7 +68,7 @@ type ChangedTile = [
 
 const ENABLE_HALF_FLOAT_SUPPORT = true;
 
-export class GlDrawBackend implements DrawBackend {
+export class GlDrawingContext implements DrawingContext {
   public readonly pixelWidth: number;
   public readonly pixelHeight: number;
   public readonly scale: number;
@@ -404,7 +403,7 @@ export class GlDrawBackend implements DrawBackend {
     });
   }
 
-  getSnapshot(): SnapshotAndLinks {
+  getSnapshotAndLinks(): SnapshotAndLinks {
     const links: Links = {};
     const start = Date.now();
     const { tileSize, _readBuffer, _layers, _frameBufferInfo, gl } = this;
@@ -804,6 +803,15 @@ export class GlDrawBackend implements DrawBackend {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
+  fillEllipses(layer: string, rects: Rects, hardness: number, erase: boolean) {
+    this._fillRectEllipses(
+      this.getLayerInfo(layer),
+      rects,
+      true,
+      hardness,
+      erase,
+    );
+  }
   private _fillRectEllipses(
     layerInfo: LayerInfo,
     rects: Rects,
@@ -949,25 +957,6 @@ export class GlDrawBackend implements DrawBackend {
     const tileCount =
       layerIds.length * Object.keys(_layers.get(layerIds[0]) ?? {}).length;
     return `WebGL ${_frameBufferInfo.writeTypeName} (${_frameBufferBits} bit): ${pixelWidth}x${pixelHeight} (${tileCount} tiles)`;
-  }
-
-  getDrawingContext(): DrawingContext {
-    return {
-      fillEllipses: (
-        layer: string,
-        ellipses: Rects,
-        hardness: number,
-        erase: boolean,
-      ) => {
-        this._fillRectEllipses(
-          this.getLayerInfo(layer),
-          ellipses,
-          true,
-          hardness,
-          erase,
-        );
-      },
-    };
   }
 
   getLayerCount(): number {

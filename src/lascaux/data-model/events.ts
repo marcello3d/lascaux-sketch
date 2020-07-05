@@ -9,7 +9,7 @@ export const MODE_EVENT_REGEX = /^%(.*)$/;
 // This is just a normal mode event, but pulling it out as an example
 export const CURSOR_EVENT = '%cursor';
 
-export const PATCH_DOC_EVENT = '!doc';
+export const PATCH_ARTBOARD_EVENT = '!art';
 export const PATCH_MODE_EVENT = '!mode';
 
 // Legacy events

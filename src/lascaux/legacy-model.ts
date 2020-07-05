@@ -14,7 +14,7 @@ import {
 import { addLayer } from './DrawingDocUtil';
 import { Draft } from 'immer';
 import parseColor from './util/parse-color';
-import { Dna, DrawingDoc, Id } from './DrawingDoc';
+import { Artboard, Dna, UserMode } from './DrawingDoc';
 
 export type LegacyDna = Dna & {
   randomseed: string;
@@ -44,44 +44,40 @@ export function isLegacyEvent(event: string) {
   return event === LEGACY_ADD_LAYER_EVENT || isLegacyModeEvent(event);
 }
 export function handleLegacyEvent(
-  draft: Draft<DrawingDoc>,
-  user: Id,
+  artboard: Draft<Artboard>,
+  mode: Draft<UserMode>,
   event: string,
   payload: any,
 ): void {
   if (event === LEGACY_ADD_LAYER_EVENT) {
-    const layerId = String(draft.artboard.rootLayers.length);
-    addLayer(draft.artboard, layerId);
-    draft.users[user].layer = layerId;
+    const layerId = String(artboard.rootLayers.length);
+    addLayer(artboard, layerId);
+    mode.layer = layerId;
   } else if (isLegacyModeEvent(event)) {
-    handleLegacyModeEvent(draft, user, event, payload);
+    handleLegacyModeEvent(mode, event, payload);
   }
 }
 
 function handleLegacyModeEvent(
-  draft: Draft<DrawingDoc>,
-  user: string,
+  mode: Draft<UserMode>,
   eventType: string,
   eventPayload: any,
 ): void {
-  const mode = draft.users[user];
   const normalized = getNormalizedModePayload(eventType, eventPayload);
   const brush = mode.brushes[mode.brush];
   for (const modeName of Object.keys(normalized)) {
     const payload = normalized[modeName];
     switch (modeName) {
       case LEGACY_LAYER_MODE:
-        draft.users[user].layer = String(payload);
+        mode.layer = String(payload);
         break;
 
       case LEGACY_CURSOR_MODE:
-        draft.users[user].cursor = payload;
+        mode.cursor = payload;
         break;
 
       case LEGACY_COLOR_MODE:
-        const alpha = mode.color[3];
         mode.color = parseColor(payload);
-        mode.color[3] = alpha;
         break;
 
       case LEGACY_ERASE_MODE:
@@ -93,7 +89,7 @@ function handleLegacyModeEvent(
         break;
 
       case LEGACY_ALPHA_MODE:
-        draft.users[user].color[3] = payload;
+        brush.flow = payload;
         break;
 
       case LEGACY_SPACING_MODE:

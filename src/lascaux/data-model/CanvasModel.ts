@@ -1,42 +1,47 @@
-import { patch } from 'jsondiffpatch';
-import produce, { Draft } from 'immer';
+import produce from 'immer';
 import { PromiseOrValue } from 'promise-or-value';
 
-import { DrawBackend, Snap } from '../Drawlet';
-import { DrawingDoc, Id, LOCAL_USER, UserMode } from '../DrawingDoc';
+import { DrawingContext, Snap } from '../Drawlet';
+import { Artboard, UserMode } from '../DrawingDoc';
 import {
   DrawingState,
   handleLegacyEvent,
   isLegacyEvent,
   makeInitialState,
 } from '../legacy-model';
-import { GOTO_EVENT, PATCH_DOC_EVENT, PATCH_MODE_EVENT } from './events';
+import { GOTO_EVENT, PATCH_ARTBOARD_EVENT, PATCH_MODE_EVENT } from './events';
 import jsonCopy from '../util/json-copy';
 import { isSkipped } from './GotoMap';
 import DrawingModel from './DrawingModel';
-import { GlDrawBackend } from '../webgl/gl-draw-backend';
+import { GlDrawingContext } from '../webgl/GlDrawingContext';
 import ModeMap from './ModeMap';
+import { immerPatch } from './patch';
 
 export class CanvasModel {
-  private readonly _drawing: DrawingModel;
-  private readonly _backend: DrawBackend;
+  private readonly _ctx: DrawingContext;
   private readonly _modeMap: ModeMap;
 
-  private _doc: DrawingDoc;
+  private _artboard: Artboard;
   private _inGoto: boolean;
   private _cursor: number = 0;
   private _targetCursor: number = 0;
   _state: DrawingState = makeInitialState();
 
-  constructor(drawing: DrawingModel, private readonly userId: Id = LOCAL_USER) {
-    this._doc = drawing._initialDoc;
-    this._modeMap = new ModeMap(drawing._initialDoc.users[userId]);
-    this._drawing = drawing;
-    this._backend = new GlDrawBackend(this._doc.artboard);
+  constructor(
+    private readonly _drawing: DrawingModel,
+    private readonly initialArtboard: Artboard,
+    private readonly initialMode: UserMode,
+  ) {
+    this._artboard = initialArtboard;
+    this._modeMap = new ModeMap(initialMode);
+    this._ctx = new GlDrawingContext(initialArtboard);
     this._inGoto = false;
     this.reset();
   }
 
+  get artboard(): Artboard {
+    return this._artboard;
+  }
   get cursor(): number {
     return this._cursor;
   }
@@ -45,12 +50,14 @@ export class CanvasModel {
     return this._targetCursor;
   }
 
-  get doc(): DrawingDoc {
-    return this._doc;
+  /** The mode at the current cursor location */
+  private get cursorMode() {
+    return this._modeMap.getMode(this._cursor);
   }
 
-  get latestMode(): UserMode {
-    return this._modeMap.getMode(this.strokeCount);
+  /** The mode that represents what the user should see, regardless of cursor position */
+  get uiMode(): UserMode {
+    return this._modeMap.getLatestMode();
   }
 
   get strokeCount(): number {
@@ -58,32 +65,31 @@ export class CanvasModel {
   }
 
   get layerCount(): number {
-    return this._backend.getLayerCount();
+    return this._ctx.getLayerCount();
   }
 
   get dom(): HTMLCanvasElement {
-    return this._backend.getDom();
+    return this._ctx.getDom();
   }
 
   getPng(): Promise<Blob> {
-    return this._backend.getPng();
+    return this._ctx.getPng();
   }
 
   setTransform(translateX: number, translateY: number, scale: number): void {
-    this._backend.setTransform(translateX, translateY, scale);
+    this._ctx.setTransform(translateX, translateY, scale);
   }
 
   private reset() {
     this._cursor = 0;
     this._state = makeInitialState();
-    const doc = this._drawing._initialDoc;
-    this._backend.reset(doc.artboard);
-    this._doc = doc;
+    this._artboard = this.initialArtboard;
+    this._ctx.reset(this.initialArtboard);
   }
 
-  private setDoc(doc: DrawingDoc) {
-    this._doc = doc;
-    this._backend.setArtboard(doc.artboard);
+  private setArtboard(artboard: Artboard) {
+    this._artboard = artboard;
+    this._ctx.setArtboard(artboard);
   }
 
   addStroke(
@@ -96,55 +102,66 @@ export class CanvasModel {
       return this._goto(payload);
     }
     this._cursor = cursor;
-    this.execute(eventType, payload);
-    this._modeMap.setMode(cursor, this._doc.users[this.userId]);
-    this._backend.repaint();
+    this.execute(eventType, payload, true);
+    this._ctx.repaint();
   }
 
-  private mutateDoc(recipe: (draft: Draft<DrawingDoc>) => void) {
-    this.setDoc(produce(this._doc, recipe));
-  }
-
-  private execute(eventType: string, payload: any) {
+  private execute(eventType: string, payload: any, adding: boolean) {
     switch (eventType) {
       case GOTO_EVENT:
         return;
-      case PATCH_DOC_EVENT:
-        if (payload) {
-          this.mutateDoc((draft) => {
-            patch(draft.artboard, payload);
-          });
-        }
+      case PATCH_ARTBOARD_EVENT:
+        this.setArtboard(immerPatch(this._artboard, payload));
         return;
       case PATCH_MODE_EVENT:
-        if (payload) {
-          this.mutateDoc((draft) => {
-            patch(draft.users[this.userId], payload);
-          });
+        if (adding) {
+          this.setCursorMode(immerPatch(this.cursorMode, payload));
         }
         return;
     }
-    if (isLegacyEvent(eventType)) {
-      this.mutateDoc((draft) => {
-        handleLegacyEvent(draft, this.userId, eventType, payload);
-      });
+    if (this.handleLegacyEvent(eventType, payload, adding)) {
       return;
     }
-
     this._drawing._handleCommand(
-      this._modeMap.getMode(this._cursor),
+      this.cursorMode,
       this._state,
-      this._backend.getDrawingContext(),
+      this._ctx,
       eventType,
       payload,
     );
   }
+  private handleLegacyEvent(
+    eventType: string,
+    payload: any,
+    adding: boolean,
+  ): boolean {
+    if (!isLegacyEvent(eventType)) {
+      return false;
+    }
+    const { artboard, cursorMode } = this;
+    const [newMode, newArtboard] = produce(
+      [cursorMode, artboard],
+      ([modeDraft, artboardDraft]) => {
+        handleLegacyEvent(artboardDraft, modeDraft, eventType, payload);
+      },
+    );
+    if (adding && newMode !== cursorMode) {
+      this.setCursorMode(newMode);
+    }
+    this.setArtboard(newArtboard);
+    return true;
+  }
+
+  private setCursorMode(newMode: UserMode) {
+    this._modeMap.addMode(this._cursor, newMode);
+  }
+
   gotoEnd(): PromiseOrValue<void> {
     return this.goto(this.strokeCount);
   }
 
   repaint() {
-    this._backend.repaint();
+    this._ctx.repaint();
   }
 
   goto(targetCursor: number): PromiseOrValue<void> {
@@ -175,9 +192,9 @@ export class CanvasModel {
       } else {
         const storageModel = this._drawing._storageModel;
         const snap = await storageModel.getSnapshot(index);
-        const { doc, state, snapshot } = snap;
-        this.setDoc(doc);
-        await this._backend.loadSnapshot(
+        const { artboard, state, snapshot } = snap;
+        this.setArtboard(artboard);
+        await this._ctx.loadSnapshot(
           snapshot,
           storageModel.getSnapshotLink.bind(storageModel),
         );
@@ -214,23 +231,23 @@ export class CanvasModel {
       }
       const { type, payload } = stroke;
       if (!isSkipped(skips, this._cursor++)) {
-        this.execute(type, payload);
+        this.execute(type, payload, false);
       }
     }
 
-    this._backend.repaint();
+    this._ctx.repaint();
     this._inGoto = false;
   }
 
   getSnap(): Snap {
     return {
-      ...this._backend.getSnapshot(),
-      doc: this.doc,
+      ...this._ctx.getSnapshotAndLinks(),
+      artboard: this.artboard,
       state: jsonCopy(this._state),
     };
   }
 
   getInfo(): string | undefined {
-    return this._backend.getInfo();
+    return this._ctx.getInfo();
   }
 }

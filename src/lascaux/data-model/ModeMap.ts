@@ -5,10 +5,10 @@ export default class ModeMap {
   private _modeMap: Record<number, UserMode> = {};
   private _lastStrokeIndex = -2;
   constructor(initialMode: UserMode) {
-    this.setMode(-1, initialMode);
+    this.addMode(-1, initialMode);
   }
 
-  setMode(strokeIndex: number, mode: UserMode): void {
+  addMode(strokeIndex: number, mode: UserMode): void {
     if (mode === this._modeMap[this._lastStrokeIndex]) {
       return;
     }
@@ -39,5 +39,9 @@ export default class ModeMap {
       }
     }
     throw new Error(`could not load mode for ${strokeIndex}`);
+  }
+
+  getLatestMode() {
+    return this._modeMap[this._lastStrokeIndex];
   }
 }

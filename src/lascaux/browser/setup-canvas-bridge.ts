@@ -4,11 +4,11 @@ import pointerEventsBridge, { EventBridge } from './pointer-events-bridge';
 import {
   DrawletEvent,
   GOTO_EVENT,
-  PATCH_DOC_EVENT,
+  PATCH_ARTBOARD_EVENT,
   PATCH_MODE_EVENT,
 } from '../data-model/events';
 import { then } from 'promise-or-value';
-import { Artboard, LOCAL_USER, UserMode } from '../DrawingDoc';
+import { Artboard, UserMode } from '../DrawingDoc';
 import { diff } from 'jsondiffpatch';
 import produce, { Draft } from 'immer';
 
@@ -33,9 +33,7 @@ export default function createLascauxDomInstance(
 
   const MS_PER_GOTO = 15;
 
-  const canvas = editable
-    ? drawingModel.editCanvas
-    : drawingModel.createCanvas();
+  const canvas = drawingModel.editCanvas;
 
   const handleEvent = (event: DrawletEvent, lastEvent: boolean = true) => {
     const [type, time, payload] = event;
@@ -70,8 +68,8 @@ export default function createLascauxDomInstance(
 
   function getUiState(): LascauxUiState {
     return {
-      artboard: canvas.doc.artboard,
-      mode: canvas.latestMode,
+      artboard: canvas.artboard,
+      mode: canvas.uiMode,
       cursor: canvas.targetCursor,
       strokeCount: canvas.strokeCount,
       undo: editable ? drawingModel.computeUndo() : undefined,
@@ -101,7 +99,6 @@ export default function createLascauxDomInstance(
   function togglePlaying() {
     if (playing) {
       // Stop
-      console.log('stop playing');
       if (playTimer) {
         clearTimeout(playTimer);
       }
@@ -155,7 +152,7 @@ export default function createLascauxDomInstance(
     getUiState,
 
     getInfo() {
-      return drawingModel.getInfo();
+      return drawingModel.editCanvas.getInfo();
     },
 
     flush() {
@@ -167,20 +164,14 @@ export default function createLascauxDomInstance(
     },
 
     mutateArtboard(recipe: (draft: Draft<Artboard>) => void) {
-      const payload = diff(
-        canvas.doc,
-        produce(canvas.doc, (draft) => {
-          recipe(draft.artboard);
-        }),
-      );
+      const payload = diff(canvas.artboard, produce(canvas.artboard, recipe));
       if (payload) {
-        addStroke(PATCH_DOC_EVENT, payload);
+        addStroke(PATCH_ARTBOARD_EVENT, payload);
       }
     },
 
     mutateMode(recipe: (draft: Draft<UserMode>) => void) {
-      const mode = canvas.doc.users[LOCAL_USER];
-      const payload = diff(mode, produce(mode, recipe));
+      const payload = diff(canvas.uiMode, produce(canvas.uiMode, recipe));
       if (payload) {
         addStroke(PATCH_MODE_EVENT, payload);
       }
@@ -211,8 +202,8 @@ export default function createLascauxDomInstance(
       eventBridge = pointerEventsBridge(
         canvas.dom,
         // TODO: handle updates to artboard size
-        canvas.doc.artboard.width,
-        canvas.doc.artboard.height,
+        canvas.artboard.width,
+        canvas.artboard.height,
         transform,
         handleEvent,
         () => {

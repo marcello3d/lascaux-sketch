@@ -8,14 +8,13 @@ import parseColor from './util/parse-color';
 import { StorageModel } from './data-model/StorageModel';
 import DrawingModel from './data-model/DrawingModel';
 import { DrawingState, isLegacyDna } from './legacy-model';
-import { Color, Dna, DrawingDoc, LOCAL_USER, UserMode } from './DrawingDoc';
+import { Color, Dna, DrawingDoc, UserMode } from './DrawingDoc';
 import seedrandom from 'seedrandom';
 
 export async function createDrawingModel(
   doc: DrawingDoc,
   storage: StorageModel,
 ) {
-  console.log(`[LOAD] Getting metadata...`);
   const drawing = new DrawingModel({
     doc,
     editable: true,
@@ -56,20 +55,18 @@ export function newDoc(
         },
       },
     },
-    users: {
-      [LOCAL_USER]: {
-        layer: '0',
-        color: brushColor,
-        brush: FIVER_BRUSH,
-        brushes: {
-          [FIVER_BRUSH]: {
-            mode: 'paint',
-            size: 8,
-            opacity: 1.0,
-            flow: 1.0,
-            spacing: 0.05,
-            hardness: 1.0,
-          },
+    mode: {
+      layer: '0',
+      color: brushColor,
+      brush: FIVER_BRUSH,
+      brushes: {
+        [FIVER_BRUSH]: {
+          mode: 'paint',
+          size: 8,
+          opacity: 1.0,
+          flow: 1.0,
+          spacing: 0.05,
+          hardness: 1.0,
         },
       },
     },

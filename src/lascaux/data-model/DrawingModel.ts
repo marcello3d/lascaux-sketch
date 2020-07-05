@@ -15,7 +15,6 @@ import { CanvasModel } from './CanvasModel';
  */
 export default class DrawingModel {
   readonly _storageModel: StorageModel;
-  readonly _initialDoc: DrawingDoc;
   readonly _handleCommand: DrawletHandleFn;
   private readonly _queue: Array<{
     eventType: string;
@@ -26,13 +25,12 @@ export default class DrawingModel {
   private _drawingCursor: number = 0;
   readonly _snapshotMap: SnapshotMap;
   private readonly _gotoMap: GotoMap;
-  private readonly _editCanvas: CanvasModel | undefined;
+  public readonly editCanvas: CanvasModel;
   private _snapshotStrokeCount: number = 0;
   private _strokesSinceSnapshot: number = 0;
 
   constructor({
-    doc,
-    editable,
+    doc: { artboard, mode },
     storageModel,
     handleCommand,
     snapshotStrokeCount = 5000,
@@ -44,46 +42,28 @@ export default class DrawingModel {
     snapshotStrokeCount: number;
   }) {
     this._storageModel = storageModel;
-    this._initialDoc = doc;
     this._handleCommand = handleCommand;
     this._queue = [];
     this._strokeCount = 0;
     this._drawingCursor = 0;
     this._gotoMap = new GotoMap();
     this._snapshotMap = new SnapshotMap(storageModel);
-    if (editable) {
-      this._snapshotStrokeCount = snapshotStrokeCount;
-      this._strokesSinceSnapshot = 0;
-      this._editCanvas = this.createCanvas();
-    }
+    this._snapshotStrokeCount = snapshotStrokeCount;
+    this._strokesSinceSnapshot = 0;
+    this.editCanvas = new CanvasModel(this, artboard, mode);
   }
 
   getInfo() {
-    return this._editCanvas?.getInfo();
-  }
-
-  get editCanvas() {
-    if (!this._editCanvas) {
-      throw new Error('canvas not editable');
-    }
-    return this._editCanvas;
+    return this.editCanvas.getInfo();
   }
 
   get drawingCursor() {
     return this._drawingCursor;
   }
-
-  createCanvas(): CanvasModel {
-    return new CanvasModel(this);
-  }
-
   snapshot() {
     const cursor = this._strokeCount;
-    if (!this._editCanvas) {
-      throw new Error('canvas not editable');
-    }
     this._strokesSinceSnapshot = 0;
-    return this._snapshotMap.addSnapshot(cursor, this._editCanvas.getSnap());
+    return this._snapshotMap.addSnapshot(cursor, this.editCanvas.getSnap());
   }
 
   flush() {
@@ -116,7 +96,7 @@ export default class DrawingModel {
 
   private processQueue(): PromiseOrValue<void> {
     if (this._queue.length === 0) {
-      this._editCanvas?.repaint();
+      this.editCanvas.repaint();
       return;
     }
     const next = this._queue.shift()!;
@@ -125,16 +105,14 @@ export default class DrawingModel {
     }
     const { eventType, time, payload } = next;
 
-    if (this._editCanvas) {
-      const targetCursor = this._editCanvas.targetCursor;
-      if (targetCursor !== this._strokeCount) {
-        this._drawingCursor = this._gotoMap.addGoto(
-          this._strokeCount,
-          this._editCanvas.cursor,
-        );
-        this._recordStroke(GOTO_EVENT, time, targetCursor);
-        this._strokeCount++;
-      }
+    const targetCursor = this.editCanvas.targetCursor;
+    if (targetCursor !== this._strokeCount) {
+      this._drawingCursor = this._gotoMap.addGoto(
+        this._strokeCount,
+        this.editCanvas.cursor,
+      );
+      this._recordStroke(GOTO_EVENT, time, targetCursor);
+      this._strokeCount++;
     }
 
     const index = this._strokeCount;
@@ -149,16 +127,13 @@ export default class DrawingModel {
     } else {
       this._drawingCursor = this._strokeCount;
     }
-    if (this._editCanvas) {
-      return then(
-        this._editCanvas.addStroke(this._strokeCount, eventType, payload),
-        () => {
-          this._recordStroke(eventType, time, payload);
-          this.processQueue();
-        },
-      );
-    }
-    return this.processQueue();
+    return then(
+      this.editCanvas.addStroke(this._strokeCount, eventType, payload),
+      () => {
+        this._recordStroke(eventType, time, payload);
+        this.processQueue();
+      },
+    );
   }
 
   getGotoIndexes() {

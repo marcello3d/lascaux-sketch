@@ -1,7 +1,7 @@
 import { RgbaImage } from './util/rgba-image';
 import { PromiseOrValue } from 'promise-or-value';
 import { DrawingState } from './legacy-model';
-import { Artboard, DrawingDoc, Id, IdMap, UserMode } from './DrawingDoc';
+import { Artboard, IdMap, UserMode } from './DrawingDoc';
 import { Draft } from 'immer';
 
 /** x, y, w, h, r, g, b, a */
@@ -17,15 +17,6 @@ export type Rect = readonly [
 ];
 export type Rects = readonly Rect[];
 
-export type DrawingContext = {
-  fillEllipses(
-    layer: Id,
-    ellipses: Rects,
-    hardness: number,
-    erase?: boolean,
-  ): void;
-};
-
 export type DrawletHandleFn = (
   mode: UserMode,
   state: DrawingState,
@@ -39,16 +30,21 @@ export type GetLinkFn = (link: string) => PromiseOrValue<RgbaImage | undefined>;
 export type Snap = {
   snapshot: Snapshot;
   links: Links;
-  doc: DrawingDoc;
+  artboard: Artboard;
   state: object;
 };
 
-export interface DrawBackend {
+export interface DrawingContext {
   reset(artboard: Artboard): void;
   setArtboard(artboard: Artboard): void;
-  getSnapshot(): SnapshotAndLinks;
+  getSnapshotAndLinks(): SnapshotAndLinks;
   getPng(): Promise<Blob>;
-  getDrawingContext(): DrawingContext;
+  fillEllipses(
+    layer: string,
+    rects: Rects,
+    hardness: number,
+    erase: boolean,
+  ): void;
   loadSnapshot(snapshot: Snapshot, getLink: GetLinkFn): PromiseOrValue<void>;
   getDom(): HTMLCanvasElement;
   repaint(): void;

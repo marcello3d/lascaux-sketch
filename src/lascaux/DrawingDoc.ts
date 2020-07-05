@@ -9,11 +9,9 @@ export type Id = string;
 export type IdMap<T> = { [id: string]: T };
 export type Color = [number, number, number, number];
 
-export const LOCAL_USER: Id = 'LOCAL';
-
 export type DrawingDoc = Readonly<{
   artboard: Artboard;
-  users: IdMap<UserMode>;
+  mode: UserMode;
 }>;
 
 export type UserMode = Readonly<{
