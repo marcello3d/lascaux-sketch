@@ -16,6 +16,7 @@ import DrawingModel from './DrawingModel';
 import { GlDrawingContext } from '../webgl/GlDrawingContext';
 import ModeMap from './ModeMap';
 import { immerPatch } from './patch';
+import { safeMode } from '../DrawingDocUtil';
 
 export class CanvasModel {
   private readonly _ctx: DrawingContext;
@@ -52,12 +53,12 @@ export class CanvasModel {
 
   /** The mode at the current cursor location */
   private get cursorMode() {
-    return this._modeMap.getMode(this._cursor);
+    return safeMode(this.artboard, this._modeMap.getMode(this._cursor));
   }
 
   /** The mode that represents what the user should see, regardless of cursor position */
   get uiMode(): UserMode {
-    return this._modeMap.getLatestMode();
+    return safeMode(this.artboard, this._modeMap.getLatestMode());
   }
 
   get strokeCount(): number {
