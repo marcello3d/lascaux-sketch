@@ -35,46 +35,21 @@ export function isSkipped(skips: Skips, index: number) {
   return false;
 }
 
-type EncodedGotos = {
-  gotos: any[];
-  keys: number[];
-};
 type GotoPlan = {
   revert?: number;
   skips: Skips;
 };
 
 export default class GotoMap {
-  static deserialize({ gotos, keys }: EncodedGotos) {
-    const map = new GotoMap();
-    for (let i = 0; i < gotos.length; ) {
-      map.addGoto(gotos[i++], gotos[i++]);
-    }
-    map._keyframes = [...keys];
-    return map;
-  }
-
-  private _gotos: number[] = [];
-  private _gotoMap: Record<number, number> = {};
-  private _keyframes: number[] = [];
-  private _skipMap: Record<number, Skips> = {};
+  _gotos: number[] = [];
+  _gotoMap: Record<number, number> = {};
+  _keyframes: number[] = [];
+  _skipMap: Record<number, Skips> = {};
   private _lastStrokeIndex: number = -1;
   private _previousSkips: Skips = [];
 
   getGotoIndexes(): number[] {
     return this._gotos;
-  }
-
-  serialize(): EncodedGotos {
-    // Everything can be recomputed from the gotos list
-    const gotos = [];
-    for (const source of this._gotos) {
-      gotos.push(source, this._gotoMap[source]);
-    }
-    return {
-      gotos,
-      keys: this._keyframes,
-    };
   }
 
   /**
@@ -157,7 +132,7 @@ export default class GotoMap {
     const steps: GotoPlan = {
       skips: this._getSkips(end - 1),
     };
-    const inEndSkip = findSkipRange(this._getSkips(end), start);
+    const inEndSkip = findSkipRange(this._getSkips(end), start - 1);
     // Cursor is currently a region that will be canceled,
     // so we must go back to the start of the cancelled region before skipping over it
     if (inEndSkip && inEndSkip[0] !== start) {
