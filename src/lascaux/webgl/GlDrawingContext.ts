@@ -27,6 +27,7 @@ import { checkError, getOrThrow } from './util/gl-errors';
 import { setDrawingMatrix, setViewportMatrix } from './util/gl-matrix';
 import { copyRgbaPixels, RgbaImage } from '../util/rgba-image';
 import { Artboard, IdMap } from '../DrawingDoc';
+import { newId } from '../../db/fields';
 
 function makeTextureVertexArray(
   x1: number,
@@ -277,19 +278,20 @@ export class GlDrawingContext implements DrawingContext {
       const existingLayers = new Set<string>(this._layers.keys());
       for (const layer of Object.keys(newArtboard.layers)) {
         if (existingLayers.has(layer)) {
+          console.log(`${layer}: keeping`);
           existingLayers.delete(layer);
           continue;
         }
+        console.log(`${layer}: adding`);
         this._layers.set(layer, this.makeLayer());
       }
 
       // Deleted layer (if still in existingLayers, it's not in the new doc)
       for (const id of existingLayers) {
         const layer = this._layers.get(id);
-        if (layer) {
-          layer.frameBuffer.destroy();
-          this._layers.delete(id);
-        }
+        console.log(`${layer}: deleting`);
+        layer!.frameBuffer.destroy();
+        this._layers.delete(id);
       }
     }
   }
@@ -407,17 +409,16 @@ export class GlDrawingContext implements DrawingContext {
     const start = Date.now();
     const { tileSize, _readBuffer, _layers, _frameBufferInfo, gl } = this;
     const { WriteTypedArray, glReadType } = _frameBufferInfo;
-    let changedTiles = 0;
+    let changedTileCount = 0;
     const layers: IdMap<Tiles> = {};
     for (const [layerId, layerInfo] of _layers.entries()) {
-      const { changed } = layerInfo;
-      const layerTiles = { ...layerInfo.tiles };
-      layers[layerId] = layerTiles;
+      const { tiles, changed } = layerInfo;
+      layers[layerId] = { ...tiles };
       if (!changed) {
         continue;
       }
-      const { tiles, maxX, minY, minX, maxY } = changed;
-      const tileKeys = Object.keys(tiles);
+      const { tiles: changedTiles, maxX, minY, minX, maxY } = changed;
+      const tileKeys = Object.keys(changedTiles);
       this.bindToLayer(layerInfo);
       const width = maxX - minX;
       const height = maxY - minY;
@@ -429,7 +430,7 @@ export class GlDrawingContext implements DrawingContext {
 
       const savedBuffer = { pixels, width, height };
       for (const key of tileKeys) {
-        const [x, y] = tiles[key];
+        const [x, y] = changedTiles[key];
         const tile = copyRgbaPixels(
           savedBuffer,
           WriteTypedArray,
@@ -438,22 +439,26 @@ export class GlDrawingContext implements DrawingContext {
           tileSize,
           tileSize,
         );
-        const link = Math.random().toString(36).slice(3);
-        layerTiles[key] = { x, y, link };
+        const link = newId();
+        tiles[key] = { x, y, link };
         links[link] = tile;
-        changedTiles++;
+        changedTileCount++;
       }
+      layers[layerId] = { ...tiles };
       delete layerInfo.changed;
     }
     console.log(
       `snapshot generated in ${
         Date.now() - start
-      } ms: ${changedTiles} changed tiles, ${Object.keys(links).length} links`,
+      } ms: ${changedTileCount} changed tiles, ${
+        Object.keys(links).length
+      } links`,
     );
+    console.log(`Saving snapshot`, layers, links);
     return {
       snapshot: {
-        tileSize,
         layers,
+        tileSize,
       },
       links,
     };
@@ -463,6 +468,9 @@ export class GlDrawingContext implements DrawingContext {
     { layers, tileSize }: Snapshot,
     getLink: GetLinkFn,
   ): PromiseOrValue<void> {
+    if (tileSize !== this.tileSize) {
+      throw new Error('tileSize mismatch');
+    }
     return waitAll(
       Object.keys(layers).map((layerId) => {
         const layerInfo = this._layers.get(layerId);
@@ -476,20 +484,22 @@ export class GlDrawingContext implements DrawingContext {
             (key): PromiseOrValue<void> => {
               const tile = snapshotTiles[key];
               const { x, y, link } = tile;
+
+              // Tile in snapshot matches current buffer
               if (!changed?.tiles[key] && tiles[key]?.link === link) {
-                // Already have this tile loaded
                 tiles[key] = tile;
                 return undefined;
               }
+              // Tile is blank in snapshot
               if (link === null) {
                 this._clearTile(layerInfo, x, y);
                 tiles[key] = tile;
                 return undefined;
               }
-              // Get tile
+              // Need to load the tile...
               return then(getLink(link), (image) => {
                 if (!image) {
-                  return;
+                  throw new Error(`no tile ${link} for ${key}`);
                 }
                 tiles[key] = tile;
                 if (layerInfo.changed) {
@@ -846,9 +856,9 @@ export class GlDrawingContext implements DrawingContext {
       x1 -= 1;
       y1 -= 1;
       x2 += 1;
-      x2 += 1;
+      y2 += 1;
 
-      this.saveRect(layerInfo, x, y, w, h);
+      this.saveRect(layerInfo, x1, y1, x2 - x1, y2 - y1);
 
       //  0 --- 1
       //  |     |

@@ -53,21 +53,21 @@ export interface DrawingContext {
   getLayerCount(): number;
 }
 
-export type Snapshot = {
+export type Snapshot = Readonly<{
   layers: IdMap<Tiles>;
   tileSize: number;
-};
+}>;
 export type SnapshotAndLinks = {
   snapshot: Snapshot;
   links: Links;
 };
 export type Tiles = IdMap<Tile>;
 export type Links = IdMap<RgbaImage>;
-export type Tile = {
+export type Tile = Readonly<{
   x: number;
   y: number;
   link: string | null;
-};
+}>;
 
 export type Transform = {
   translateX: number;
