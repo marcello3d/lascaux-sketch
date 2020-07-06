@@ -32,7 +32,7 @@ export function isLegacyModeEvent(eventType: string) {
   return MODE_EVENT_REGEX.test(eventType);
 }
 export function isKeyframeEvent(eventType: string) {
-  return eventType === DRAW_START_EVENT;
+  return eventType === DRAW_START_EVENT || eventType === PATCH_ARTBOARD_EVENT;
 }
 export function getNormalizedModePayload(eventType: string, payload: any) {
   if (eventType === MODE_EVENT) {
