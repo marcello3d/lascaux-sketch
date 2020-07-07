@@ -31,7 +31,7 @@ export type Snap = {
   snapshot: Snapshot;
   links: Links;
   artboard: Artboard;
-  state: object;
+  state: DrawingState;
 };
 
 export interface DrawingContext {
