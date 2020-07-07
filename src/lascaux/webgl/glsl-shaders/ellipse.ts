@@ -55,7 +55,7 @@ export const ellipseShader = new ShaderDescription(
         uv.x * uv.x * vEllipse1.x +
         uv.y * uv.y * vEllipse1.y;
         
-      if (inEllipse > 1.0) {
+      if (inEllipse >= 1.0) {
         discard;
       } 
       float inEllipse2 =
