@@ -278,18 +278,15 @@ export class GlDrawingContext implements DrawingContext {
       const existingLayers = new Set<string>(this._layers.keys());
       for (const layer of Object.keys(newArtboard.layers)) {
         if (existingLayers.has(layer)) {
-          console.log(`${layer}: keeping`);
           existingLayers.delete(layer);
           continue;
         }
-        console.log(`${layer}: adding`);
         this._layers.set(layer, this.makeLayer());
       }
 
       // Deleted layer (if still in existingLayers, it's not in the new doc)
       for (const id of existingLayers) {
         const layer = this._layers.get(id);
-        console.log(`${layer}: deleting`);
         layer!.frameBuffer.destroy();
         this._layers.delete(id);
       }
@@ -454,7 +451,6 @@ export class GlDrawingContext implements DrawingContext {
         Object.keys(links).length
       } links`,
     );
-    console.log(`Saving snapshot`, layers, links);
     return {
       snapshot: {
         layers,

@@ -9,6 +9,7 @@ export function Changelog() {
       <ul>
         <li>New internal drawing format</li>
         <li>Add ability to rename layers</li>
+        <li>Export/import raw drawing JSON</li>
       </ul>
 
       <h3>2020-06-28</h3>

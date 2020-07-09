@@ -20,6 +20,10 @@ import classNames from 'classnames';
 import { DrawingGrid } from './modules/DrawingGrid';
 import { Icon } from '../ui/Icon';
 import { Changelog } from './modules/Changelog';
+import { uploadFile } from '../ui/download';
+import { ExportedDrawingV1 } from '../lascaux/ExportedDrawing';
+import SatelliteDishIcon from '../icons/fa/satellite-dish.svg';
+import { Button } from '../ui/Button';
 
 function validSize(input: string): number | undefined {
   if (!/^\d+$/.test(input)) {
@@ -62,6 +66,32 @@ export function IndexPage({ navigate }: RouteComponentProps) {
     [width, height, navigate],
   );
 
+  const importDrawing = useCallback(async () => {
+    const files = await uploadFile(['.json', 'application/json']);
+    if (!files) {
+      console.warn(`no files!`);
+      return;
+    }
+    for (const file of files) {
+      const drawing = JSON.parse(await file.text()) as ExportedDrawingV1;
+      const id = newId();
+      await db.drawings.add({
+        id,
+        createdAt: newDate(),
+        dna: drawing.dna,
+      });
+      await db.strokes.bulkAdd(
+        drawing.strokes.map(([time, type, payload], index) => ({
+          drawingId: id,
+          index,
+          time,
+          type,
+          payload,
+        })),
+      );
+    }
+  }, []);
+
   return (
     <Layout className={styles.root}>
       <div className={styles.column}>
@@ -102,6 +132,10 @@ export function IndexPage({ navigate }: RouteComponentProps) {
             onChange={onHeightChange}
           />
         </form>
+        <Button onClick={importDrawing}>
+          <Icon file={SatelliteDishIcon} alt="download" />
+          Import
+        </Button>
         <Suspense fallback={<p>Retrieving…</p>}>
           <DrawingGrid />
         </Suspense>

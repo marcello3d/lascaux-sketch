@@ -28,10 +28,13 @@ import PlayIcon from '../icons/fa/play.svg';
 import PauseIcon from '../icons/fa/pause.svg';
 import UndoIcon from '../icons/fa/undo.svg';
 import RedoIcon from '../icons/fa/redo.svg';
+import SatelliteDishIcon from '../icons/fa/satellite-dish.svg';
 import { addLayer } from '../lascaux/DrawingDocUtil';
-import { Brush, Color, UserMode } from '../lascaux/DrawingDoc';
+import { Brush, Color, Dna, UserMode } from '../lascaux/DrawingDoc';
 import { LayerList } from './LayerList';
 import { ColorChooser } from './ColorChooser';
+import { ExportedDrawingV1 } from '../lascaux/ExportedDrawing';
+import { getAllStrokes } from '../db/DexieStorageModel';
 
 function useUpdateBrush<K extends keyof Brush & string>(
   canvasInstance: LascauxDomInstance,
@@ -55,10 +58,11 @@ function useUpdateBrush<K extends keyof Brush & string>(
 
 type Props = {
   drawingId: string;
+  dna: Dna;
   drawingModel: DrawingModel;
 };
 
-export function DrawletApp({ drawingId, drawingModel }: Props) {
+export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
   const drawletContainerRef = useRef<HTMLDivElement>(null);
   const [updateObjectState, setUpdateObject] = useState<LascauxUiState | null>(
     null,
@@ -278,6 +282,23 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
   );
   const brush = mode.brushes[mode.brush];
 
+  const downloadJson = useCallback(async () => {
+    const drawingData: ExportedDrawingV1 = {
+      version: 1,
+      dna,
+      strokes: (await getAllStrokes(drawingId)).map((stroke) => [
+        stroke.time,
+        stroke.type,
+        stroke.payload,
+      ]),
+    };
+
+    downloadFile(
+      new Blob([JSON.stringify(drawingData)]),
+      `${drawingId}-${filenameDate()}-raw.json`,
+    );
+  }, [dna, drawingId]);
+
   return (
     <Layout
       header={
@@ -285,6 +306,10 @@ export function DrawletApp({ drawingId, drawingModel }: Props) {
           <Button onClick={downloadPng}>
             <Icon file={FileDownloadIcon} alt="download" />
             Save PNG
+          </Button>
+          <Button onClick={downloadJson}>
+            <Icon file={SatelliteDishIcon} alt="download" />
+            Save JSON
           </Button>
         </Header>
       }

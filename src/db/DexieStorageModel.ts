@@ -12,6 +12,13 @@ import DrawingModel from '../lascaux/data-model/DrawingModel';
 
 import { db, DbStroke } from './db';
 
+export function getAllStrokes(drawingId: string) {
+  return db.strokes
+    .where('[drawingId+index]')
+    .between([drawingId, Dexie.minKey], [drawingId, Dexie.maxKey])
+    .toArray();
+}
+
 export class DexieStorageModel implements StorageModel {
   private snapshots: Record<number, Snap> = {};
   private snapshotLinks: Record<string, RgbaImage> = {};
@@ -46,10 +53,7 @@ export class DexieStorageModel implements StorageModel {
   flush(): void {}
 
   async replay(model: DrawingModel): Promise<void> {
-    const strokes = await db.strokes
-      .where('[drawingId+index]')
-      .between([this.drawingId, Dexie.minKey], [this.drawingId, Dexie.maxKey])
-      .toArray();
+    const strokes = await getAllStrokes(this.drawingId);
 
     this.strokeCount = 0;
     this.strokeCache = {};
