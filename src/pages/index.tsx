@@ -134,7 +134,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
         </form>
         <Button onClick={importDrawing}>
           <Icon file={SatelliteDishIcon} alt="download" />
-          Import
+          Import JSON
         </Button>
         <Suspense fallback={<p>Retrieving…</p>}>
           <DrawingGrid />
