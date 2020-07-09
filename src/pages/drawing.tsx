@@ -1,12 +1,12 @@
 import { RouteComponentProps } from '@reach/router';
 import React from 'react';
-import { DrawletApp } from '../DrawletApp';
+import { DrawletApp } from '../lascaux-ui/DrawletApp';
 import { useDexieItem } from '../db/useDexie';
 import { db } from '../db/db';
 import { DexieStorageModel } from '../db/DexieStorageModel';
 import { NotFoundPage } from './404';
 import { getOrMakeDrawingModel } from '../db/drawlet-cache';
-import { createDrawingModel } from '../lascaux/fiver';
+import { createDrawingModel, dnaToDoc } from '../lascaux/fiver';
 
 type DrawingPageProps = { drawingId?: string } & RouteComponentProps;
 
@@ -17,11 +17,12 @@ export function DrawingPage(props: DrawingPageProps) {
     return <NotFoundPage {...props} />;
   }
   const { dna, id } = drawing;
-  const drawingModel = getOrMakeDrawingModel(id, () =>
-    createDrawingModel(dna, new DexieStorageModel(id)).catch((error) => error),
-  );
+  const drawingModel = getOrMakeDrawingModel(id, () => {
+    const storage = new DexieStorageModel(id);
+    return createDrawingModel(dnaToDoc(dna), storage).catch((err) => err);
+  });
   if (drawingModel instanceof Error || drawingModel instanceof Promise) {
     throw drawingModel;
   }
-  return <DrawletApp drawingId={id} drawingModel={drawingModel} />;
+  return <DrawletApp drawingId={id} dna={dna} drawingModel={drawingModel} />;
 }

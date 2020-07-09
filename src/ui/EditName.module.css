@@ -1,0 +1,8 @@
+.input {
+  font-size: 1em;
+}
+.text {
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0.4em;
+}

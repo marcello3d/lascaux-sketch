@@ -2,13 +2,12 @@ import ProgramManager from './util/program-manager';
 import { Program, ProgramOf } from './util/program';
 
 import {
-  DrawBackend,
   DrawingContext,
   GetLinkFn,
   Links,
   Rects,
-  Snap,
   Snapshot,
+  SnapshotAndLinks,
   Tiles,
 } from '../Drawlet';
 import { ellipseShader } from './glsl-shaders/ellipse';
@@ -27,7 +26,8 @@ import { TypedArray } from '../util/typed-arrays';
 import { checkError, getOrThrow } from './util/gl-errors';
 import { setDrawingMatrix, setViewportMatrix } from './util/gl-matrix';
 import { copyRgbaPixels, RgbaImage } from '../util/rgba-image';
-import { Dna } from '../dna';
+import { Artboard, IdMap } from '../DrawingDoc';
+import { newId } from '../../db/fields';
 
 function makeTextureVertexArray(
   x1: number,
@@ -44,11 +44,11 @@ function makeTextureVertexArray(
   ])
 }
 
-function getTileKey(layer: number, tilex: number, tiley: number): string {
-  return layer + '.' + tilex + '.' + tiley;
+function getTileKey(tilex: number, tiley: number): string {
+  return tilex + '.' + tiley;
 }
 
-type Layer = {
+type LayerInfo = {
   changed?: {
     tiles: Record<string, ChangedTile>;
     minX: number;
@@ -56,6 +56,7 @@ type Layer = {
     minY: number;
     maxY: number;
   };
+  tiles: Tiles;
   frameBuffer: FrameBuffer;
 };
 
@@ -68,8 +69,7 @@ type ChangedTile = [
 
 const ENABLE_HALF_FLOAT_SUPPORT = true;
 
-export class GlDrawBackend implements DrawBackend {
-  public readonly dna: Dna;
+export class GlDrawingContext implements DrawingContext {
   public readonly pixelWidth: number;
   public readonly pixelHeight: number;
   public readonly scale: number;
@@ -77,10 +77,8 @@ export class GlDrawBackend implements DrawBackend {
 
   private canvas: HTMLCanvasElement;
 
-  private readonly _layers: Array<Layer> = [];
-  private _bgColor: [number, number, number, number] = [0, 0, 0, 0];
-  private _tiles: Tiles = {};
-  private _links: Links = {};
+  private _artboard: Artboard;
+  private readonly _layers = new Map<string, LayerInfo>();
   private readonly gl: WebGLRenderingContext;
   private pixelRatio: number = 1;
   private _framebuffer: FrameBuffer | undefined;
@@ -110,16 +108,14 @@ export class GlDrawBackend implements DrawBackend {
 
   private readonly _readBuffer: TypedArray;
 
-  constructor(dna: Dna, scale: number = 1, tileSize: number = 64) {
-    this.dna = dna;
+  constructor(artboard: Artboard, tileSize: number = 64) {
     this.tileSize = tileSize;
 
-    this.scale = scale;
+    this.scale = 1;
 
-    const pixelWidth = Math.ceil(this.dna.width * scale);
-    const pixelHeight = Math.ceil(this.dna.height * scale);
-    this.pixelWidth = pixelWidth;
-    this.pixelHeight = pixelHeight;
+    const { width, height } = artboard;
+    this.pixelWidth = width;
+    this.pixelHeight = height;
 
     const canvas = document.createElement('canvas');
 
@@ -200,7 +196,7 @@ export class GlDrawBackend implements DrawBackend {
       readTypeName,
       writeTypeName,
     } = this._frameBufferInfo;
-    this._readBuffer = new ReadTypedArray(pixelWidth * pixelHeight * 4);
+    this._readBuffer = new ReadTypedArray(width * height * 4);
     this._frameBufferBits = new WriteTypedArray(1).BYTES_PER_ELEMENT * 8 * 4;
 
     console.log(
@@ -227,23 +223,15 @@ export class GlDrawBackend implements DrawBackend {
       requestAnimationFrame(() => {
         this.sizeCanvasToWindow();
         this.updateViewport();
-        this._redraw();
+        this.repaint();
       });
     };
     window.addEventListener('resize', updateCanvasAndGl, false);
 
-    this._textureProgram = this._createTextureProgram(
-      gl,
-      pixelWidth,
-      pixelHeight,
-    );
-    this._ellipseProgram = this._createEllipseProgram(
-      gl,
-      pixelWidth,
-      pixelHeight,
-    );
-    this._rectProgram = this._createRectProgram(gl, pixelWidth, pixelHeight);
-    this._lineProgram = this._createLineProgram(gl, pixelWidth, pixelHeight);
+    this._textureProgram = this._createTextureProgram(gl, width, height);
+    this._ellipseProgram = this._createEllipseProgram(gl, width, height);
+    this._rectProgram = this._createRectProgram(gl, width, height);
+    this._lineProgram = this._createLineProgram(gl, width, height);
 
     this._mainVertexBuffer = getOrThrow(gl.createBuffer(), 'createBuffer');
     this._positionVertexBuffer = getOrThrow(gl.createBuffer(), 'createBuffer');
@@ -260,11 +248,49 @@ export class GlDrawBackend implements DrawBackend {
       this.pixelHeight,
     );
 
-    this.initialize();
+    this.setArtboard(artboard);
+    this._artboard = artboard;
 
     updateCanvasAndGl();
 
     checkError(gl);
+  }
+  reset(artboard: Artboard) {
+    for (const layerInfo of this._layers.values()) {
+      layerInfo.frameBuffer.destroy();
+    }
+    this._layers.clear();
+    this._artboard = undefined!;
+    this.setArtboard(artboard);
+  }
+
+  setArtboard(newArtboard: Artboard): void {
+    const oldArtboard = this._artboard;
+    this._artboard = newArtboard;
+    if (
+      !oldArtboard ||
+      newArtboard.width !== oldArtboard.width ||
+      newArtboard.height !== oldArtboard.height
+    ) {
+      // do something when artboard changes size....not sure what
+    }
+    if (!oldArtboard || newArtboard.layers !== oldArtboard.layers) {
+      const existingLayers = new Set<string>(this._layers.keys());
+      for (const layer of Object.keys(newArtboard.layers)) {
+        if (existingLayers.has(layer)) {
+          existingLayers.delete(layer);
+          continue;
+        }
+        this._layers.set(layer, this.makeLayer());
+      }
+
+      // Deleted layer (if still in existingLayers, it's not in the new doc)
+      for (const id of existingLayers) {
+        const layer = this._layers.get(id);
+        layer!.frameBuffer.destroy();
+        this._layers.delete(id);
+      }
+    }
   }
 
   private updateViewport(pixelRatio = this.pixelRatio) {
@@ -290,17 +316,9 @@ export class GlDrawBackend implements DrawBackend {
     canvas.height = screenHeight * this.pixelRatio;
   }
 
-  initialize(): void {
-    for (let i = 0; i < this._layers.length; i++) {
-      this._layers[i].frameBuffer.destroy();
-    }
-    this._layers.length = 0;
-    this._addLayer();
-  }
-
-  private _bindFrameBuffer(buffer?: FrameBuffer): boolean {
+  private bindFrameBuffer(buffer?: FrameBuffer): void {
     if (this._framebuffer === buffer) {
-      return false;
+      return;
     }
     const { gl } = this;
     gl.bindFramebuffer(gl.FRAMEBUFFER, buffer ? buffer.framebuffer : null);
@@ -313,6 +331,7 @@ export class GlDrawBackend implements DrawBackend {
         gl.ONE,
         gl.ONE_MINUS_SRC_ALPHA,
       );
+      this.gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
     } else {
       // Premultiplied
       gl.blendFuncSeparate(
@@ -323,18 +342,12 @@ export class GlDrawBackend implements DrawBackend {
       );
     }
     this._framebuffer = buffer;
-    return true;
   }
-  private _addLayer() {
-    const { gl } = this;
-    const {
-      _layers,
-      pixelWidth,
-      pixelHeight,
-      _frameBufferType,
-      tileSize,
-      _tiles,
-    } = this;
+
+  private makeLayer(): LayerInfo {
+    const { gl, pixelWidth, pixelHeight, _frameBufferType, tileSize } = this;
+
+    // Added layer
     const frameBuffer = createFrameBuffer(
       gl,
       pixelWidth,
@@ -342,26 +355,24 @@ export class GlDrawBackend implements DrawBackend {
       _frameBufferType,
       gl.RGBA,
     );
-    const layer = _layers.length;
-    _layers.push({ frameBuffer });
-    this._bindFrameBuffer(frameBuffer);
+
+    this.bindFrameBuffer(frameBuffer);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
+
+    const tiles: Tiles = {};
+
     const tilex2 = Math.floor(this.pixelWidth / tileSize - 1);
     const tiley2 = Math.floor(this.pixelHeight / tileSize - 1);
     for (let tiley = 0; tiley <= tiley2; tiley++) {
       for (let tilex = 0; tilex <= tilex2; tilex++) {
-        const key = getTileKey(layer, tilex, tiley);
+        const key = getTileKey(tilex, tiley);
         const x = tilex * tileSize;
         const y = tiley * tileSize;
-        _tiles[key] = { layer, x, y, link: null };
+        tiles[key] = { x, y, link: null };
       }
     }
-  }
-  private _deleteLayer(layer: number) {
-    const layerInfo = this._layers[layer];
-    this._layers.splice(layer, 1);
-    layerInfo.frameBuffer.destroy();
+    return { frameBuffer, tiles };
   }
 
   getPng(): Promise<Blob> {
@@ -375,14 +386,14 @@ export class GlDrawBackend implements DrawBackend {
       pixelHeight,
     );
     this.updateViewport(1);
-    this._redraw(true);
+    this.repaint(true);
     return new Promise<Blob | null>((resolve) => {
       canvas.toBlob(resolve, 'image/png');
     }).then((blob) => {
       this._mainTextureVertexArray = _mainTextureVertexArray;
       this.sizeCanvasToWindow();
       this.updateViewport();
-      this._redraw();
+      this.repaint();
       if (blob === null) {
         throw new Error('Could not get image');
       }
@@ -390,28 +401,22 @@ export class GlDrawBackend implements DrawBackend {
     });
   }
 
-  getSnapshot(): Snap {
+  getSnapshotAndLinks(): SnapshotAndLinks {
     const links: Links = {};
     const start = Date.now();
-    const {
-      tileSize,
-      _tiles,
-      _readBuffer,
-      _layers,
-      _frameBufferInfo,
-      gl,
-    } = this;
+    const { tileSize, _readBuffer, _layers, _frameBufferInfo, gl } = this;
     const { WriteTypedArray, glReadType } = _frameBufferInfo;
-    const layerCount = _layers.length;
-    let changedTiles = 0;
-    for (let layer = 0; layer < layerCount; layer++) {
-      const { changed } = _layers[layer];
+    let changedTileCount = 0;
+    const layers: IdMap<Tiles> = {};
+    for (const [layerId, layerInfo] of _layers.entries()) {
+      const { tiles, changed } = layerInfo;
+      layers[layerId] = { ...tiles };
       if (!changed) {
         continue;
       }
-      const { tiles, maxX, minY, minX, maxY } = changed;
-      const tileKeys = Object.keys(tiles);
-      this._prepareToDraw(layer);
+      const { tiles: changedTiles, maxX, minY, minX, maxY } = changed;
+      const tileKeys = Object.keys(changedTiles);
+      this.bindToLayer(layerInfo);
       const width = maxX - minX;
       const height = maxY - minY;
       const start1 = Date.now();
@@ -422,7 +427,7 @@ export class GlDrawBackend implements DrawBackend {
 
       const savedBuffer = { pixels, width, height };
       for (const key of tileKeys) {
-        const [x, y] = tiles[key];
+        const [x, y] = changedTiles[key];
         const tile = copyRgbaPixels(
           savedBuffer,
           WriteTypedArray,
@@ -431,88 +436,91 @@ export class GlDrawBackend implements DrawBackend {
           tileSize,
           tileSize,
         );
-        const link = Math.random().toString(36).slice(3);
-        _tiles[key] = { layer, x, y, link };
+        const link = newId();
+        tiles[key] = { x, y, link };
         links[link] = tile;
-        changedTiles++;
+        changedTileCount++;
       }
-      delete _layers[layer].changed;
+      layers[layerId] = { ...tiles };
+      delete layerInfo.changed;
     }
-    const snapshot = {
+    console.log(
+      `snapshot generated in ${
+        Date.now() - start
+      } ms: ${changedTileCount} changed tiles, ${
+        Object.keys(links).length
+      } links`,
+    );
+    return {
       snapshot: {
+        layers,
         tileSize,
-        tiles: { ..._tiles },
-        layers: layerCount,
       },
       links,
     };
-    console.log(
-      `snapshot generated in ${Date.now() - start} ms: ${
-        Object.keys(_tiles).length
-      } tile(s), ${changedTiles} changed, ${Object.keys(links).length} links`,
-    );
-    return snapshot;
   }
 
   loadSnapshot(
-    { tiles, tileSize, layers }: Snapshot,
+    { layers, tileSize }: Snapshot,
     getLink: GetLinkFn,
   ): PromiseOrValue<void> {
-    this.ensureLayers(layers);
-    while (layers < this._layers.length) {
-      this._deleteLayer(this._layers.length - 1);
+    if (tileSize !== this.tileSize) {
+      throw new Error('tileSize mismatch');
     }
-    const keys = Object.keys(tiles);
-    if (keys.length === 0) {
-      return;
-    }
-
     return waitAll(
-      keys.map(
-        (key): PromiseOrValue<void> => {
-          const { layer, x, y, link } = tiles[key];
-          const layerInfo = this._layers[layer];
-          if (
-            (!layerInfo.changed || !layerInfo.changed.tiles[key]) &&
-            this._tiles[key] &&
-            this._tiles[key].link === link
-          ) {
-            // Already have this tile loaded
-            this._tiles[key] = tiles[key];
-            return undefined;
-          }
-          if (link === null) {
-            this._clearTile(layer, x, y);
-            this._tiles[key] = tiles[key];
-            return undefined;
-          }
-          // Get tile
-          return then(getLink(link), (image) => {
-            if (!image) {
-              return;
-            }
-            this._tiles[key] = tiles[key];
-            if (layerInfo.changed) {
-              delete layerInfo.changed.tiles[key];
-            }
-            this._putTile(layer, x, y, image);
-          });
-        },
-      ),
-    );
-  }
+      Object.keys(layers).map((layerId) => {
+        const layerInfo = this._layers.get(layerId);
+        if (!layerInfo) {
+          throw new Error('unknown layer!');
+        }
+        const { changed, tiles } = layerInfo;
+        const snapshotTiles = layers[layerId];
+        return waitAll(
+          Object.keys(snapshotTiles).map(
+            (key): PromiseOrValue<void> => {
+              const tile = snapshotTiles[key];
+              const { x, y, link } = tile;
 
-  private ensureLayers(layers: number) {
-    while (layers > this._layers.length) {
-      this._addLayer();
-    }
+              // Tile in snapshot matches current buffer
+              if (!changed?.tiles[key] && tiles[key]?.link === link) {
+                tiles[key] = tile;
+                return undefined;
+              }
+              // Tile is blank in snapshot
+              if (link === null) {
+                this._clearTile(layerInfo, x, y);
+                tiles[key] = tile;
+                return undefined;
+              }
+              // Need to load the tile...
+              return then(getLink(link), (image) => {
+                if (!image) {
+                  throw new Error(`no tile ${link} for ${key}`);
+                }
+                tiles[key] = tile;
+                if (layerInfo.changed) {
+                  delete layerInfo.changed.tiles[key];
+                }
+                this.putTile(layerInfo, x, y, image);
+              });
+            },
+          ),
+        );
+      }),
+    );
   }
 
   getDom(): HTMLCanvasElement {
     return this.canvas;
   }
 
-  saveRect(layer: number, x: number, y: number, w: number, h: number): void {
+  private saveRect(
+    layerInfo: LayerInfo,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+  ): void {
     if (w <= 0 || h <= 0) {
       // no-op
       return;
@@ -528,7 +536,6 @@ export class GlDrawBackend implements DrawBackend {
       Math.min((y + h) / tileSize, this.pixelHeight / tileSize - 1),
     );
 
-    const layerInfo = this._layers[layer];
     const changed =
       layerInfo.changed ||
       (layerInfo.changed = {
@@ -544,7 +551,7 @@ export class GlDrawBackend implements DrawBackend {
     changed.maxY = Math.max(changed.maxY, (tiley2 + 1) * tileSize);
     for (let tiley = tiley1; tiley <= tiley2; tiley++) {
       for (let tilex = tilex1; tilex <= tilex2; tilex++) {
-        const key = getTileKey(layer, tilex, tiley);
+        const key = getTileKey(tilex, tiley);
         if (!changed.tiles[key]) {
           changed.tiles[key] = [tilex * tileSize, tiley * tileSize];
         }
@@ -552,15 +559,15 @@ export class GlDrawBackend implements DrawBackend {
     }
   }
 
-  private _putTile(
-    layer: number,
+  private putTile(
+    layerInfo: LayerInfo,
     x: number,
     y: number,
     { pixels, width, height }: RgbaImage,
   ) {
+    this.bindToLayer(layerInfo);
     const { gl } = this;
-    this._prepareToDraw(layer);
-    gl.bindTexture(gl.TEXTURE_2D, this._layers[layer].frameBuffer.texture);
+    gl.bindTexture(gl.TEXTURE_2D, layerInfo.frameBuffer.texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -577,18 +584,14 @@ export class GlDrawBackend implements DrawBackend {
       pixels,
     );
   }
-  private _clearTile(layer: number, x: number, y: number) {
+  private _clearTile(layerInfo: LayerInfo, x: number, y: number) {
     const { gl, tileSize } = this;
-    this._prepareToDraw(layer);
+    this.bindToLayer(layerInfo);
     gl.enable(gl.SCISSOR_TEST);
     gl.scissor(x, y, tileSize, tileSize);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.disable(gl.SCISSOR_TEST);
-  }
-
-  afterExecute() {
-    this._redraw();
   }
 
   setTransform(translateX: number, translateY: number, scale: number): void {
@@ -607,41 +610,54 @@ export class GlDrawBackend implements DrawBackend {
       translateX + scaledWidth,
       translateY + scaledHeight,
     );
-    this._redraw();
+    this.repaint();
   }
 
-  private _redraw(exportMode: boolean = false) {
+  repaint(exportMode: boolean = false) {
     if (!this._mainProgram) {
       return;
     }
     const {
       _layers,
-      _bgColor: [r, g, b, a],
       _textureRect: [x, y, w, h],
       gl,
       _mainTextureVertexArray,
       _mainProgram,
+      _artboard: { baseColor, rootLayers },
     } = this;
-    this._bindFrameBuffer();
+    this.bindFrameBuffer();
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     if (!exportMode) {
       gl.clearColor(0x33 / 255, 0x33 / 255, 0x33 / 255, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.enable(gl.SCISSOR_TEST);
-      // Only clear the area where the drawing will be
-      gl.scissor(x, gl.drawingBufferHeight - y - h, w, h);
     }
-    gl.clearColor(r, g, b, a);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    if (!exportMode) {
-      gl.disable(gl.SCISSOR_TEST);
+    if (baseColor) {
+      if (!exportMode) {
+        gl.enable(gl.SCISSOR_TEST);
+        // Only clear the area where the drawing will be
+        gl.scissor(
+          Math.floor(x),
+          Math.floor(gl.drawingBufferHeight - y - h),
+          Math.floor(w),
+          Math.floor(h),
+        );
+      }
+      const [r, g, b, a] = baseColor;
+      gl.clearColor(r, g, b, a);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      if (!exportMode) {
+        gl.disable(gl.SCISSOR_TEST);
+      }
     }
 
-    const layers = _layers;
-    for (let i = 0; i < layers.length; i++) {
+    for (const layer of rootLayers) {
+      const layerInfo = _layers.get(layer);
+      if (!layerInfo) {
+        throw new Error('unexpected layer');
+      }
       this._drawTexture(
         _mainProgram,
-        layers[i].frameBuffer.texture,
+        layerInfo.frameBuffer.texture,
         _mainTextureVertexArray,
       );
     }
@@ -731,18 +747,20 @@ export class GlDrawBackend implements DrawBackend {
     return program;
   }
 
-  private _prepareToDraw(layer: number) {
-    this.ensureLayers(layer + 1);
-    if (this._bindFrameBuffer(this._layers[layer].frameBuffer)) {
-      this.gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
+  private getLayerInfo(layerId: string): LayerInfo {
+    const layerInfo = this._layers.get(layerId);
+    if (!layerInfo) {
+      throw new Error('unknown layer');
     }
+    return layerInfo;
   }
 
-  private _setBackgroundColor(r: number, g: number, b: number, a: number = 1) {
-    this._bgColor = [r, g, b, a];
+  private bindToLayer({ frameBuffer }: LayerInfo): void {
+    this.bindFrameBuffer(frameBuffer);
   }
+
   private _drawLine(
-    layer: number,
+    layerInfo: LayerInfo,
     x1: number,
     y1: number,
     size1: number,
@@ -764,9 +782,9 @@ export class GlDrawBackend implements DrawBackend {
     const miny = Math.min(y1 - halfSize1, y2 - halfSize2);
     const maxy = Math.max(y1 + halfSize1, y2 + halfSize2);
 
-    this._prepareToDraw(layer);
+    this.bindToLayer(layerInfo);
     if (save) {
-      this.saveRect(layer, minx, miny, maxx - minx, maxy - miny);
+      this.saveRect(layerInfo, minx, miny, maxx - minx, maxy - miny);
     }
     this._programManager.use(this._lineProgram);
 
@@ -791,14 +809,22 @@ export class GlDrawBackend implements DrawBackend {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
+  fillEllipses(layer: string, rects: Rects, hardness: number, erase: boolean) {
+    this._fillRectEllipses(
+      this.getLayerInfo(layer),
+      rects,
+      true,
+      hardness,
+      erase,
+    );
+  }
   private _fillRectEllipses(
-    layer: number,
+    layerInfo: LayerInfo,
     rects: Rects,
     ellipse: boolean,
     hardness: number,
     erase: boolean = false,
   ) {
-    const { width, height } = this.dna;
     // Build list of vertices
     const rectCount = rects.length;
     if (rectCount === 0) {
@@ -812,38 +838,23 @@ export class GlDrawBackend implements DrawBackend {
     const vertexIndexArray = new Uint16Array(rectCount * 6);
     let actualRects = 0;
 
-    this._prepareToDraw(layer);
+    const { pixelWidth, pixelHeight } = this;
     for (let i = 0, j = 0, k = 0, l = 0, m = 0; i < rectCount; i++) {
       const [x, y, w, h, r, g, b, a] = rects[i];
       let x1 = x;
       let y1 = y;
       let x2 = x1 + w;
       let y2 = y1 + h;
-      if (x2 < 0 || y2 < 0 || x1 > width || y1 > height) {
+      if (x2 < 0 || y2 < 0 || x1 > pixelWidth || y1 > pixelHeight) {
         continue;
       }
       // Add margin for antialiasing
       x1 -= 1;
       y1 -= 1;
       x2 += 1;
-      x2 += 1;
-      if (x1 < 0) {
-        x1 = 0;
-      }
-      if (y1 < 0) {
-        y1 = 0;
-      }
-      if (x2 > width) {
-        x2 = width;
-      }
-      if (y2 > height) {
-        y2 = height;
-      }
-      if (x2 <= x1 || y2 <= y1) {
-        continue;
-      }
+      y2 += 1;
 
-      this.saveRect(layer, x, y, w, h);
+      this.saveRect(layerInfo, x1, y1, x2 - x1, y2 - y1);
 
       //  0 --- 1
       //  |     |
@@ -895,6 +906,7 @@ export class GlDrawBackend implements DrawBackend {
       actualRects++;
     }
     if (actualRects > 0) {
+      this.bindToLayer(layerInfo);
       const gl = this.gl;
       if (erase) {
         gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
@@ -940,63 +952,20 @@ export class GlDrawBackend implements DrawBackend {
     }
   }
   getInfo(): string {
-    return `WebGL ${this._frameBufferInfo.writeTypeName} (${
-      this._frameBufferBits
-    } bit): ${this.pixelWidth}x${this.pixelHeight} (${
-      Object.keys(this._tiles).length
-    } tiles)`;
-  }
-
-  getDrawingContext(): DrawingContext {
-    const os = this;
-    const state = {
-      layer: 0,
-    };
-    os._prepareToDraw(0);
-    const context: DrawingContext = {
-      setLayer(layer: number) {
-        state.layer = layer;
-      },
-
-      addLayer() {
-        os._addLayer();
-      },
-
-      fillRects(rects: Rects) {
-        os._fillRectEllipses(state.layer, rects, false, 1);
-      },
-
-      fillEllipses(ellipses: Rects, hardness: number, erase: boolean) {
-        os._fillRectEllipses(state.layer, ellipses, true, hardness, erase);
-      },
-
-      drawLine(
-        x1: number,
-        y1: number,
-        size1: number,
-        r1: number,
-        g1: number,
-        b1: number,
-        a1: number,
-        x2: number,
-        y2: number,
-        size2: number,
-        r2: number,
-        g2: number,
-        b2: number,
-        a2: number,
-      ) {
-        const { layer } = state;
-        os._drawLine(layer, x1, y1, size1, x2, y2, size2, r1, g1, b1, a1, true);
-      },
-      setBackgroundColor(r: number, g: number, b: number, a: number = 1) {
-        os._setBackgroundColor(r, g, b, a);
-      },
-    };
-    return context;
+    const {
+      pixelHeight,
+      pixelWidth,
+      _layers,
+      _frameBufferBits,
+      _frameBufferInfo,
+    } = this;
+    const layerIds = Object.keys(_layers);
+    const tileCount =
+      layerIds.length * Object.keys(_layers.get(layerIds[0]) ?? {}).length;
+    return `WebGL ${_frameBufferInfo.writeTypeName} (${_frameBufferBits} bit): ${pixelWidth}x${pixelHeight} (${tileCount} tiles)`;
   }
 
   getLayerCount(): number {
-    return this._layers.length;
+    return Object.keys(this._layers).length;
   }
 }

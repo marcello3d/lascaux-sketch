@@ -2,11 +2,15 @@ import DrawingModel from '../data-model/DrawingModel';
 import { LascauxDomInstance, LascauxUiState } from '../Drawlet';
 import pointerEventsBridge, { EventBridge } from './pointer-events-bridge';
 import {
-  ADD_LAYER_EVENT,
   DrawletEvent,
   GOTO_EVENT,
+  PATCH_ARTBOARD_EVENT,
+  PATCH_MODE_EVENT,
 } from '../data-model/events';
 import { then } from 'promise-or-value';
+import { Artboard, UserMode } from '../DrawingDoc';
+import { diff } from 'jsondiffpatch';
+import produce, { Draft } from 'immer';
 
 export default function createLascauxDomInstance(
   drawingModel: DrawingModel,
@@ -29,10 +33,7 @@ export default function createLascauxDomInstance(
 
   const MS_PER_GOTO = 15;
 
-  const dna = drawingModel._dna;
-  const canvas = editable
-    ? drawingModel.editCanvas
-    : drawingModel.createCanvas();
+  const canvas = drawingModel.editCanvas;
 
   const handleEvent = (event: DrawletEvent, lastEvent: boolean = true) => {
     const [type, time, payload] = event;
@@ -56,7 +57,7 @@ export default function createLascauxDomInstance(
           );
           newTransform = false;
         }
-        canvas.redraw();
+        canvas.repaint();
         notifyRenderDone();
       });
     }
@@ -67,13 +68,13 @@ export default function createLascauxDomInstance(
 
   function getUiState(): LascauxUiState {
     return {
+      artboard: canvas.artboard,
+      mode: canvas.uiMode,
       cursor: canvas.targetCursor,
       strokeCount: canvas.strokeCount,
       undo: editable ? drawingModel.computeUndo() : undefined,
       redo: editable ? drawingModel.computeRedo() : undefined,
-      layerCount: canvas.layerCount,
       gotos: drawingModel.getGotoIndexes(),
-      mode: canvas.mode,
       playing,
       transform,
     };
@@ -98,7 +99,6 @@ export default function createLascauxDomInstance(
   function togglePlaying() {
     if (playing) {
       // Stop
-      console.log('stop playing');
       if (playTimer) {
         clearTimeout(playTimer);
       }
@@ -152,7 +152,7 @@ export default function createLascauxDomInstance(
     getUiState,
 
     getInfo() {
-      return drawingModel.getInfo();
+      return drawingModel.editCanvas.getInfo();
     },
 
     flush() {
@@ -163,8 +163,18 @@ export default function createLascauxDomInstance(
       return canvas.getPng();
     },
 
-    setMode(mode: string, value: any) {
-      addStroke(`%${mode}`, value);
+    mutateArtboard(recipe: (draft: Draft<Artboard>) => void) {
+      const payload = diff(canvas.artboard, produce(canvas.artboard, recipe));
+      if (payload) {
+        addStroke(PATCH_ARTBOARD_EVENT, payload);
+      }
+    },
+
+    mutateMode(recipe: (draft: Draft<UserMode>) => void) {
+      const payload = diff(canvas.uiMode, produce(canvas.uiMode, recipe));
+      if (payload) {
+        addStroke(PATCH_MODE_EVENT, payload);
+      }
     },
 
     setScale(scale: number) {
@@ -172,13 +182,6 @@ export default function createLascauxDomInstance(
         throw new Error('trying to set scale when not subscribed');
       }
       eventBridge.setScale(scale);
-    },
-
-    addLayer() {
-      const currentLayerCount = getUiState().layerCount;
-      addStroke(ADD_LAYER_EVENT);
-      addStroke('%layers', currentLayerCount + 1);
-      addStroke('%layer', currentLayerCount);
     },
 
     addGoto(cursor: number) {
@@ -198,8 +201,9 @@ export default function createLascauxDomInstance(
     subscribe() {
       eventBridge = pointerEventsBridge(
         canvas.dom,
-        dna.width,
-        dna.height,
+        // TODO: handle updates to artboard size
+        canvas.artboard.width,
+        canvas.artboard.height,
         transform,
         handleEvent,
         () => {

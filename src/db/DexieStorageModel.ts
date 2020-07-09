@@ -2,19 +2,22 @@ import Dexie from 'dexie';
 import { PromiseOrValue } from 'promise-or-value';
 
 import {
-  Metadata,
   StorageModel,
   Stroke,
   StrokePayload,
 } from '../lascaux/data-model/StorageModel';
 import { Snap } from '../lascaux/Drawlet';
 import { RgbaImage } from '../lascaux/util/rgba-image';
-import GotoMap from '../lascaux/data-model/GotoMap';
-import SnapshotMap from '../lascaux/data-model/SnapshotMap';
-import ModeMap from '../lascaux/data-model/ModeMap';
 import DrawingModel from '../lascaux/data-model/DrawingModel';
 
 import { db, DbStroke } from './db';
+
+export function getAllStrokes(drawingId: string) {
+  return db.strokes
+    .where('[drawingId+index]')
+    .between([drawingId, Dexie.minKey], [drawingId, Dexie.maxKey])
+    .toArray();
+}
 
 export class DexieStorageModel implements StorageModel {
   private snapshots: Record<number, Snap> = {};
@@ -26,15 +29,15 @@ export class DexieStorageModel implements StorageModel {
   constructor(private readonly drawingId: string) {}
 
   addSnapshot(index: number, snapshot: Snap): void {
-    this.snapshots[index] = snapshot;
-  }
-
-  addSnapshotLink(link: string, image: RgbaImage | undefined): void {
-    if (image) {
-      this.snapshotLinks[link] = image;
-    } else {
-      delete this.snapshotLinks[link];
+    const { links } = snapshot;
+    for (const linkId of Object.keys(links)) {
+      if (links[linkId]) {
+        this.snapshotLinks[linkId] = links[linkId];
+      } else {
+        delete this.snapshotLinks[linkId];
+      }
     }
+    this.snapshots[index] = snapshot;
   }
 
   addStroke(type: string, time: number, payload: StrokePayload): void {
@@ -50,10 +53,7 @@ export class DexieStorageModel implements StorageModel {
   flush(): void {}
 
   async replay(model: DrawingModel): Promise<void> {
-    const strokes = await db.strokes
-      .where('[drawingId+index]')
-      .between([this.drawingId, Dexie.minKey], [this.drawingId, Dexie.maxKey])
-      .toArray();
+    const strokes = await getAllStrokes(this.drawingId);
 
     this.strokeCount = 0;
     this.strokeCache = {};
@@ -69,15 +69,6 @@ export class DexieStorageModel implements StorageModel {
       lastPromise = model.addStroke(type, time, payload);
     }
     return lastPromise;
-  }
-
-  async getMetadata(initialMode: object): Promise<Metadata> {
-    return {
-      strokeCount: 0,
-      gotoMap: new GotoMap(),
-      modeMap: new ModeMap(initialMode),
-      snapshotMap: new SnapshotMap(this),
-    };
   }
 
   getSnapshot(index: number): Snap {

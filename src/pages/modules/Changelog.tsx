@@ -5,6 +5,14 @@ import styles from './Changelog.module.css';
 export function Changelog() {
   return (
     <div className={styles.changelog}>
+      <h3>2020-07-08</h3>
+      <ul>
+        <li>New internal drawing format</li>
+        <li>Add ability to rename layers</li>
+        <li>Export/import raw drawing JSON</li>
+        <li>Improve stroke rendering</li>
+      </ul>
+
       <h3>2020-06-28</h3>
       <ul>
         <li>Fix erasing on first layer (all layers are RGBA now)</li>

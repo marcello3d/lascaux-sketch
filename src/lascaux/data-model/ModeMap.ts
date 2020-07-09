@@ -1,29 +1,28 @@
-export default class ModeMap<Mode extends object> {
+import { UserMode } from '../DrawingDoc';
+
+export default class ModeMap {
   private _indexes: number[] = [];
-  private _modeMap: Record<number, Mode> = {};
-  private _lastStrokeIndex = -1;
-  constructor(initialMode?: Mode) {
-    if (initialMode) {
-      this._lastStrokeIndex = -2;
-      this.addMode(-1, initialMode);
-    }
+  private _modeMap: Record<number, UserMode> = {};
+  private _lastStrokeIndex = -2;
+  constructor(initialMode: UserMode) {
+    this.addMode(-1, initialMode);
   }
 
-  addMode(strokeIndex: number, payload: any): void {
+  addMode(strokeIndex: number, mode: UserMode): void {
+    if (mode === this._modeMap[this._lastStrokeIndex]) {
+      return;
+    }
     if (strokeIndex <= this._lastStrokeIndex) {
       throw new Error('modes must be added in order');
     }
 
-    const modes = this._indexes;
-    const lastMode = this._modeMap[modes[modes.length - 1]] || {};
-    modes.push(strokeIndex);
-
-    this._modeMap[strokeIndex] = { ...lastMode, ...payload };
+    this._indexes.push(strokeIndex);
+    this._modeMap[strokeIndex] = mode;
 
     this._lastStrokeIndex = strokeIndex;
   }
 
-  getMode(strokeIndex: number): Mode {
+  getMode(strokeIndex: number): UserMode {
     const modes = this._indexes;
     // binary search mode map
     let min = 0;
@@ -39,6 +38,10 @@ export default class ModeMap<Mode extends object> {
         return this._modeMap[modeIndex];
       }
     }
-    return {} as Mode;
+    throw new Error(`could not load mode for ${strokeIndex}`);
+  }
+
+  getLatestMode() {
+    return this._modeMap[this._lastStrokeIndex];
   }
 }

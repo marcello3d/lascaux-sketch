@@ -1,18 +1,8 @@
 import { RgbaImage } from './util/rgba-image';
 import { PromiseOrValue } from 'promise-or-value';
-import { Dna, DrawingMode, DrawingState } from './dna';
-
-export type InitContext = {
-  dna: Dna;
-  random: () => number;
-};
-
-export type DrawContext = {
-  dna: Dna;
-  mode: DrawingMode;
-  state: DrawingState;
-  random: () => number;
-};
+import { DrawingState } from './legacy-model';
+import { Artboard, IdMap, UserMode } from './DrawingDoc';
+import { Draft } from 'immer';
 
 /** x, y, w, h, r, g, b, a */
 export type Rect = readonly [
@@ -27,40 +17,10 @@ export type Rect = readonly [
 ];
 export type Rects = readonly Rect[];
 
-export type DrawingContext = {
-  addLayer(): void;
-
-  setLayer(layer: number): void;
-
-  fillRects(rects: Rects): void;
-  fillEllipses(ellipses: Rects, hardness: number, erase?: boolean): void;
-  drawLine(
-    x1: number,
-    y1: number,
-    size1: number,
-    r1: number,
-    g1: number,
-    b1: number,
-    a1: number,
-    x2: number,
-    y2: number,
-    size2: number,
-    r2: number,
-    g2: number,
-    b2: number,
-    a2: number,
-  ): void;
-  setBackgroundColor(r: number, g: number, b: number, a?: number): void;
-};
-
-export type DrawletInitializeFn = (
-  context: InitContext,
-  canvas?: DrawingContext,
-) => DrawingMode;
-
 export type DrawletHandleFn = (
-  context: DrawContext,
-  canvas: DrawingContext,
+  mode: UserMode,
+  state: DrawingState,
+  ctx: DrawingContext,
   event: string,
   payload: any,
 ) => void;
@@ -70,36 +30,44 @@ export type GetLinkFn = (link: string) => PromiseOrValue<RgbaImage | undefined>;
 export type Snap = {
   snapshot: Snapshot;
   links: Links;
-  state?: object;
+  artboard: Artboard;
+  state: DrawingState;
 };
 
-export interface DrawBackend {
-  initialize(): void;
-  getSnapshot(): Snap;
+export interface DrawingContext {
+  reset(artboard: Artboard): void;
+  setArtboard(artboard: Artboard): void;
+  getSnapshotAndLinks(): SnapshotAndLinks;
   getPng(): Promise<Blob>;
-  getDrawingContext(): DrawingContext;
+  fillEllipses(
+    layer: string,
+    rects: Rects,
+    hardness: number,
+    erase: boolean,
+  ): void;
   loadSnapshot(snapshot: Snapshot, getLink: GetLinkFn): PromiseOrValue<void>;
   getDom(): HTMLCanvasElement;
-  saveRect(layer: number, x: number, y: number, w: number, h: number): void;
-  afterExecute(): void;
+  repaint(): void;
   setTransform(translateX: number, translateY: number, scale: number): void;
   getInfo(): string | undefined;
   getLayerCount(): number;
 }
 
-export type Snapshot = {
-  tiles: Tiles;
+export type Snapshot = Readonly<{
+  layers: IdMap<Tiles>;
   tileSize: number;
-  layers: number;
+}>;
+export type SnapshotAndLinks = {
+  snapshot: Snapshot;
+  links: Links;
 };
-export type Links = Record<string, RgbaImage>;
-export type Tile = {
-  layer: number;
+export type Tiles = IdMap<Tile>;
+export type Links = IdMap<RgbaImage>;
+export type Tile = Readonly<{
   x: number;
   y: number;
   link: string | null;
-};
-export type Tiles = Record<string, Tile>;
+}>;
 
 export type Transform = {
   translateX: number;
@@ -107,14 +75,17 @@ export type Transform = {
   scale: number;
 };
 export type LascauxUiState = {
+  artboard: Artboard;
+  mode: UserMode;
+
+  playing: boolean;
   cursor: number;
   strokeCount: number;
-  layerCount: number;
+
   undo: number | undefined;
   redo: number | undefined;
   gotos: number[];
-  mode: DrawingMode;
-  playing: boolean;
+
   transform: Transform;
 };
 
@@ -123,9 +94,9 @@ export type LascauxDomInstance = {
   getUiState(): LascauxUiState;
   getPng(): Promise<Blob>;
   flush(): void;
-  setMode(mode: string, value: any): void;
+  mutateArtboard(recipe: (draft: Draft<Artboard>) => void): void;
+  mutateMode(recipe: (draft: Draft<UserMode>) => void): void;
   setScale(scale: number): void;
-  addLayer(): void;
   addGoto(cursor: number): void;
   setPlaying(playing: boolean): void;
   seekTo(cursor: number): void;
