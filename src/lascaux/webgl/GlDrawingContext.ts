@@ -635,12 +635,12 @@ export class GlDrawingContext implements DrawingContext {
       if (!exportMode) {
         gl.enable(gl.SCISSOR_TEST);
         // Only clear the area where the drawing will be
-        gl.scissor(
-          Math.floor(x),
-          Math.floor(gl.drawingBufferHeight - y - h),
-          Math.floor(w),
-          Math.floor(h),
-        );
+        const yy = gl.drawingBufferHeight - y - h;
+        const x1 = Math.round(x);
+        const y1 = Math.round(yy);
+        const x2 = Math.round(w + x);
+        const y2 = Math.round(h + yy);
+        gl.scissor(x1, y1, x2 - x1, y2 - y1);
       }
       const [r, g, b, a] = baseColor;
       gl.clearColor(r, g, b, a);
