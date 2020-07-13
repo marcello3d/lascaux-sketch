@@ -1,7 +1,6 @@
-import { MutableRefObject, useEffect } from 'react';
+import { MutableRefObject, useLayoutEffect, useRef } from 'react';
 
 type Options = {
-  enabled?: boolean;
   capture?: boolean;
   once?: boolean;
   passive?: boolean;
@@ -11,29 +10,26 @@ export default function useEventEffect<E extends Event>(
   elementOrRef: MutableRefObject<any> | EventTarget | undefined | null,
   type: string,
   listener: (e: E) => any,
-  {
-    enabled = true,
-    capture = undefined,
-    once = undefined,
-    passive = undefined,
-  }: Options = {},
+  { capture = undefined, once = undefined, passive = undefined }: Options = {},
 ) {
-  useEffect(() => {
-    if (!elementOrRef || !enabled) {
+  const listenerRef = useRef(listener as EventListener);
+  useLayoutEffect(() => {
+    listenerRef.current = listener as EventListener;
+  }, [listener]);
+  useLayoutEffect(() => {
+    if (!elementOrRef) {
       return undefined;
     }
     const element =
       'addEventListener' in elementOrRef ? elementOrRef : elementOrRef.current;
-    element.addEventListener(type, listener as EventListener, {
-      capture,
-      once,
-      passive,
-    });
+    if (!element) {
+      return undefined;
+    }
+    const l = listenerRef.current;
+    element.addEventListener(type, l, { capture, once, passive });
 
     return () => {
-      element.removeEventListener(type, listener as EventListener, {
-        capture,
-      });
+      element.removeEventListener(type, l, { capture });
     };
-  }, [enabled, elementOrRef, type, capture, once, passive, listener]);
+  }, [elementOrRef, type, capture, once, passive]);
 }

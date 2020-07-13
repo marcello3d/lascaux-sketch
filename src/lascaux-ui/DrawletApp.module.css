@@ -29,6 +29,7 @@
   z-index: 1;
   color: #fff;
   background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(5px);
 }
 .left {
   display: flex;
