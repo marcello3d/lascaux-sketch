@@ -1,14 +1,17 @@
-import React, { useCallback, useState } from 'react';
-import shortid from 'shortid';
+import React, { useCallback, useMemo, useState } from 'react';
 import classNames from 'classnames';
 
 import styles from './Slider.module.css';
+import { clamp } from '../lascaux/util/clipping';
+import useEventEffect from '../react-hooks/useEventEffect';
 
 type Props = {
+  label?: string;
   min: number;
   max: number;
   step?: number;
   value: number;
+  valueLabel?: string;
   marks?: number[];
   onChange: (value: number) => void;
   onAfterChange?: (value: number) => void;
@@ -17,54 +20,159 @@ type Props = {
 
 export function Slider({
   className,
+  label,
   min,
   max,
   step = 1,
   marks,
   value,
+  valueLabel = String(value),
   onChange,
   onAfterChange,
 }: Props) {
-  const [linkid] = useState(() => shortid());
-  const [dragStart, setDragging] = useState<number | undefined>(undefined);
+  const [dragRect, setDragging] = useState<DOMRect | undefined>(undefined);
   const scale = 1 / step;
-  const handleStart = useCallback(() => setDragging(value), [value]);
-  const handleEnd = useCallback(() => {
-    if (value !== dragStart) {
-      onAfterChange?.(value);
-    }
-    setDragging(undefined);
-  }, [value, dragStart, onAfterChange]);
-  const handleChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      onChange(parseInt(event.target.value, 10) / scale);
-      if (dragStart === undefined) {
-        onAfterChange?.(value);
+
+  const computeValue = useCallback(
+    (event: React.MouseEvent | MouseEvent, rect: DOMRect) => {
+      const rawValue = ((event.clientX - rect.x) / rect.width) * (max - min);
+      return clamp(Math.floor(rawValue * scale) / scale + min, min, max);
+    },
+    [max, min, scale],
+  );
+
+  const onPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      event.currentTarget.focus();
+      const rect = event.currentTarget.getBoundingClientRect();
+      setDragging(rect);
+      onChange(computeValue(event, rect));
+    },
+    [computeValue, onChange],
+  );
+
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      let newValue = value;
+      const stepAmount = step * (event.shiftKey ? 10 : 1);
+      switch (event.key) {
+        case 'ArrowUp':
+        case 'ArrowRight':
+          newValue += stepAmount;
+          break;
+        case 'PageUp':
+          newValue += stepAmount * 10;
+          break;
+        case 'PageDown':
+          newValue -= stepAmount * 10;
+          break;
+        case 'ArrowLeft':
+        case 'ArrowDown':
+          newValue -= stepAmount;
+          break;
+        case 'Home':
+          newValue = min;
+          break;
+        case 'End':
+          newValue = max;
+          break;
+      }
+      newValue = clamp(newValue, min, max);
+      if (value !== newValue) {
+        onChange(newValue);
       }
     },
-    [dragStart, onAfterChange, onChange, scale, value],
+    [max, min, onChange, step, value],
   );
+
+  const onKeyUp = useCallback(
+    (event: React.KeyboardEvent) => {
+      switch (event.key) {
+        case 'ArrowUp':
+        case 'ArrowRight':
+        case 'ArrowLeft':
+        case 'ArrowDown':
+          onAfterChange?.(value);
+          break;
+      }
+    },
+    [onAfterChange, value],
+  );
+
+  useEventEffect(
+    dragRect ? window : undefined,
+    'pointermove',
+    (event: PointerEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (dragRect) {
+        onChange(computeValue(event, dragRect));
+      }
+    },
+    { capture: true },
+  );
+  const onPointerUp = (event: PointerEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (onAfterChange && dragRect) {
+      onAfterChange(computeValue(event, dragRect));
+    }
+    setDragging(undefined);
+  };
+  useEventEffect(dragRect ? window : undefined, 'pointerup', onPointerUp, {
+    capture: true,
+  });
+  useEventEffect(dragRect ? window : undefined, 'pointercancel', onPointerUp, {
+    capture: true,
+  });
+  useEventEffect(
+    dragRect ? window : undefined,
+    'touchmove',
+    (event: MouseEvent) => {
+      event.preventDefault();
+    },
+    { passive: false },
+  );
+
+  const thumbStyle = useMemo(
+    () => ({
+      left: `${clamp((100 * (value - min)) / (max - min), 0, 100)}%`,
+    }),
+    [max, min, value],
+  );
+  const markDivs = useMemo(
+    () =>
+      marks?.map((mark) => (
+        <div
+          key={mark}
+          className={styles.mark}
+          style={{
+            left: `${clamp((100 * (mark - min)) / (max - min), 0, 100)}%`,
+          }}
+        />
+      )),
+    [marks, max, min],
+  );
+
   return (
-    <>
-      <input
-        type="range"
-        className={classNames(styles.slider, className)}
-        min={min * scale}
-        max={max * scale}
-        step={step * scale}
-        value={value * scale}
-        onPointerDown={handleStart}
-        onPointerUp={handleEnd}
-        onChange={handleChange}
-        list={marks ? linkid : undefined}
-      />
-      {marks && (
-        <datalist id={linkid}>
-          {marks.map((mark) => (
-            <option key={mark} value={mark * scale} />
-          ))}
-        </datalist>
-      )}
-    </>
+    <div
+      className={classNames(styles.slider, className)}
+      role="slider"
+      aria-label={label}
+      aria-orientation="horizontal"
+      aria-valuenow={value}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuetext={valueLabel}
+      onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
+      onKeyUp={onKeyUp}
+      tabIndex={0}
+    >
+      <div className={styles.thumb} style={thumbStyle} />
+      <div className={styles.label}>{label}</div>
+      <div className={styles.valueLabel}>{valueLabel}</div>
+      {markDivs}
+    </div>
   );
 }

@@ -62,6 +62,8 @@ type Props = {
   drawingModel: DrawingModel;
 };
 
+const numberFormat = new Intl.NumberFormat();
+
 export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
   const drawletContainerRef = useRef<HTMLDivElement>(null);
   const [updateObjectState, setUpdateObject] = useState<LascauxUiState | null>(
@@ -168,84 +170,6 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
     }
   }, [canvasInstance, redo]);
 
-  const sizeSlider = useMemo(
-    () => (
-      <Slider
-        min={1}
-        max={100}
-        value={brushSize}
-        onChange={setTempBrushSize}
-        onAfterChange={setBrushSize}
-      />
-    ),
-    [brushSize, setBrushSize, setTempBrushSize],
-  );
-  const flowSlider = useMemo(
-    () => (
-      <Slider
-        min={0.01}
-        max={1.0}
-        step={0.01}
-        value={brushFlow}
-        onChange={setTempBrushFlow}
-        onAfterChange={setBrushFlow}
-      />
-    ),
-    [brushFlow, setBrushFlow, setTempBrushFlow],
-  );
-  const spacingSlider = useMemo(
-    () => (
-      <Slider
-        min={0.005}
-        max={0.25}
-        step={0.005}
-        value={brushSpacing}
-        onChange={setTempBrushSpacing}
-        onAfterChange={setBrushSpacing}
-      />
-    ),
-    [brushSpacing, setBrushSpacing, setTempBrushSpacing],
-  );
-  const hardnessSlider = useMemo(
-    () => (
-      <Slider
-        min={0.0}
-        max={1.0}
-        step={0.01}
-        value={brushHardness}
-        onChange={setTempBrushHardness}
-        onAfterChange={setBrushHardness}
-      />
-    ),
-    [brushHardness, setBrushHardness, setTempBrushHardness],
-  );
-  const zoomSlider = useMemo(
-    () => (
-      <Slider
-        min={0.1}
-        step={0.05}
-        marks={[1]}
-        max={5}
-        value={transform.scale}
-        onChange={setScale}
-      />
-    ),
-    [setScale, transform.scale],
-  );
-  const playbackSlider = useMemo(
-    () => (
-      <Slider
-        min={0}
-        step={1}
-        max={strokeCount}
-        value={cursor}
-        onChange={seek}
-        className={styles.cursorSlider}
-      />
-    ),
-    [strokeCount, cursor, seek],
-  );
-
   const onSelectLayer = useCallback(
     (layerId: string) => {
       canvasInstance.mutateMode((draft) => {
@@ -323,7 +247,16 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
             alt={playing ? 'Pause' : 'Play'}
           />
         </Button>
-        {playbackSlider}
+        <Slider
+          label="Drawing Playback"
+          min={0}
+          step={1}
+          max={strokeCount}
+          value={cursor}
+          valueLabel={numberFormat.format(cursor)}
+          onChange={seek}
+          className={styles.cursorSlider}
+        />
         <Button disabled={undo === undefined} onClick={onUndo}>
           <Icon file={UndoIcon} alt="Undo icon" />
           Undo
@@ -346,34 +279,55 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
           </label>
         </div>
         <ColorChooser color={mode.color} onChangeColor={onChangeColor} />
-        <label className={styles.toolLabel}>
-          Size <span className={styles.value}>{brushSize}</span>
-        </label>
-        {sizeSlider}
-        <label className={styles.toolLabel}>
-          Opacity{' '}
-          <span className={styles.value}>{(brushFlow * 100).toFixed(0)}%</span>
-        </label>
-        {flowSlider}
-        <label className={styles.toolLabel}>
-          Spacing{' '}
-          <span className={styles.value}>{brushSpacing.toFixed(2)}x</span>
-        </label>
-        {spacingSlider}
-        <label className={styles.toolLabel}>
-          Hardness{' '}
-          <span className={styles.value}>
-            {(brushHardness * 100).toFixed(0)}%
-          </span>
-        </label>
-        {hardnessSlider}
-        <label className={styles.toolLabel}>
-          Zoom{' '}
-          <span className={styles.value}>
-            {(transform.scale * 100).toFixed(0)}%
-          </span>
-        </label>
-        {zoomSlider}
+        <Slider
+          label="Size"
+          min={1}
+          max={100}
+          value={brushSize}
+          valueLabel={`${brushSize}px`}
+          onChange={setTempBrushSize}
+          onAfterChange={setBrushSize}
+        />
+        <Slider
+          label="Opacity"
+          min={0.01}
+          max={1.0}
+          step={0.01}
+          value={brushFlow}
+          valueLabel={`${(brushFlow * 100).toFixed(0)}%`}
+          onChange={setTempBrushFlow}
+          onAfterChange={setBrushFlow}
+        />
+        <Slider
+          label="Spacing"
+          min={0.005}
+          max={0.25}
+          step={0.005}
+          value={brushSpacing}
+          valueLabel={`${brushSpacing.toFixed(2)}x`}
+          onChange={setTempBrushSpacing}
+          onAfterChange={setBrushSpacing}
+        />
+        <Slider
+          label="Hardness"
+          min={0.0}
+          max={1.0}
+          step={0.01}
+          value={brushHardness}
+          valueLabel={`${(brushHardness * 100).toFixed(0)}%`}
+          onChange={setTempBrushHardness}
+          onAfterChange={setBrushHardness}
+        />
+        <Slider
+          label="Zoom"
+          min={0.1}
+          step={0.05}
+          marks={[1]}
+          max={5}
+          value={transform.scale}
+          valueLabel={`${(transform.scale * 100).toFixed(0)}%`}
+          onChange={setScale}
+        />
         <label className={styles.toolLabel}>Layers</label>
         <span className={styles.layers}>
           <LayerList
