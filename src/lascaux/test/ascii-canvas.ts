@@ -1,4 +1,4 @@
-export default class AsciiCanvas {
+export class AsciiCanvas {
   private _width: number;
   private _height: number;
   private _canvas: string[];
