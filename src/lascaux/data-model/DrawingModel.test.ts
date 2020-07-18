@@ -103,4 +103,28 @@ describe('DrawingModel', () => {
       ]
     `);
   });
+  it('handles edit after seek', async () => {
+    const { events, drawing } = mockDrawingModel({ snapshotStrokeCount: 1 });
+    drawing.addStroke('%cursor', 0, { type: 'pen' });
+    drawing.addStroke('start', 0, { x: 0, y: 0 });
+    drawing.addStroke('draw', 0, { x: 100, y: 0 });
+    drawing.addStroke('draw', 0, { x: 100, y: 100 });
+    drawing.addStroke('end', 0, {});
+    drawing.editCanvas.goto(0);
+    drawing.addStroke('start', 0, { x: 0, y: 0 });
+    drawing.addStroke('draw', 0, { x: 100, y: 100 });
+    drawing.addStroke('end', 0, {});
+    await drawing.flush();
+    expect(events).toMatchInlineSnapshot(`
+      Array [
+        "2: start {x:0,y:0}",
+        "3: draw {x:100,y:0}",
+        "4: draw {x:100,y:100}",
+        "5: end {}",
+        "7: start {x:0,y:0}",
+        "8: draw {x:100,y:100}",
+        "9: end {}",
+      ]
+    `);
+  });
 });

@@ -100,9 +100,6 @@ export default class DrawingModel {
       return;
     }
     const next = this._queue.shift()!;
-    if (typeof next === 'function') {
-      return this.processQueue();
-    }
     const { eventType, time, payload } = next;
 
     const targetCursor = this.editCanvas.targetCursor;
