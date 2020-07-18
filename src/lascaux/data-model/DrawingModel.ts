@@ -47,7 +47,7 @@ export default class DrawingModel {
     this._strokeCount = 0;
     this._drawingCursor = 0;
     this._gotoMap = new GotoMap();
-    this._snapshotMap = new SnapshotMap(storageModel);
+    this._snapshotMap = new SnapshotMap();
     this._snapshotStrokeCount = snapshotStrokeCount;
     this._strokesSinceSnapshot = 0;
     this.editCanvas = new CanvasModel(this, artboard, mode);
@@ -63,7 +63,8 @@ export default class DrawingModel {
   snapshot() {
     const cursor = this._strokeCount;
     this._strokesSinceSnapshot = 0;
-    return this._snapshotMap.addSnapshot(cursor, this.editCanvas.getSnap());
+    this._snapshotMap.addSnapshot(cursor);
+    return this._storageModel.addSnapshot(cursor, this.editCanvas.getSnap());
   }
 
   flush() {

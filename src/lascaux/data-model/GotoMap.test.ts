@@ -102,6 +102,10 @@ describe('GotoMap', () => {
 });
 
 describe('GotoMap errors', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
   it('goto 2,2 should fail', () => {
     expect(makeGotoMap([[2, 2]])._gotos).toEqual([]);
   });
@@ -140,6 +144,15 @@ describe('GotoMap errors', () => {
   });
 });
 
+describe('GotoMap.getGotoIndexes', () => {
+  it('errors', () => {
+    const map = makeGotoMap([
+      [2, 0],
+      [4, 0],
+    ]);
+    expect(map.getGotoIndexes()).toEqual([2, 4]);
+  });
+});
 describe('GotoMap.planGoto', () => {
   it('errors', () => {
     const map = makeGotoMap([
