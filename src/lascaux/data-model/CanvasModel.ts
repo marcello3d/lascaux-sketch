@@ -20,7 +20,7 @@ import { safeMode } from '../DrawingDocUtil';
 
 export class CanvasModel {
   private readonly _ctx: DrawingContext;
-  private readonly _modeMap: ModeMap;
+  private readonly _modeMap: ModeMap<UserMode>;
 
   private _artboard: Artboard;
   private _inGoto: boolean;
@@ -34,7 +34,7 @@ export class CanvasModel {
     private readonly initialMode: UserMode,
   ) {
     this._artboard = initialArtboard;
-    this._modeMap = new ModeMap(initialMode);
+    this._modeMap = new ModeMap<UserMode>(initialMode);
     this._ctx = new GlDrawingContext(initialArtboard);
     this._inGoto = false;
     this.reset();

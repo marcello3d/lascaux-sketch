@@ -114,4 +114,20 @@ describe('ModeMap.getMode', () => {
     expect(modeMap.getMode(1)).toEqual({});
     expect(modeMap.getMode(2)).toEqual({ foo: 1 });
   });
+  it('negative mode', () => {
+    const modeMap = makeModeMap([[1, { foo: 1 }]]);
+    expect(() => modeMap.getMode(-10)).toThrowError(
+      'could not load mode for -10',
+    );
+  });
+});
+
+describe('ModeMap.getLatestMode', () => {
+  it('gets the latest mode', () => {
+    const modeMap = makeModeMap([
+      [1, { foo: 1 }],
+      [3, { foo: 2 }],
+    ]);
+    expect(modeMap.getLatestMode()).toEqual({ foo: 2 });
+  });
 });

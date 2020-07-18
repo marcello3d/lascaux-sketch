@@ -1,4 +1,4 @@
-import React, { ErrorInfo } from 'react';
+import React from 'react';
 import * as Sentry from '@sentry/browser';
 
 type Props = {
