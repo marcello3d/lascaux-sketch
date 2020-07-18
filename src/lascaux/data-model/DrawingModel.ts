@@ -36,10 +36,9 @@ export default class DrawingModel {
     snapshotStrokeCount = 5000,
   }: {
     doc: DrawingDoc;
-    editable: boolean;
     storageModel: StorageModel;
     handleCommand: DrawletHandleFn;
-    snapshotStrokeCount: number;
+    snapshotStrokeCount?: number;
   }) {
     this._storageModel = storageModel;
     this._handleCommand = handleCommand;
