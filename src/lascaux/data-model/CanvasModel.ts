@@ -1,5 +1,5 @@
 import produce from 'immer';
-import { PromiseOrValue } from 'promise-or-value';
+import { PromiseOrValue, then } from 'promise-or-value';
 
 import { DrawingContext, Snap } from '../Drawlet';
 import { Artboard, UserMode } from '../DrawingDoc';
@@ -100,20 +100,29 @@ export class CanvasModel {
   ): PromiseOrValue<void> {
     this._targetCursor = cursor;
     if (eventType === GOTO_EVENT) {
+      if (payload >= cursor) {
+        throw new Error(`payload >= cursor (${payload} >= ${cursor})`);
+      }
       return this._goto(payload);
     }
-    this._cursor = cursor;
-    this.execute(eventType, payload, true);
-    this._ctx.repaint();
+    this.execute(cursor, eventType, payload, true);
   }
 
-  private execute(eventType: string, payload: any, adding: boolean) {
+  private execute(
+    cursor: number,
+    eventType: string,
+    payload: any,
+    adding: boolean,
+  ) {
+    this._cursor = cursor;
     switch (eventType) {
       case GOTO_EVENT:
-        return;
+        throw new Error('unexpected goto');
+
       case PATCH_ARTBOARD_EVENT:
         this.setArtboard(immerPatch(this._artboard, payload));
         return;
+
       case PATCH_MODE_EVENT:
         if (adding) {
           this.setCursorMode(immerPatch(this.cursorMode, payload));
@@ -166,8 +175,15 @@ export class CanvasModel {
   }
 
   goto(targetCursor: number): PromiseOrValue<void> {
+    if (targetCursor > this.strokeCount) {
+      throw new Error(
+        `targetCursor > this.strokeCount (${targetCursor} > ${this.strokeCount})`,
+      );
+    }
     this._targetCursor = targetCursor;
-    return this._goto(targetCursor);
+    return then(this._goto(targetCursor), () => {
+      this.repaint();
+    });
   }
 
   async _goto(targetCursor: number): Promise<void> {
@@ -217,10 +233,7 @@ export class CanvasModel {
       // Don't bother loading snapshot if we're not going to skip more than 100 steps with it
       // (This is very common when playing back!)
       const MIN_STEP_SKIP = 750;
-      if (
-        nearestSnapshotIndex !== 0 &&
-        nearestSnapshotIndex > this._cursor + MIN_STEP_SKIP
-      ) {
+      if (nearestSnapshotIndex > this._cursor + MIN_STEP_SKIP) {
         await loadSnapshot(nearestSnapshotIndex);
       }
     }
@@ -232,11 +245,10 @@ export class CanvasModel {
       }
       const { type, payload } = stroke;
       if (!isSkipped(skips, this._cursor++)) {
-        this.execute(type, payload, false);
+        this.execute(this._cursor, type, payload, false);
       }
     }
 
-    this._ctx.repaint();
     this._inGoto = false;
   }
 
