@@ -244,7 +244,7 @@ export class CanvasModel {
         stroke = await stroke;
       }
       const { type, payload } = stroke;
-      if (!isSkipped(skips, this._renderCursor)) {
+      if (type !== GOTO_EVENT && !isSkipped(skips, this._renderCursor)) {
         this.execute(this._renderCursor, type, payload, false);
       }
       this._renderCursor++;

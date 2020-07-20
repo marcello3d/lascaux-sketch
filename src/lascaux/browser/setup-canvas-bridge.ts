@@ -39,11 +39,11 @@ export default function createLascauxDomInstance(
     const [type, time, payload] = event;
     const pov = drawingModel.addStroke(type, time, payload);
     if (lastEvent) {
-      then(pov, requestRepaint, Promise.reject);
+      then(pov, requestRepaint);
     }
   };
 
-  then(canvas.gotoEnd(), requestRepaint, Promise.reject);
+  then(canvas.gotoEnd(), requestRepaint);
 
   function requestRepaint() {
     if (!requestedAnimation) {

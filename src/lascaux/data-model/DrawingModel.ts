@@ -128,7 +128,6 @@ export default class DrawingModel {
         }
         return this.processQueue();
       },
-      Promise.reject,
     );
   }
 

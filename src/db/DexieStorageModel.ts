@@ -46,8 +46,8 @@ export class DexieStorageModel implements StorageModel {
     time: number,
     payload: StrokePayload,
   ): void {
-    if (index !== this.strokeCount + 1) {
-      throw new Error('out of order stroke');
+    if (index !== this.strokeCount) {
+      throw new Error(`out of order stroke (${index} !== ${this.strokeCount})`);
     }
     this.strokeCount++;
     const stroke = { drawingId: this.drawingId, index, type, time, payload };
