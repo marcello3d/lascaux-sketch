@@ -61,6 +61,7 @@ describe('DrawingModel.addStroke basic', () => {
     drawing.addStroke('draw', 0, { x: 100, y: 100 });
     drawing.addStroke('end', 0, {});
     await drawing.flush();
+    expect(drawing.strokeCount).toBe(5);
     expect(events).toMatchInlineSnapshot(`
       Array [
         "  addStroke: 0: %cursor {type:pen}",
@@ -86,8 +87,6 @@ describe('DrawingModel.addStroke basic', () => {
         "  addStroke: 3: draw {x:100,y:100}",
         "     handle: 4: end {}",
         "  addStroke: 4: end {}",
-        "  getStroke: 4",
-        "     handle: 5: end {}",
       ]
     `);
   });
@@ -251,6 +250,13 @@ describe('CanvasModel.goto', () => {
   });
 });
 
+describe('DrawingModel.planGoto', () => {
+  it('plans from 0 to 0', () => {
+    const { drawing } = mockDrawingModel({});
+    expect(drawing.planGoto(0, 0)).toEqual({});
+  });
+});
+
 describe('weird bug case', () => {
   // What I want to test is how strokes get replayed after rewinding.
   it('replaying', async () => {
@@ -290,13 +296,13 @@ describe('weird bug case', () => {
         "  addStroke: 8: end {}",
         "  getStroke: 0",
         "  getStroke: 1",
-        "     handle: 2: start {x:0,y:0}",
+        "     handle: 1: start {x:0,y:0}",
         "  getStroke: 2",
-        "     handle: 3: draw {x:100,y:0}",
+        "     handle: 2: draw {x:100,y:0}",
         "  getStroke: 3",
-        "     handle: 4: draw {x:100,y:100}",
+        "     handle: 3: draw {x:100,y:100}",
         "  getStroke: 4",
-        "     handle: 5: end {}",
+        "     handle: 4: end {}",
         "  addStroke: 9: !goto 5",
         "     handle: 10: start {x:20,y:20}",
         "  addStroke: 10: start {x:20,y:20}",
@@ -306,5 +312,60 @@ describe('weird bug case', () => {
         "  addStroke: 12: end {}",
       ]
     `);
+  });
+});
+
+describe('DrawingModel.computeUndo', () => {
+  it('has nothing to undo on empty doc', async () => {
+    const { drawing } = mockDrawingModel({});
+    expect(drawing.computeUndo()).toEqual(undefined);
+  });
+  it('computes undo properly', async () => {
+    const { drawing } = mockDrawingModel({});
+    drawing.addStroke('%cursor', 0, { type: 'pen' });
+    drawing.addStroke('start', 0, { x: 0, y: 0 });
+    drawing.addStroke('end', 0, {});
+    drawing.addStroke('start', 0, { x: 0, y: 0 });
+    drawing.addStroke('end', 0, {});
+    expect(drawing.computeUndo()).toEqual(3);
+  });
+});
+
+describe('DrawingModel.computeRedo', () => {
+  it('nothing to redo', async () => {
+    const { drawing } = mockDrawingModel({});
+    drawing.addStroke('%cursor', 0, { type: 'pen' });
+    drawing.addStroke('start', 0, { x: 0, y: 0 });
+    drawing.addStroke('draw', 0, { x: 100, y: 0 });
+    drawing.addStroke('draw', 0, { x: 100, y: 100 });
+    drawing.addStroke('end', 0, {});
+    expect(drawing.computeRedo()).toEqual(undefined);
+  });
+  it('something to redo', async () => {
+    const { drawing } = mockDrawingModel({});
+    drawing.addStroke('%cursor', 0, { type: 'pen' });
+    drawing.addStroke('start', 0, { x: 0, y: 0 });
+    drawing.addStroke('draw', 0, { x: 100, y: 0 });
+    drawing.addStroke('draw', 0, { x: 100, y: 100 });
+    drawing.addStroke('end', 0, {});
+    drawing.addStroke('!goto', 0, 3);
+    expect(drawing.computeRedo()).toEqual(5);
+  });
+});
+
+describe('DrawingModel.getInfo', () => {
+  it('to return context info', async () => {
+    const { drawing } = mockDrawingModel({});
+    expect(drawing.getInfo()).toEqual(undefined);
+  });
+  it('something to redo', async () => {
+    const { drawing } = mockDrawingModel({});
+    drawing.addStroke('%cursor', 0, { type: 'pen' });
+    drawing.addStroke('start', 0, { x: 0, y: 0 });
+    drawing.addStroke('draw', 0, { x: 100, y: 0 });
+    drawing.addStroke('draw', 0, { x: 100, y: 100 });
+    drawing.addStroke('end', 0, {});
+    drawing.addStroke('!goto', 0, 3);
+    expect(drawing.computeRedo()).toEqual(5);
   });
 });

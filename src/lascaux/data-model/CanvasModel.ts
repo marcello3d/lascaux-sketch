@@ -1,5 +1,5 @@
 import produce from 'immer';
-import { PromiseOrValue, then } from 'promise-or-value';
+import { PromiseOrValue } from 'promise-or-value';
 
 import { DrawingContext, Snap } from '../Drawlet';
 import { Artboard, UserMode } from '../DrawingDoc';
@@ -98,16 +98,16 @@ export class CanvasModel {
 
   addStroke(index: number, eventType: string, payload: any): void {
     this.execute(index, eventType, payload, true);
-    this._targetCursor = index + 1;
+    this._renderCursor = this._targetCursor = index + 1;
   }
 
   private execute(
-    cursor: number,
+    index: number,
     eventType: string,
     payload: any,
     adding: boolean,
   ): void {
-    this._renderCursor = cursor;
+    this._renderCursor = index;
     switch (eventType) {
       case GOTO_EVENT:
         throw new Error('unexpected goto');
@@ -244,9 +244,10 @@ export class CanvasModel {
         stroke = await stroke;
       }
       const { type, payload } = stroke;
-      if (!isSkipped(skips, this._renderCursor++)) {
+      if (!isSkipped(skips, this._renderCursor)) {
         this.execute(this._renderCursor, type, payload, false);
       }
+      this._renderCursor++;
     }
 
     this._inGoto = false;

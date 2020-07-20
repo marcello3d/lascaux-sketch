@@ -74,7 +74,6 @@ export default function createLascauxDomInstance(
       strokeCount: drawingModel.strokeCount,
       undo: editable ? drawingModel.computeUndo() : undefined,
       redo: editable ? drawingModel.computeRedo() : undefined,
-      gotos: drawingModel.getGotoIndexes(),
       playing,
       transform,
     };

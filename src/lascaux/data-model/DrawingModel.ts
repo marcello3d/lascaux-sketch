@@ -132,10 +132,6 @@ export default class DrawingModel {
     );
   }
 
-  getGotoIndexes() {
-    return this._gotoMap.getGotoIndexes();
-  }
-
   computeUndo(): number | undefined {
     return this._gotoMap.computeUndo(this.editCanvas.targetCursor);
   }
