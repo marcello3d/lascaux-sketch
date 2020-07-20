@@ -45,7 +45,7 @@ export default class GotoMap {
   _gotoMap: Record<number, number> = {};
   _keyframes: number[] = [];
   _skipMap: Record<number, Skips> = {};
-  private _lastStrokeIndex: number = -1;
+  private lastGotoIndex: number = -1;
   private _previousSkips: Skips = [];
 
   getGotoIndexes(): number[] {
@@ -72,12 +72,12 @@ export default class GotoMap {
 
   addGoto(strokeIndex: number, targetCursor: number): number {
     if (targetCursor >= strokeIndex) {
-      console.error('target >= source');
-      return targetCursor;
+      throw new Error(`target >= source: ${targetCursor} >= ${strokeIndex}`);
     }
-    if (strokeIndex <= this._lastStrokeIndex) {
-      console.error('goto must be added in order');
-      return targetCursor;
+    if (strokeIndex <= this.lastGotoIndex) {
+      throw new Error(
+        `goto must be added in order (${strokeIndex} <= ${this.lastGotoIndex})`,
+      );
     }
     targetCursor = this.dereference(targetCursor);
     this._gotos.push(strokeIndex);
@@ -90,7 +90,7 @@ export default class GotoMap {
     }
     newSkips.push([targetCursor, strokeIndex - 1]);
     this._skipMap[strokeIndex] = this._previousSkips = newSkips;
-    this._lastStrokeIndex = strokeIndex;
+    this.lastGotoIndex = strokeIndex;
     return targetCursor;
   }
 

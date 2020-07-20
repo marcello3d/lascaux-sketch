@@ -40,8 +40,16 @@ export class DexieStorageModel implements StorageModel {
     this.snapshots[index] = snapshot;
   }
 
-  addStroke(type: string, time: number, payload: StrokePayload): void {
-    const index = this.strokeCount++;
+  addStroke(
+    index: number,
+    type: string,
+    time: number,
+    payload: StrokePayload,
+  ): void {
+    if (index !== this.strokeCount + 1) {
+      throw new Error('out of order stroke');
+    }
+    this.strokeCount++;
     const stroke = { drawingId: this.drawingId, index, type, time, payload };
     this.strokeCache[index] = stroke;
     if (index < this.priorStrokeCount) {

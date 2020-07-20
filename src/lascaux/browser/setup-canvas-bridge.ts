@@ -39,11 +39,11 @@ export default function createLascauxDomInstance(
     const [type, time, payload] = event;
     const pov = drawingModel.addStroke(type, time, payload);
     if (lastEvent) {
-      then(pov, requestRepaint);
+      then(pov, requestRepaint, Promise.reject);
     }
   };
 
-  then(canvas.gotoEnd(), requestRepaint);
+  then(canvas.gotoEnd(), requestRepaint, Promise.reject);
 
   function requestRepaint() {
     if (!requestedAnimation) {
@@ -71,7 +71,7 @@ export default function createLascauxDomInstance(
       artboard: canvas.artboard,
       mode: canvas.uiMode,
       cursor: canvas.targetCursor,
-      strokeCount: canvas.strokeCount,
+      strokeCount: drawingModel.strokeCount,
       undo: editable ? drawingModel.computeUndo() : undefined,
       redo: editable ? drawingModel.computeRedo() : undefined,
       gotos: drawingModel.getGotoIndexes(),
@@ -106,7 +106,7 @@ export default function createLascauxDomInstance(
     } else {
       playing = true;
       targetCursor = canvas.targetCursor;
-      if (targetCursor >= canvas.strokeCount) {
+      if (targetCursor >= canvas.renderCursor) {
         targetCursor = 0;
         // Rewind to beginning, then play
         then(canvas.goto(0), nextPlay);
@@ -121,28 +121,41 @@ export default function createLascauxDomInstance(
     const timeAllotted = MS_PER_GOTO;
 
     if (playing) {
-      while (targetCursor < canvas.strokeCount && time < timeAllotted) {
+      while (targetCursor < canvas.renderCursor && time < timeAllotted) {
         time++;
         targetCursor++;
       }
     }
 
     let gotoStart = Date.now();
-    then(canvas.goto(targetCursor), () => {
-      notifyRenderDone();
-      if (playing) {
-        if (targetCursor < canvas.strokeCount) {
-          const gotoTime = Date.now() - gotoStart;
-          playTimer = window.setTimeout(nextPlay, timeAllotted - gotoTime);
-        } else {
-          playing = false;
+    then(
+      canvas.goto(targetCursor),
+      () => {
+        canvas.repaint();
+        notifyRenderDone();
+        if (playing) {
+          if (targetCursor < canvas.renderCursor) {
+            const gotoTime = Date.now() - gotoStart;
+            playTimer = window.setTimeout(nextPlay, timeAllotted - gotoTime);
+          } else {
+            playing = false;
+          }
         }
-      }
-    });
+      },
+      (error) => {
+        console.error(`error playing`, error);
+      },
+    );
   }
 
   function addStroke(name: string, payload: any = {}) {
-    then(drawingModel.addStroke(name, Date.now(), payload), notifyRenderDone);
+    then(
+      drawingModel.addStroke(name, Date.now(), payload),
+      notifyRenderDone,
+      (error) => {
+        console.error(`error adding stroke ${name}`, error);
+      },
+    );
   }
 
   let eventBridge: EventBridge | undefined;

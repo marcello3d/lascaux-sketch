@@ -12,7 +12,12 @@ export type Stroke = {
 
 export interface StorageModel {
   replay(model: DrawingModel): PromiseOrValue<void>;
-  addStroke(type: string, time: number, payload: StrokePayload): void;
+  addStroke(
+    index: number,
+    type: string,
+    time: number,
+    payload: StrokePayload,
+  ): void;
   getStroke(index: number): PromiseOrValue<Stroke>;
   addSnapshot(index: number, snapshot: Snap): PromiseOrValue<void>;
   getSnapshot(index: number): PromiseOrValue<Snap>;

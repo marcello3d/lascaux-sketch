@@ -1,4 +1,4 @@
-import { waitAll } from './promise-or-value';
+import { isPromise, waitAll } from './promise-or-value';
 
 describe('waitAll', () => {
   it('returns value array as-is', () => {
@@ -14,5 +14,20 @@ describe('waitAll', () => {
   it('rejects if a value rejects', async () => {
     const array = [1, Promise.reject(2), 3];
     await expect(waitAll(array)).rejects.toBe(2);
+  });
+});
+
+describe('isPromise', () => {
+  it.each`
+    value                   | expected
+    ${Promise.resolve()}    | ${true}
+    ${{ then: () => 'hi' }} | ${true}
+    ${undefined}            | ${false}
+    ${false}                | ${false}
+    ${true}                 | ${false}
+    ${{ then: true }}       | ${false}
+    ${{ then: {} }}         | ${false}
+  `('clamp($value) = $expected', async ({ value, expected }) => {
+    expect(isPromise(value)).toBe(expected);
   });
 });

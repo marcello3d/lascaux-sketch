@@ -56,8 +56,8 @@ export default class DrawingModel {
     return this.editCanvas.getInfo();
   }
 
-  get drawingCursor() {
-    return this._drawingCursor;
+  get strokeCount() {
+    return this._strokeCount;
   }
   snapshot() {
     const cursor = this._strokeCount;
@@ -71,7 +71,7 @@ export default class DrawingModel {
   }
 
   private _recordStroke(eventType: string, time: number, payload: any) {
-    this._storageModel.addStroke(eventType, time, payload);
+    this._storageModel.addStroke(this._strokeCount++, eventType, time, payload);
     this._strokesSinceSnapshot++;
     if (
       eventType === DRAW_END_EVENT &&
@@ -102,34 +102,33 @@ export default class DrawingModel {
     const next = this._queue.shift()!;
     const { eventType, time, payload } = next;
 
-    const targetCursor = this.editCanvas.targetCursor;
-    if (targetCursor !== this._strokeCount) {
-      this._drawingCursor = this._gotoMap.addGoto(
-        this._strokeCount,
-        this.editCanvas.cursor,
-      );
-      this._recordStroke(GOTO_EVENT, time, targetCursor);
-      this._strokeCount++;
-    }
-
-    const index = this._strokeCount;
-
-    if (isKeyframeEvent(eventType)) {
-      this._gotoMap.addKeyframe(index);
-    }
     const isGoto = eventType === GOTO_EVENT;
-    this._strokeCount++;
+
     if (isGoto) {
-      this._drawingCursor = this._gotoMap.addGoto(index, payload);
+      this._drawingCursor = this._gotoMap.addGoto(this._strokeCount, payload);
     } else {
-      this._drawingCursor = this._strokeCount;
+      const targetCursor = this.editCanvas.targetCursor;
+      if (targetCursor !== this._drawingCursor) {
+        this._gotoMap.addGoto(this._strokeCount, targetCursor);
+        this._recordStroke(GOTO_EVENT, time, targetCursor);
+      }
     }
+    if (isKeyframeEvent(eventType)) {
+      this._gotoMap.addKeyframe(this._strokeCount);
+    }
+
     return then(
-      this.editCanvas.addStroke(this._strokeCount, eventType, payload),
+      isGoto
+        ? this.editCanvas.goto(payload)
+        : this.editCanvas.addStroke(this._strokeCount, eventType, payload),
       () => {
         this._recordStroke(eventType, time, payload);
-        this.processQueue();
+        if (!isGoto) {
+          this._drawingCursor = this._strokeCount;
+        }
+        return this.processQueue();
       },
+      Promise.reject,
     );
   }
 
@@ -138,11 +137,11 @@ export default class DrawingModel {
   }
 
   computeUndo(): number | undefined {
-    return this._gotoMap.computeUndo(this._drawingCursor);
+    return this._gotoMap.computeUndo(this.editCanvas.targetCursor);
   }
 
   computeRedo(): number | undefined {
-    return this._gotoMap.computeRedo(this._drawingCursor);
+    return this._gotoMap.computeRedo(this.editCanvas.targetCursor);
   }
 
   planGoto(

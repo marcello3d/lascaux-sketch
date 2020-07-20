@@ -493,16 +493,20 @@ export class GlDrawingContext implements DrawingContext {
                 return undefined;
               }
               // Need to load the tile...
-              return then(getLink(link), (image) => {
-                if (!image) {
-                  throw new Error(`no tile ${link} for ${key}`);
-                }
-                tiles[key] = tile;
-                if (layerInfo.changed) {
-                  delete layerInfo.changed.tiles[key];
-                }
-                this.putTile(layerInfo, x, y, image);
-              });
+              return then(
+                getLink(link),
+                (image) => {
+                  if (!image) {
+                    throw new Error(`no tile ${link} for ${key}`);
+                  }
+                  tiles[key] = tile;
+                  if (layerInfo.changed) {
+                    delete layerInfo.changed.tiles[key];
+                  }
+                  this.putTile(layerInfo, x, y, image);
+                },
+                Promise.reject,
+              );
             },
           ),
         );
