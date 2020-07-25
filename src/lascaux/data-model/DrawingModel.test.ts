@@ -155,16 +155,16 @@ describe('DrawingModel.addStroke gotos', () => {
         "  addStroke: 4: end {}",
         "addSnapshot: 5",
         "  getStroke: 0",
-        "     handle: 5: start {x:0,y:0}",
-        "  addStroke: 5: start {x:0,y:0}",
-        "     handle: 6: draw {x:100,y:0}",
-        "  addStroke: 6: draw {x:100,y:0}",
-        "     handle: 7: draw {x:100,y:100}",
-        "  addStroke: 7: draw {x:100,y:100}",
-        "     handle: 8: end {}",
-        "  addStroke: 8: end {}",
-        "addSnapshot: 9",
-        "  addStroke: 9: !goto 1",
+        "  addStroke: 5: !goto 1",
+        "     handle: 6: start {x:0,y:0}",
+        "  addStroke: 6: start {x:0,y:0}",
+        "     handle: 7: draw {x:100,y:0}",
+        "  addStroke: 7: draw {x:100,y:0}",
+        "     handle: 8: draw {x:100,y:100}",
+        "  addStroke: 8: draw {x:100,y:100}",
+        "     handle: 9: end {}",
+        "  addStroke: 9: end {}",
+        "addSnapshot: 10",
       ]
     `);
   });
@@ -211,6 +211,78 @@ describe('CanvasModel.goto', () => {
         "     handle: 8: end {}",
         "  addStroke: 8: end {}",
         "addSnapshot: 9",
+      ]
+    `);
+  });
+  it('handles edit after seek with replay', async () => {
+    const { events, drawing } = mockDrawingModel({ snapshotStrokeCount: 100 });
+    drawing.addStroke('%cursor', 0, { type: 'pen' });
+    drawing.addStroke('start', 0, { x: 0, y: 0 });
+    drawing.addStroke('end', 0, {});
+    drawing.addStroke('start', 0, { x: 10, y: 10 });
+    drawing.addStroke('end', 0, {});
+    drawing.addStroke('!goto', 0, 3);
+    drawing.addStroke('start', 0, { x: 20, y: 20 });
+    drawing.addStroke('end', 0, {});
+    await drawing.flush();
+    expect(events).toMatchInlineSnapshot(`
+      Array [
+        "  addStroke: 0: %cursor {type:pen}",
+        "     handle: 1: start {x:0,y:0}",
+        "  addStroke: 1: start {x:0,y:0}",
+        "     handle: 2: end {}",
+        "  addStroke: 2: end {}",
+        "     handle: 3: start {x:10,y:10}",
+        "  addStroke: 3: start {x:10,y:10}",
+        "     handle: 4: end {}",
+        "  addStroke: 4: end {}",
+        "  getStroke: 0",
+        "  getStroke: 1",
+        "     handle: 1: start {x:0,y:0}",
+        "  getStroke: 2",
+        "     handle: 2: end {}",
+        "  addStroke: 5: !goto 3",
+        "     handle: 6: start {x:20,y:20}",
+        "  addStroke: 6: start {x:20,y:20}",
+        "     handle: 7: end {}",
+        "  addStroke: 7: end {}",
+      ]
+    `);
+  });
+  it('handles edit after double seek', async () => {
+    const { events, drawing } = mockDrawingModel({ snapshotStrokeCount: 100 });
+    drawing.addStroke('%cursor', 0, { type: 'pen' });
+    drawing.addStroke('start', 0, { x: 0, y: 0 });
+    drawing.addStroke('end', 0, {});
+    drawing.addStroke('start', 0, { x: 10, y: 10 });
+    drawing.addStroke('end', 0, {});
+    drawing.addStroke('!goto', 0, 3);
+    drawing.addStroke('!goto', 0, 0);
+    drawing.addStroke('start', 0, { x: 20, y: 20 });
+    drawing.addStroke('end', 0, {});
+    await drawing.flush();
+    expect(events).toMatchInlineSnapshot(`
+      Array [
+        "  addStroke: 0: %cursor {type:pen}",
+        "     handle: 1: start {x:0,y:0}",
+        "  addStroke: 1: start {x:0,y:0}",
+        "     handle: 2: end {}",
+        "  addStroke: 2: end {}",
+        "     handle: 3: start {x:10,y:10}",
+        "  addStroke: 3: start {x:10,y:10}",
+        "     handle: 4: end {}",
+        "  addStroke: 4: end {}",
+        "  getStroke: 0",
+        "  getStroke: 1",
+        "     handle: 1: start {x:0,y:0}",
+        "  getStroke: 2",
+        "     handle: 2: end {}",
+        "  addStroke: 5: !goto 3",
+        "  addStroke: 6: !goto 0",
+        "     handle: 7: start {x:20,y:20}",
+        "  addStroke: 7: start {x:20,y:20}",
+        "     handle: 8: end {}",
+        "  addStroke: 8: end {}",
       ]
     `);
   });
@@ -349,6 +421,18 @@ describe('DrawingModel.computeRedo', () => {
     drawing.addStroke('draw', 0, { x: 100, y: 100 });
     drawing.addStroke('end', 0, {});
     drawing.addStroke('!goto', 0, 3);
+    expect(drawing.computeRedo()).toEqual(5);
+  });
+  it('after seek', async () => {
+    const { drawing } = mockDrawingModel({});
+    drawing.addStroke('%cursor', 0, { type: 'pen' });
+    drawing.addStroke('start', 0, { x: 0, y: 0 });
+    drawing.addStroke('draw', 0, { x: 100, y: 0 });
+    drawing.addStroke('draw', 0, { x: 100, y: 100 });
+    drawing.addStroke('end', 0, {});
+    drawing.addStroke('!goto', 0, 3);
+    await drawing.flush();
+    await drawing.editCanvas.goto(4);
     expect(drawing.computeRedo()).toEqual(5);
   });
 });

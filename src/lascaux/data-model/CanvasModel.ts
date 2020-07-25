@@ -1,5 +1,5 @@
 import produce from 'immer';
-import { PromiseOrValue } from 'promise-or-value';
+import { PromiseOrValue, then } from 'promise-or-value';
 
 import { DrawingContext, Snap } from '../Drawlet';
 import { Artboard, UserMode } from '../DrawingDoc';
@@ -167,14 +167,18 @@ export class CanvasModel {
     this._ctx.repaint();
   }
 
-  goto(targetCursor: number): PromiseOrValue<void> {
+  goto(targetCursor: number, repaint: boolean = true): PromiseOrValue<void> {
     if (targetCursor > this.renderCursor) {
       throw new Error(
         `targetCursor > this.strokeCount (${targetCursor} > ${this.renderCursor})`,
       );
     }
     this._targetCursor = targetCursor;
-    return this._goto(targetCursor);
+    return then(this._goto(targetCursor), () => {
+      if (repaint) {
+        this.repaint();
+      }
+    });
   }
 
   async _goto(targetCursor: number): Promise<void> {

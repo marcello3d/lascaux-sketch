@@ -85,6 +85,7 @@ export default function createLascauxDomInstance(
       onUpdate(getUiState());
       needToNotify = false;
       requestNotifyFrame = window.requestAnimationFrame(() => {
+        canvas.repaint();
         requestNotifyFrame = null;
         if (needToNotify) {
           notifyRenderDone();
