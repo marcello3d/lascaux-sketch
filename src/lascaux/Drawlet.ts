@@ -84,7 +84,6 @@ export type LascauxUiState = {
 
   undo: number | undefined;
   redo: number | undefined;
-  gotos: number[];
 
   transform: Transform;
 };

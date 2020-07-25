@@ -17,7 +17,6 @@ export async function createDrawingModel(
 ) {
   const drawing = new DrawingModel({
     doc,
-    editable: true,
     snapshotStrokeCount: 250,
     storageModel: storage,
     handleCommand,
@@ -26,13 +25,6 @@ export async function createDrawingModel(
   await storage.replay(drawing);
   console.log(`[LOAD] Loaded strokes!`);
   return drawing;
-}
-
-export async function createLegacyDnaDrawingModel(
-  dna: Dna,
-  storage: StorageModel,
-): Promise<DrawingModel> {
-  return await createDrawingModel(dnaToDoc(dna), storage);
 }
 
 const FIVER_BRUSH = 'fiver';

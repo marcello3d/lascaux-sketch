@@ -408,6 +408,8 @@ export class GlDrawingContext implements DrawingContext {
     const { WriteTypedArray, glReadType } = _frameBufferInfo;
     let changedTileCount = 0;
     const layers: IdMap<Tiles> = {};
+    let getPixelCount = 0;
+    let getPixelTime = 0;
     for (const [layerId, layerInfo] of _layers.entries()) {
       const { tiles, changed } = layerInfo;
       layers[layerId] = { ...tiles };
@@ -423,7 +425,8 @@ export class GlDrawingContext implements DrawingContext {
 
       let pixels = _readBuffer.subarray(0, width * height * 4);
       gl.readPixels(minX, minY, width, height, gl.RGBA, glReadType, pixels);
-      console.log(`get pixels in ${Date.now() - start1} ms`);
+      getPixelCount++;
+      getPixelTime += Date.now() - start1;
 
       const savedBuffer = { pixels, width, height };
       for (const key of tileKeys) {
@@ -447,7 +450,7 @@ export class GlDrawingContext implements DrawingContext {
     console.log(
       `snapshot generated in ${
         Date.now() - start
-      } ms: ${changedTileCount} changed tiles, ${
+      } ms (read pixels: ${getPixelTime} ms): ${getPixelCount} changed layers, ${changedTileCount} changed tiles, ${
         Object.keys(links).length
       } links`,
     );

@@ -1,21 +1,18 @@
 import { isSkipped, Skips } from './GotoMap';
-import { StorageModel } from './StorageModel';
-import { Snap } from '../Drawlet';
-import { PromiseOrValue } from 'promise-or-value';
 
 export default class SnapshotMap {
-  private _indexes: number[];
-  constructor(readonly _storageModel: StorageModel, indexes: number[] = []) {
-    this._indexes = indexes;
-  }
+  constructor(private readonly _indexes: number[] = []) {}
 
-  addSnapshot(index: number, snap: Snap): PromiseOrValue<void> {
-    this._indexes.push(index);
-    if (index < this._indexes[this._indexes.length - 1]) {
-      this._indexes.sort();
+  addSnapshot(index: number): void {
+    const indexes = this._indexes;
+    const lastIndex = indexes[indexes.length - 1];
+    if (index === lastIndex) {
+      return;
     }
-
-    return this._storageModel.addSnapshot(index, snap);
+    indexes.push(index);
+    if (index < lastIndex) {
+      indexes.sort();
+    }
   }
 
   getNearestSnapshotIndex(targetIndex: number, skips: Skips): number {

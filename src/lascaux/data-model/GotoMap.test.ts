@@ -103,26 +103,36 @@ describe('GotoMap', () => {
 
 describe('GotoMap errors', () => {
   it('goto 2,2 should fail', () => {
-    expect(makeGotoMap([[2, 2]])._gotos).toEqual([]);
+    expect(
+      () => makeGotoMap([[2, 2]])._gotos,
+    ).toThrowErrorMatchingInlineSnapshot(`"target >= source: 2 >= 2"`);
   });
   it('goto 2,3 should fail', () => {
-    expect(makeGotoMap([[2, 3]])._gotos).toEqual([]);
+    expect(
+      () => makeGotoMap([[2, 3]])._gotos,
+    ).toThrowErrorMatchingInlineSnapshot(`"target >= source: 3 >= 2"`);
   });
   it('goto 2,0 1,0 should fail', () => {
     expect(
-      makeGotoMap([
-        [2, 0],
-        [1, 0],
-      ])._gotos,
-    ).toEqual([2]);
+      () =>
+        makeGotoMap([
+          [2, 0],
+          [1, 0],
+        ])._gotos,
+    ).toThrowErrorMatchingInlineSnapshot(
+      `"goto must be added in order (1 <= 2)"`,
+    );
   });
   it('goto 2,0 2,0 should fail', () => {
     expect(
-      makeGotoMap([
-        [2, 0],
-        [2, 0],
-      ])._gotos,
-    ).toEqual([2]);
+      () =>
+        makeGotoMap([
+          [2, 0],
+          [2, 0],
+        ])._gotos,
+    ).toThrowErrorMatchingInlineSnapshot(
+      `"goto must be added in order (2 <= 2)"`,
+    );
   });
   it('out of order keyframes should fail', () => {
     expect(() => {
@@ -140,6 +150,15 @@ describe('GotoMap errors', () => {
   });
 });
 
+describe('GotoMap.getGotoIndexes', () => {
+  it('errors', () => {
+    const map = makeGotoMap([
+      [2, 0],
+      [4, 0],
+    ]);
+    expect(map.getGotoIndexes()).toEqual([2, 4]);
+  });
+});
 describe('GotoMap.planGoto', () => {
   it('errors', () => {
     const map = makeGotoMap([

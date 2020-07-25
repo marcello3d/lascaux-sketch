@@ -9,18 +9,20 @@ import { DrawletHandleFn } from '../Drawlet';
 import { StorageModel } from './StorageModel';
 import { DrawingDoc } from '../DrawingDoc';
 import { CanvasModel } from './CanvasModel';
+import { PovQueue } from '../util/PovQueue';
 
+type QueuedStroke = {
+  eventType: string;
+  time: number;
+  payload: any;
+};
 /**
  * Manages all the stroke and goto data for a drawing, using StorageModel
  */
 export default class DrawingModel {
   readonly _storageModel: StorageModel;
   readonly _handleCommand: DrawletHandleFn;
-  private readonly _queue: Array<{
-    eventType: string;
-    time: number;
-    payload: any;
-  }> = [];
+  private readonly queue: PovQueue<QueuedStroke>;
   _strokeCount: number = 0;
   private _drawingCursor: number = 0;
   readonly _snapshotMap: SnapshotMap;
@@ -36,18 +38,17 @@ export default class DrawingModel {
     snapshotStrokeCount = 5000,
   }: {
     doc: DrawingDoc;
-    editable: boolean;
     storageModel: StorageModel;
     handleCommand: DrawletHandleFn;
-    snapshotStrokeCount: number;
+    snapshotStrokeCount?: number;
   }) {
     this._storageModel = storageModel;
     this._handleCommand = handleCommand;
-    this._queue = [];
+    this.queue = new PovQueue<QueuedStroke>(this.processStroke.bind(this));
     this._strokeCount = 0;
     this._drawingCursor = 0;
     this._gotoMap = new GotoMap();
-    this._snapshotMap = new SnapshotMap(storageModel);
+    this._snapshotMap = new SnapshotMap();
     this._snapshotStrokeCount = snapshotStrokeCount;
     this._strokesSinceSnapshot = 0;
     this.editCanvas = new CanvasModel(this, artboard, mode);
@@ -57,21 +58,22 @@ export default class DrawingModel {
     return this.editCanvas.getInfo();
   }
 
-  get drawingCursor() {
-    return this._drawingCursor;
+  get strokeCount() {
+    return this._strokeCount;
   }
   snapshot() {
     const cursor = this._strokeCount;
     this._strokesSinceSnapshot = 0;
-    return this._snapshotMap.addSnapshot(cursor, this.editCanvas.getSnap());
+    this._snapshotMap.addSnapshot(cursor);
+    return this._storageModel.addSnapshot(cursor, this.editCanvas.getSnap());
   }
 
-  flush() {
-    return this._storageModel.flush();
+  flush(): PromiseOrValue<void> {
+    return then(this.queue.processAll(), () => this._storageModel.flush());
   }
 
   private _recordStroke(eventType: string, time: number, payload: any) {
-    this._storageModel.addStroke(eventType, time, payload);
+    this._storageModel.addStroke(this._strokeCount++, eventType, time, payload);
     this._strokesSinceSnapshot++;
     if (
       eventType === DRAW_END_EVENT &&
@@ -86,58 +88,43 @@ export default class DrawingModel {
     time: number,
     payload: Object,
   ): PromiseOrValue<void> {
-    this._queue.push({
-      eventType,
-      time,
-      payload,
-    });
-    return this.processQueue();
+    this.queue.push({ eventType, time, payload });
+    return this.queue.processAll();
   }
 
-  private processQueue(): PromiseOrValue<void> {
-    if (this._queue.length === 0) {
-      this.editCanvas.repaint();
-      return;
-    }
-    const next = this._queue.shift()!;
-    if (typeof next === 'function') {
-      return this.processQueue();
-    }
-    const { eventType, time, payload } = next;
-
-    const targetCursor = this.editCanvas.targetCursor;
-    if (targetCursor !== this._strokeCount) {
-      this._drawingCursor = this._gotoMap.addGoto(
-        this._strokeCount,
-        this.editCanvas.cursor,
-      );
-      this._recordStroke(GOTO_EVENT, time, targetCursor);
-      this._strokeCount++;
-    }
-
-    const index = this._strokeCount;
-
-    if (isKeyframeEvent(eventType)) {
-      this._gotoMap.addKeyframe(index);
-    }
+  private processStroke({
+    eventType,
+    time,
+    payload,
+  }: QueuedStroke): PromiseOrValue<void> {
     const isGoto = eventType === GOTO_EVENT;
-    this._strokeCount++;
     if (isGoto) {
-      this._drawingCursor = this._gotoMap.addGoto(index, payload);
+      this._drawingCursor = this._gotoMap.addGoto(this._strokeCount, payload);
     } else {
-      this._drawingCursor = this._strokeCount;
+      const targetCursor = this.editCanvas.targetCursor;
+      if (targetCursor !== this._drawingCursor) {
+        this._drawingCursor = this._gotoMap.addGoto(
+          this._strokeCount,
+          targetCursor,
+        );
+        this._recordStroke(GOTO_EVENT, time, targetCursor);
+      }
+    }
+    if (isKeyframeEvent(eventType)) {
+      this._gotoMap.addKeyframe(this._strokeCount);
     }
     return then(
-      this.editCanvas.addStroke(this._strokeCount, eventType, payload),
+      isGoto
+        ? // Don't need to repaint just yet
+          this.editCanvas.goto(payload, false)
+        : this.editCanvas.addStroke(this._strokeCount, eventType, payload),
       () => {
         this._recordStroke(eventType, time, payload);
-        this.processQueue();
+        if (!isGoto) {
+          this._drawingCursor = this._strokeCount;
+        }
       },
     );
-  }
-
-  getGotoIndexes() {
-    return this._gotoMap.getGotoIndexes();
   }
 
   computeUndo(): number | undefined {

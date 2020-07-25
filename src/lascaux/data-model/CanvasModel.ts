@@ -1,5 +1,5 @@
 import produce from 'immer';
-import { PromiseOrValue } from 'promise-or-value';
+import { PromiseOrValue, then } from 'promise-or-value';
 
 import { DrawingContext, Snap } from '../Drawlet';
 import { Artboard, UserMode } from '../DrawingDoc';
@@ -17,14 +17,17 @@ import { GlDrawingContext } from '../webgl/GlDrawingContext';
 import ModeMap from './ModeMap';
 import { immerPatch } from './patch';
 import { safeMode } from '../DrawingDocUtil';
+import { isPromise } from '../util/promise-or-value';
 
 export class CanvasModel {
   private readonly _ctx: DrawingContext;
-  private readonly _modeMap: ModeMap;
+  private readonly _modeMap: ModeMap<UserMode>;
 
   private _artboard: Artboard;
   private _inGoto: boolean;
-  private _cursor: number = 0;
+  // The number of strokes currently drawn on the drawing context
+  private _renderCursor: number = 0;
+  // The stroke cursor we're trying to get to
   private _targetCursor: number = 0;
   _state: DrawingState = makeInitialState();
 
@@ -34,7 +37,7 @@ export class CanvasModel {
     private readonly initialMode: UserMode,
   ) {
     this._artboard = initialArtboard;
-    this._modeMap = new ModeMap(initialMode);
+    this._modeMap = new ModeMap<UserMode>(initialMode);
     this._ctx = new GlDrawingContext(initialArtboard);
     this._inGoto = false;
     this.reset();
@@ -44,7 +47,7 @@ export class CanvasModel {
     return this._artboard;
   }
   get cursor(): number {
-    return this._cursor;
+    return this._renderCursor;
   }
 
   get targetCursor(): number {
@@ -53,7 +56,7 @@ export class CanvasModel {
 
   /** The mode at the current cursor location */
   private get cursorMode() {
-    return safeMode(this.artboard, this._modeMap.getMode(this._cursor));
+    return safeMode(this.artboard, this._modeMap.getMode(this._renderCursor));
   }
 
   /** The mode that represents what the user should see, regardless of cursor position */
@@ -61,7 +64,7 @@ export class CanvasModel {
     return safeMode(this.artboard, this._modeMap.getLatestMode());
   }
 
-  get strokeCount(): number {
+  get renderCursor(): number {
     return this._drawing._strokeCount;
   }
 
@@ -82,7 +85,7 @@ export class CanvasModel {
   }
 
   private reset() {
-    this._cursor = 0;
+    this._renderCursor = 0;
     this._state = makeInitialState();
     this._artboard = this.initialArtboard;
     this._ctx.reset(this.initialArtboard);
@@ -93,27 +96,26 @@ export class CanvasModel {
     this._ctx.setArtboard(artboard);
   }
 
-  addStroke(
-    cursor: number,
-    eventType: string,
-    payload: any,
-  ): PromiseOrValue<void> {
-    this._targetCursor = cursor;
-    if (eventType === GOTO_EVENT) {
-      return this._goto(payload);
-    }
-    this._cursor = cursor;
-    this.execute(eventType, payload, true);
-    this._ctx.repaint();
+  addStroke(index: number, eventType: string, payload: any): void {
+    this.execute(index, eventType, payload, true);
+    this._renderCursor = this._targetCursor = index + 1;
   }
 
-  private execute(eventType: string, payload: any, adding: boolean) {
+  private execute(
+    index: number,
+    eventType: string,
+    payload: any,
+    adding: boolean,
+  ): void {
+    this._renderCursor = index;
     switch (eventType) {
       case GOTO_EVENT:
-        return;
+        throw new Error('unexpected goto');
+
       case PATCH_ARTBOARD_EVENT:
         this.setArtboard(immerPatch(this._artboard, payload));
         return;
+
       case PATCH_MODE_EVENT:
         if (adding) {
           this.setCursorMode(immerPatch(this.cursorMode, payload));
@@ -154,20 +156,29 @@ export class CanvasModel {
   }
 
   private setCursorMode(newMode: UserMode) {
-    this._modeMap.addMode(this._cursor, newMode);
+    this._modeMap.addMode(this._renderCursor, newMode);
   }
 
   gotoEnd(): PromiseOrValue<void> {
-    return this.goto(this.strokeCount);
+    return this.goto(this.renderCursor);
   }
 
   repaint() {
     this._ctx.repaint();
   }
 
-  goto(targetCursor: number): PromiseOrValue<void> {
+  goto(targetCursor: number, repaint: boolean = true): PromiseOrValue<void> {
+    if (targetCursor > this.renderCursor) {
+      throw new Error(
+        `targetCursor > this.strokeCount (${targetCursor} > ${this.renderCursor})`,
+      );
+    }
     this._targetCursor = targetCursor;
-    return this._goto(targetCursor);
+    return then(this._goto(targetCursor), () => {
+      if (repaint) {
+        this.repaint();
+      }
+    });
   }
 
   async _goto(targetCursor: number): Promise<void> {
@@ -176,7 +187,7 @@ export class CanvasModel {
     }
 
     const { revert, skips, target } = this._drawing.planGoto(
-      this._cursor,
+      this._renderCursor,
       targetCursor,
     );
     if (target === undefined || skips === undefined) {
@@ -185,29 +196,38 @@ export class CanvasModel {
 
     this._inGoto = true;
 
-    // console.log(`goto ${this._cursor} -> ${targetCursor}: revert ${revert}, target ${target}, skips: ${skips.map(x => '[' + x + ']')}`)
+    // console.log(
+    //   `goto ${
+    //     this._renderCursor
+    //   } -> ${targetCursor}: revert ${revert}, target ${target}, skips: ${skips.map(
+    //     (x) => '[' + x + ']',
+    //   )}`,
+    // );
     // Revert back to nearest snapshot
     const loadSnapshot = async (index: number) => {
-      if (index === 0) {
-        this.reset();
-      } else {
-        const storageModel = this._drawing._storageModel;
-        const snap = await storageModel.getSnapshot(index);
-        const { artboard, state, snapshot } = snap;
-        this.setArtboard(artboard);
-        await this._ctx.loadSnapshot(
-          snapshot,
-          storageModel.getSnapshotLink.bind(storageModel),
-        );
-        this._cursor = index;
-        this._state = jsonCopy(state);
-      }
+      const storageModel = this._drawing._storageModel;
+      const snap = await storageModel.getSnapshot(index);
+      const { artboard, state, snapshot } = snap;
+      this.setArtboard(artboard);
+      await this._ctx.loadSnapshot(
+        snapshot,
+        storageModel.getSnapshotLink.bind(storageModel),
+      );
+      this._renderCursor = index;
+      this._state = jsonCopy(state);
     };
     // Do we need to rewind?
+
     if (revert !== undefined) {
-      await loadSnapshot(
-        this._drawing._snapshotMap.getNearestSnapshotIndex(revert, skips),
+      const nearestSnapshotIndex = this._drawing._snapshotMap.getNearestSnapshotIndex(
+        revert,
+        skips,
       );
+      if (nearestSnapshotIndex === 0) {
+        this.reset();
+      } else {
+        await loadSnapshot(nearestSnapshotIndex);
+      }
     } else {
       // Can we skip ahead using snapshots?
       const nearestSnapshotIndex = this._drawing._snapshotMap.getNearestSnapshotIndex(
@@ -216,27 +236,24 @@ export class CanvasModel {
       );
       // Don't bother loading snapshot if we're not going to skip more than 100 steps with it
       // (This is very common when playing back!)
-      const MIN_STEP_SKIP = 750;
-      if (
-        nearestSnapshotIndex !== 0 &&
-        nearestSnapshotIndex > this._cursor + MIN_STEP_SKIP
-      ) {
+      const MIN_STEP_SKIP = 0;
+      if (nearestSnapshotIndex > this._renderCursor + MIN_STEP_SKIP) {
         await loadSnapshot(nearestSnapshotIndex);
       }
     }
 
-    while (this._cursor < target) {
-      let stroke = this._drawing._storageModel.getStroke(this._cursor);
-      if ('then' in stroke) {
+    while (this._renderCursor < target) {
+      let stroke = this._drawing._storageModel.getStroke(this._renderCursor);
+      if (isPromise(stroke)) {
         stroke = await stroke;
       }
       const { type, payload } = stroke;
-      if (!isSkipped(skips, this._cursor++)) {
-        this.execute(type, payload, false);
+      if (type !== GOTO_EVENT && !isSkipped(skips, this._renderCursor)) {
+        this.execute(this._renderCursor, type, payload, false);
       }
+      this._renderCursor++;
     }
 
-    this._ctx.repaint();
     this._inGoto = false;
   }
 

@@ -1,4 +1,4 @@
-import React, { ErrorInfo } from 'react';
+import React from 'react';
 import * as Sentry from '@sentry/browser';
 
 type Props = {
@@ -17,7 +17,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     return { error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: Record<string, any>) {
     Sentry.withScope((scope) => {
       scope.setExtras(errorInfo);
       this.setState({
