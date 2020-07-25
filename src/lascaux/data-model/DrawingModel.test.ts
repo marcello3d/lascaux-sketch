@@ -442,14 +442,187 @@ describe('DrawingModel.getInfo', () => {
     const { drawing } = mockDrawingModel({});
     expect(drawing.getInfo()).toEqual(undefined);
   });
-  it('something to redo', async () => {
+});
+
+describe('DrawingModel patch mode', () => {
+  it('patches color', async () => {
     const { drawing } = mockDrawingModel({});
-    drawing.addStroke('%cursor', 0, { type: 'pen' });
-    drawing.addStroke('start', 0, { x: 0, y: 0 });
-    drawing.addStroke('draw', 0, { x: 100, y: 0 });
-    drawing.addStroke('draw', 0, { x: 100, y: 100 });
-    drawing.addStroke('end', 0, {});
-    drawing.addStroke('!goto', 0, 3);
-    expect(drawing.computeRedo()).toEqual(5);
+    drawing.addStroke('!mode', 0, {
+      color: {
+        '0': [1],
+        '1': [0],
+        '2': [0],
+        _t: 'a',
+        _0: [0.38823529411764707, 0, 0],
+        _1: [0.10980392156862745, 0, 0],
+        _2: [0.10980392156862745, 0, 0],
+      },
+    });
+    expect(drawing.editCanvas.uiMode).toMatchInlineSnapshot(`
+      Object {
+        "brush": "fiver",
+        "brushes": Object {
+          "fiver": Object {
+            "flow": 1,
+            "hardness": 1,
+            "mode": "paint",
+            "opacity": 1,
+            "size": 8,
+            "spacing": 0.05,
+          },
+        },
+        "color": Array [
+          1,
+          0,
+          0,
+          1,
+        ],
+        "layer": "0",
+      }
+    `);
+    drawing.addStroke('!mode', 0, {
+      color: {
+        '0': [0.25882352941176473],
+        '2': [0.4],
+        _t: 'a',
+        _1: [0, 0, 0],
+        _2: [1, 0, 0],
+      },
+    });
+    expect(drawing.editCanvas.uiMode).toMatchInlineSnapshot(`
+      Object {
+        "brush": "fiver",
+        "brushes": Object {
+          "fiver": Object {
+            "flow": 1,
+            "hardness": 1,
+            "mode": "paint",
+            "opacity": 1,
+            "size": 8,
+            "spacing": 0.05,
+          },
+        },
+        "color": Array [
+          0.25882352941176473,
+          1,
+          0.4,
+          1,
+        ],
+        "layer": "0",
+      }
+    `);
+    drawing.addStroke('!mode', 0, {
+      color: { '1': [1], _t: 'a', _1: [0, 0, 0] },
+    });
+    expect(drawing.editCanvas.uiMode).toMatchInlineSnapshot(`
+      Object {
+        "brush": "fiver",
+        "brushes": Object {
+          "fiver": Object {
+            "flow": 1,
+            "hardness": 1,
+            "mode": "paint",
+            "opacity": 1,
+            "size": 8,
+            "spacing": 0.05,
+          },
+        },
+        "color": Array [
+          0.25882352941176473,
+          1,
+          0.4,
+          1,
+        ],
+        "layer": "0",
+      }
+    `);
+  });
+});
+describe('DrawingModel patch artboard', () => {
+  it('patches color', async () => {
+    const { drawing } = mockDrawingModel({});
+    expect(drawing.editCanvas.artboard).toMatchInlineSnapshot(`
+      Object {
+        "baseColor": Array [
+          1,
+          0.9568627450980393,
+          0.9098039215686274,
+          1,
+        ],
+        "height": 512,
+        "layers": Object {
+          "0": Object {
+            "type": "image",
+          },
+        },
+        "rootLayers": Array [
+          "0",
+        ],
+        "width": 512,
+      }
+    `);
+    drawing.addStroke('!art', 0, {
+      rootLayers: { '1': ['UuFDiigU-'], _t: 'a' },
+      layers: { 'UuFDiigU-': [{ type: 'image', name: 'Layer #2' }] },
+    });
+    expect(drawing.editCanvas.artboard).toMatchInlineSnapshot(`
+      Object {
+        "baseColor": Array [
+          1,
+          0.9568627450980393,
+          0.9098039215686274,
+          1,
+        ],
+        "height": 512,
+        "layers": Object {
+          "0": Object {
+            "type": "image",
+          },
+          "UuFDiigU-": Object {
+            "name": "Layer #2",
+            "type": "image",
+          },
+        },
+        "rootLayers": Array [
+          "0",
+          "UuFDiigU-",
+        ],
+        "width": 512,
+      }
+    `);
+    drawing.addStroke('!art', 0, {
+      rootLayers: { '2': ['4RzCt4T4R'], _t: 'a' },
+      layers: { '4RzCt4T4R': [{ type: 'image', name: 'Layer #3' }] },
+    });
+    expect(drawing.editCanvas.artboard).toMatchInlineSnapshot(`
+      Object {
+        "baseColor": Array [
+          1,
+          0.9568627450980393,
+          0.9098039215686274,
+          1,
+        ],
+        "height": 512,
+        "layers": Object {
+          "0": Object {
+            "type": "image",
+          },
+          "4RzCt4T4R": Object {
+            "name": "Layer #3",
+            "type": "image",
+          },
+          "UuFDiigU-": Object {
+            "name": "Layer #2",
+            "type": "image",
+          },
+        },
+        "rootLayers": Array [
+          "0",
+          "UuFDiigU-",
+          "4RzCt4T4R",
+        ],
+        "width": 512,
+      }
+    `);
   });
 });
