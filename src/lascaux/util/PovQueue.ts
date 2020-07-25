@@ -1,8 +1,8 @@
-import { PromiseOrValue, then } from 'promise-or-value';
+import { PromiseOrValue } from 'promise-or-value';
 
 export class PovQueue<T> {
   private readonly queue: Array<T> = [];
-  private promise: PromiseOrValue<void> = undefined;
+  private promise: Promise<boolean> | undefined;
 
   constructor(
     private readonly processValue: (value: T) => PromiseOrValue<void>,
@@ -12,24 +12,38 @@ export class PovQueue<T> {
     this.queue.push(...values);
   }
 
-  processNext(): PromiseOrValue<void> {
+  /**
+   * Returns true once the next value is processed
+   */
+  process(): PromiseOrValue<boolean> {
     if (this.promise) {
-      return this.promise;
+      return (this.promise = this.promise.then(() => this.process()));
     }
     if (this.queue.length === 0) {
-      return undefined;
+      return false;
     }
     const val = this.queue.shift()!;
-    return (this.promise = then(this.processValue(val), () => {
+    const result = this.processValue(val);
+    if (!result) {
+      return true;
+    }
+    return (this.promise = result.then(() => {
       this.promise = undefined;
+      return true;
     }));
   }
+
   processAll(): PromiseOrValue<void> {
-    return then(this.processNext(), () => {
-      if (this.queue.length > 0) {
-        return this.processAll();
+    while (true) {
+      const next = this.process();
+      if (next === true) {
+        continue;
       }
-      return undefined;
-    });
+      if (next === false) {
+        return undefined;
+      }
+      // Waiting for last processing was async
+      return next.then(() => this.processAll());
+    }
   }
 }
