@@ -15,9 +15,9 @@ export class PovQueue<T> {
   /**
    * Returns true once the next value is processed
    */
-  process(): PromiseOrValue<boolean> {
+  processNext(): PromiseOrValue<boolean> {
     if (this.promise) {
-      return (this.promise = this.promise.then(() => this.process()));
+      return (this.promise = this.promise.then(() => this.processNext()));
     }
     if (this.queue.length === 0) {
       return false;
@@ -35,7 +35,7 @@ export class PovQueue<T> {
 
   processAll(): PromiseOrValue<void> {
     while (true) {
-      const next = this.process();
+      const next = this.processNext();
       if (next === true) {
         continue;
       }
