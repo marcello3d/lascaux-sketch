@@ -35,6 +35,7 @@ import { LayerList } from './LayerList';
 import { ColorChooser } from './ColorChooser';
 import { ExportedDrawingV1 } from '../lascaux/ExportedDrawing';
 import { getAllStrokes } from '../db/DexieStorageModel';
+import { useMousetrap } from '../react-hooks/useMousetrap';
 
 function useUpdateBrush<K extends keyof Brush & string>(
   canvasInstance: LascauxDomInstance,
@@ -136,9 +137,21 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
     setTempBrushHardness,
     setBrushHardness,
   ] = useUpdateBrush(canvasInstance, mode, 'hardness');
-  const setScale = useCallback((scale) => canvasInstance.setScale(scale), [
+  const setZoomScale = useCallback((scale) => canvasInstance.setScale(scale), [
     canvasInstance,
   ]);
+  const zoomIn = useCallback(() => {
+    canvasInstance.setScale(transform.scale + 0.25);
+    return false;
+  }, [canvasInstance, transform]);
+  const zoomOut = useCallback(() => {
+    canvasInstance.setScale(transform.scale - 0.25);
+    return false;
+  }, [canvasInstance, transform]);
+  const zoomTo100 = useCallback(() => {
+    canvasInstance.setScale(1);
+    return false;
+  }, [canvasInstance]);
 
   const seek = useCallback(
     (cursor: number) => {
@@ -163,11 +176,13 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
     if (undo) {
       canvasInstance.addGoto(undo);
     }
+    return false;
   }, [canvasInstance, undo]);
   const onRedo = useCallback(() => {
     if (redo) {
       canvasInstance.addGoto(redo);
     }
+    return false;
   }, [canvasInstance, redo]);
 
   const onSelectLayer = useCallback(
@@ -184,6 +199,20 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
         draft.layers[layerId].name = newName;
       });
     },
+    [canvasInstance],
+  );
+  const chooseEraser = useCallback(
+    () =>
+      canvasInstance.mutateMode((draft) => {
+        draft.brushes[draft.brush].mode = 'erase';
+      }),
+    [canvasInstance],
+  );
+  const chooseBrush = useCallback(
+    () =>
+      canvasInstance.mutateMode((draft) => {
+        draft.brushes[draft.brush].mode = 'paint';
+      }),
     [canvasInstance],
   );
   const onEraseChange = useCallback(
@@ -222,6 +251,14 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
       `${drawingId}-${filenameDate()}-raw.json`,
     );
   }, [dna, drawingId]);
+
+  useMousetrap('meta+z', onUndo);
+  useMousetrap('meta+shift+z', onRedo);
+  useMousetrap('meta+=', zoomIn);
+  useMousetrap('meta+-', zoomOut);
+  useMousetrap('meta+0', zoomTo100);
+  useMousetrap('b', chooseBrush);
+  useMousetrap('e', chooseEraser);
 
   return (
     <Layout
@@ -326,7 +363,7 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
           max={5}
           value={transform.scale}
           valueLabel={`${(transform.scale * 100).toFixed(0)}%`}
-          onChange={setScale}
+          onChange={setZoomScale}
         />
         <label className={styles.toolLabel}>Layers</label>
         <span className={styles.layers}>
