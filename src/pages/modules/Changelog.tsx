@@ -5,6 +5,11 @@ import styles from './Changelog.module.css';
 export function Changelog() {
   return (
     <div className={styles.changelog}>
+      <h3>2020-08-02</h3>
+      <ul>
+        <li>Added keyboard shortcuts</li>
+      </ul>
+
       <h3>2020-07-25</h3>
       <ul>
         <li>Bug fixes</li>
