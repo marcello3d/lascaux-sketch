@@ -1,4 +1,5 @@
 import React, {
+  MutableRefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -61,11 +62,17 @@ type Props = {
   drawingId: string;
   dna: Dna;
   drawingModel: DrawingModel;
+  lascauxDomRef?: MutableRefObject<LascauxDomInstance | null>;
 };
 
 const numberFormat = new Intl.NumberFormat();
 
-export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
+export function DrawletApp({
+  drawingId,
+  dna,
+  drawingModel,
+  lascauxDomRef,
+}: Props) {
   const drawletContainerRef = useRef<HTMLDivElement>(null);
   const [updateObjectState, setUpdateObject] = useState<LascauxUiState | null>(
     null,
@@ -75,6 +82,11 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
     () => createLascauxDomInstance(drawingModel, setUpdateObject),
     [drawingModel],
   );
+  useEffect(() => {
+    if (lascauxDomRef) {
+      lascauxDomRef.current = canvasInstance;
+    }
+  }, [canvasInstance, lascauxDomRef]);
 
   useEffect(() => {
     return () => {
@@ -110,12 +122,6 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
   useLayoutEffect(() => canvasInstance.subscribe(), [canvasInstance]);
 
   useAppendChild(drawletContainerRef, drawingModel.editCanvas.dom);
-
-  const downloadPng = useCallback(() => {
-    canvasInstance.getPng().then((blob) => {
-      downloadFile(blob, `Lascaux Sketch ${filenameDate()}.png`);
-    });
-  }, [canvasInstance]);
 
   const [brushSize, setTempBrushSize, setBrushSize] = useUpdateBrush(
     canvasInstance,
@@ -235,23 +241,6 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
   );
   const brush = mode.brushes[mode.brush];
 
-  const downloadJson = useCallback(async () => {
-    const drawingData: ExportedDrawingV1 = {
-      version: 1,
-      dna,
-      strokes: (await getAllStrokes(drawingId)).map((stroke) => [
-        stroke.time,
-        stroke.type,
-        stroke.payload,
-      ]),
-    };
-
-    downloadFile(
-      new Blob([JSON.stringify(drawingData)]),
-      `${drawingId}-${filenameDate()}-raw.json`,
-    );
-  }, [dna, drawingId]);
-
   useMousetrap('meta+z', onUndo);
   useMousetrap('meta+shift+z', onRedo);
   useMousetrap('meta+=', zoomIn);
@@ -261,22 +250,7 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
   useMousetrap('e', chooseEraser);
 
   return (
-    <Layout
-      header={
-        <Header>
-          <Button onClick={downloadPng}>
-            <Icon file={FileDownloadIcon} alt="download" />
-            Save PNG
-          </Button>
-          <Button onClick={downloadJson}>
-            <Icon file={SatelliteDishIcon} alt="download" />
-            Save JSON
-          </Button>
-        </Header>
-      }
-      footer={false}
-      className={styles.root}
-    >
+    <div className={styles.root}>
       <div className={styles.tools}>
         <Button disabled={strokeCount === 0} onClick={togglePlay}>
           <Icon
@@ -397,6 +371,6 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
       />
       <div className={styles.right} />
       <div className={styles.status} />
-    </Layout>
+    </div>
   );
 }

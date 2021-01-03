@@ -210,6 +210,18 @@ export function IndexPage({ navigate }: RouteComponentProps) {
             <a href="https://github.com/marcello3d/lascaux-sketch/">Github</a>!
           </li>
         </ul>
+        <h2>Keyboard shortcuts</h2>
+        <ul>
+          <li>
+            <strong>Ctrl+Z / Cmd+Z</strong>: Undo
+          </li>
+          <li>
+            <strong>Ctrl+Z / Cmd+Z</strong>: Undo
+          </li>
+          <li>
+            <strong>Ctrl+Z / Cmd+Z</strong>: Undo
+          </li>
+        </ul>
         <h2>Diagnostics</h2>
         <p>
           Visit the <Link to="/diag">diagnostics page</Link> to see how Lascaux
