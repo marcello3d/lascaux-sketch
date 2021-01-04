@@ -1,12 +1,12 @@
 {
   "name": "lascaux-sketch",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "license": "Zlib",
   "author": {
     "name": "Marcello Bastea-Forte",
     "email": "marcello@cellosoft.com"
   },
-  "main": "src/library/index.tsx",
+  "main": "src/library/index.ts",
   "bugs": "https://github.com/marcello3d/lascaux-sketch/issues",
   "homepage": "https://lascaux.studio",
   "repository": {

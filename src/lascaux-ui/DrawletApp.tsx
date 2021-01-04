@@ -13,29 +13,17 @@ import { useAppendChild } from '../react-hooks/useAppendChild';
 import { Slider } from '../ui/Slider';
 import { Button } from '../ui/Button';
 import useEventEffect from '../react-hooks/useEventEffect';
-import { Layout } from '../pages/modules/Layout';
-import { Header } from '../pages/modules/Header';
-import FileDownloadIcon from '../icons/fa/file-download.svg';
 import { Icon } from '../ui/Icon';
-import { downloadFile, filenameDate } from '../ui/download';
 import { LascauxDomInstance, LascauxUiState } from '../lascaux/Drawlet';
 import DrawingModel from '../lascaux/data-model/DrawingModel';
 import createLascauxDomInstance from '../lascaux/browser/setup-canvas-bridge';
 import { db } from '../db/db';
 import { newDate, newId } from '../db/fields';
 
-import LayerPlusIcon from '../icons/fa/layer-plus.svg';
-import PlayIcon from '../icons/fa/play.svg';
-import PauseIcon from '../icons/fa/pause.svg';
-import UndoIcon from '../icons/fa/undo.svg';
-import RedoIcon from '../icons/fa/redo.svg';
-import SatelliteDishIcon from '../icons/fa/satellite-dish.svg';
 import { addLayer } from '../lascaux/DrawingDocUtil';
-import { Brush, Color, Dna, UserMode } from '../lascaux/DrawingDoc';
+import { Brush, Color, UserMode } from '../lascaux/DrawingDoc';
 import { LayerList } from './LayerList';
 import { ColorChooser } from './ColorChooser';
-import { ExportedDrawingV1 } from '../lascaux/ExportedDrawing';
-import { getAllStrokes } from '../db/DexieStorageModel';
 import { useMousetrap } from '../react-hooks/useMousetrap';
 
 function useUpdateBrush<K extends keyof Brush & string>(
@@ -58,20 +46,28 @@ function useUpdateBrush<K extends keyof Brush & string>(
   return [tempValue ?? value, setTempValue, setValue];
 }
 
+export type IconsUrls = {
+  layerPlus: string;
+  play: string;
+  pause: string;
+  undo: string;
+  redo: string;
+};
+
 type Props = {
   drawingId: string;
-  dna: Dna;
   drawingModel: DrawingModel;
   lascauxDomRef?: MutableRefObject<LascauxDomInstance | null>;
+  iconUrls: IconsUrls;
 };
 
 const numberFormat = new Intl.NumberFormat();
 
 export function DrawletApp({
   drawingId,
-  dna,
   drawingModel,
   lascauxDomRef,
+  iconUrls,
 }: Props) {
   const drawletContainerRef = useRef<HTMLDivElement>(null);
   const [updateObjectState, setUpdateObject] = useState<LascauxUiState | null>(
@@ -254,7 +250,7 @@ export function DrawletApp({
       <div className={styles.tools}>
         <Button disabled={strokeCount === 0} onClick={togglePlay}>
           <Icon
-            file={playing ? PauseIcon : PlayIcon}
+            file={playing ? iconUrls.pause : iconUrls.play}
             alt={playing ? 'Pause' : 'Play'}
           />
         </Button>
@@ -269,11 +265,11 @@ export function DrawletApp({
           className={styles.cursorSlider}
         />
         <Button disabled={undo === undefined} onClick={onUndo}>
-          <Icon file={UndoIcon} alt="Undo icon" />
+          <Icon file={iconUrls.undo} alt="Undo icon" />
           Undo
         </Button>
         <Button disabled={redo === undefined} onClick={onRedo}>
-          <Icon file={RedoIcon} alt="Redo icon" />
+          <Icon file={iconUrls.redo} alt="Redo icon" />
           Redo
         </Button>
       </div>
@@ -350,7 +346,7 @@ export function DrawletApp({
           />
         </span>
         <Button onClick={onAddLayer}>
-          <Icon file={LayerPlusIcon} alt="Layer plus icon" />
+          <Icon file={iconUrls.layerPlus} alt="Layer plus icon" />
           Add Layer
         </Button>
         <label className={styles.toolLabel}>Diagnostics</label>

@@ -1,6 +1,6 @@
 import { RouteComponentProps } from '@reach/router';
 import React, { useCallback, useRef } from 'react';
-import { DrawletApp } from '../lascaux-ui/DrawletApp';
+import { DrawletApp, IconsUrls } from '../lascaux-ui/DrawletApp';
 import { useDexieItem } from '../db/useDexie';
 import { db } from '../db/db';
 import { DexieStorageModel, getAllStrokes } from '../db/DexieStorageModel';
@@ -17,7 +17,21 @@ import { downloadFile, filenameDate } from '../ui/download';
 import { LascauxDomInstance } from '../lascaux/Drawlet';
 import { ExportedDrawingV1 } from '../lascaux/ExportedDrawing';
 
+import LayerPlusIcon from '../icons/fa/layer-plus.svg';
+import PlayIcon from '../icons/fa/play.svg';
+import PauseIcon from '../icons/fa/pause.svg';
+import UndoIcon from '../icons/fa/undo.svg';
+import RedoIcon from '../icons/fa/redo.svg';
+
 type DrawingPageProps = { drawingId?: string } & RouteComponentProps;
+
+const ICON_URLS: IconsUrls = {
+  layerPlus: LayerPlusIcon,
+  play: PlayIcon,
+  pause: PauseIcon,
+  undo: UndoIcon,
+  redo: RedoIcon,
+};
 
 export function DrawingPage(props: DrawingPageProps) {
   const { drawingId } = props;
@@ -79,8 +93,8 @@ export function DrawingPage(props: DrawingPageProps) {
     >
       <DrawletApp
         drawingId={id}
-        dna={dna}
         drawingModel={drawingModel}
+        iconUrls={ICON_URLS}
         lascauxDomRef={canvasInstance}
       />
     </Layout>

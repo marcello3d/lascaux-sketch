@@ -1,25 +1,24 @@
 import React, { MutableRefObject, useEffect } from 'react';
-
+import { LascauxDomInstance } from '../lascaux/Drawlet';
 import { useDexieItem } from '../db/useDexie';
 import { db } from '../db/db';
+import { newDate } from '../db/fields';
 import { getOrMakeDrawingModel } from '../db/drawlet-cache';
 import { DexieStorageModel } from '../db/DexieStorageModel';
 import { createDrawingModel, dnaToDoc } from '../lascaux/fiver';
-import { DrawletApp } from '../lascaux-ui/DrawletApp';
-import { newDate } from '../db/fields';
-import { LascauxDomInstance, LascauxUiState } from '../lascaux/Drawlet';
-
-export type { LascauxDomInstance, LascauxUiState } from '../lascaux/Drawlet';
+import { DrawletApp, IconsUrls } from '../lascaux-ui/DrawletApp';
 
 export function LascauxEmbedded({
   drawingId,
   width,
   height,
   lascauxDomRef,
+  iconUrls,
 }: {
   drawingId: string;
   width: number;
   height: number;
+  iconUrls: IconsUrls;
   lascauxDomRef?: MutableRefObject<LascauxDomInstance | null>;
 }) {
   const drawing = useDexieItem(db.drawings, drawingId);
@@ -46,8 +45,8 @@ export function LascauxEmbedded({
   return (
     <DrawletApp
       drawingId={id}
-      dna={dna}
       drawingModel={drawingModel}
+      iconUrls={iconUrls}
       lascauxDomRef={lascauxDomRef}
     />
   );
