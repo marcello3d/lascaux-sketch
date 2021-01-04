@@ -1,6 +1,6 @@
 import { RouteComponentProps } from '@reach/router';
 import React, { useCallback, useRef } from 'react';
-import { DrawletApp, IconsUrls } from '../lascaux-ui/DrawletApp';
+import { DrawletApp } from '../lascaux-ui/DrawletApp';
 import { useDexieItem } from '../db/useDexie';
 import { db } from '../db/db';
 import { DexieStorageModel, getAllStrokes } from '../db/DexieStorageModel';
@@ -22,6 +22,9 @@ import PlayIcon from '../icons/fa/play.svg';
 import PauseIcon from '../icons/fa/pause.svg';
 import UndoIcon from '../icons/fa/undo.svg';
 import RedoIcon from '../icons/fa/redo.svg';
+import PenSquareIcon from '../icons/fa/pen-square.svg';
+import SquareIcon from '../icons/fa/square.svg';
+import { IconsUrls } from '../lascaux-ui/IconUrls';
 
 type DrawingPageProps = { drawingId?: string } & RouteComponentProps;
 
@@ -31,6 +34,8 @@ const ICON_URLS: IconsUrls = {
   pause: PauseIcon,
   undo: UndoIcon,
   redo: RedoIcon,
+  layer: SquareIcon,
+  selectedLayer: PenSquareIcon,
 };
 
 export function DrawingPage(props: DrawingPageProps) {

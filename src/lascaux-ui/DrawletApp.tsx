@@ -25,6 +25,7 @@ import { Brush, Color, UserMode } from '../lascaux/DrawingDoc';
 import { LayerList } from './LayerList';
 import { ColorChooser } from './ColorChooser';
 import { useMousetrap } from '../react-hooks/useMousetrap';
+import { IconsUrls } from './IconUrls';
 
 function useUpdateBrush<K extends keyof Brush & string>(
   canvasInstance: LascauxDomInstance,
@@ -45,14 +46,6 @@ function useUpdateBrush<K extends keyof Brush & string>(
 
   return [tempValue ?? value, setTempValue, setValue];
 }
-
-export type IconsUrls = {
-  layerPlus: string;
-  play: string;
-  pause: string;
-  undo: string;
-  redo: string;
-};
 
 type Props = {
   drawingId: string;
@@ -343,6 +336,7 @@ export function DrawletApp({
             mode={mode}
             onSelectLayer={onSelectLayer}
             onRenameLayer={onRenameLayer}
+            iconUrls={iconUrls}
           />
         </span>
         <Button onClick={onAddLayer}>

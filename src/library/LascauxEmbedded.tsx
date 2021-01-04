@@ -6,7 +6,8 @@ import { newDate } from '../db/fields';
 import { getOrMakeDrawingModel } from '../db/drawlet-cache';
 import { DexieStorageModel } from '../db/DexieStorageModel';
 import { createDrawingModel, dnaToDoc } from '../lascaux/fiver';
-import { DrawletApp, IconsUrls } from '../lascaux-ui/DrawletApp';
+import { DrawletApp } from '../lascaux-ui/DrawletApp';
+import { IconsUrls } from '../lascaux-ui/IconUrls';
 
 export function LascauxEmbedded({
   drawingId,
