@@ -1,8 +1,7 @@
-import glsl from 'babel-plugin-glsl/macro';
 import { ShaderDescription } from '../util/program';
 
 export const rectShader = new ShaderDescription(
-  glsl`
+  `
   attribute vec2 aPosition;
   attribute vec4 aColor;
 
@@ -15,7 +14,7 @@ export const rectShader = new ShaderDescription(
     gl_Position = uMVMatrix * vec4(aPosition, 0, 1);
   }
 `,
-  glsl`
+  `
   precision mediump float;
 
   varying vec4 vColor;

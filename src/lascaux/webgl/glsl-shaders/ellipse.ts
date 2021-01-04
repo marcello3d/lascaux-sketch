@@ -1,8 +1,7 @@
-import glsl from 'babel-plugin-glsl/macro';
 import { ShaderDescription } from '../util/program';
 
 export const ellipseShader = new ShaderDescription(
-  glsl`
+  `
     attribute vec4 aPosition;
     attribute vec4 aRect;
     attribute vec4 aColor;
@@ -37,7 +36,7 @@ export const ellipseShader = new ShaderDescription(
       gl_Position = uMVMatrix * aPosition;
     }
   `,
-  glsl`
+  `
     precision mediump float;
 
     varying float vHardness;
