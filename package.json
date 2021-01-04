@@ -1,6 +1,6 @@
 {
   "name": "lascaux-sketch",
-  "version": "0.1.4",
+  "version": "0.1.7",
   "license": "Zlib",
   "author": {
     "name": "Marcello Bastea-Forte",
@@ -53,7 +53,7 @@
   },
   "files": [
     "src",
-    "patches",
+    "!src/icons",
     "tsconfig.json"
   ],
   "devDependencies": {
