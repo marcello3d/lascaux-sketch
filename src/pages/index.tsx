@@ -24,6 +24,7 @@ import { uploadFile } from '../ui/download';
 import { ExportedDrawingV1 } from '../lascaux/ExportedDrawing';
 import SatelliteDishIcon from '../icons/fa/satellite-dish.svg';
 import { Button } from '../ui/Button';
+import { importDrawing } from '../db/export';
 
 function validSize(input: string): number | undefined {
   if (!/^\d+$/.test(input)) {
@@ -75,20 +76,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
     for (const file of files) {
       const drawing = JSON.parse(await file.text()) as ExportedDrawingV1;
       const id = newId();
-      await db.drawings.add({
-        id,
-        createdAt: newDate(),
-        dna: drawing.dna,
-      });
-      await db.strokes.bulkAdd(
-        drawing.strokes.map(([time, type, payload], index) => ({
-          drawingId: id,
-          index,
-          time,
-          type,
-          payload,
-        })),
-      );
+      await importDrawing(id, drawing);
     }
   }, []);
 

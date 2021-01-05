@@ -3,7 +3,7 @@ import React, { useCallback, useRef } from 'react';
 import { DrawletApp } from '../lascaux-ui/DrawletApp';
 import { useDexieItem } from '../db/useDexie';
 import { db } from '../db/db';
-import { DexieStorageModel, getAllStrokes } from '../db/DexieStorageModel';
+import { DexieStorageModel } from '../db/DexieStorageModel';
 import { NotFoundPage } from './404';
 import { getOrMakeDrawingModel } from '../db/drawlet-cache';
 import { createDrawingModel, dnaToDoc } from '../lascaux/fiver';
@@ -15,7 +15,6 @@ import FileDownloadIcon from '../icons/fa/file-download.svg';
 import SatelliteDishIcon from '../icons/fa/satellite-dish.svg';
 import { downloadFile, filenameDate } from '../ui/download';
 import { LascauxDomInstance } from '../lascaux/Drawlet';
-import { ExportedDrawingV1 } from '../lascaux/ExportedDrawing';
 
 import LayerPlusIcon from '../icons/fa/layer-plus.svg';
 import PlayIcon from '../icons/fa/play.svg';
@@ -25,6 +24,7 @@ import RedoIcon from '../icons/fa/redo.svg';
 import PenSquareIcon from '../icons/fa/pen-square.svg';
 import SquareIcon from '../icons/fa/square.svg';
 import { IconsUrls } from '../lascaux-ui/IconUrls';
+import { exportDrawing } from '../db/export';
 
 type DrawingPageProps = { drawingId?: string } & RouteComponentProps;
 
@@ -53,15 +53,7 @@ export function DrawingPage(props: DrawingPageProps) {
     if (!drawing) {
       return;
     }
-    const drawingData: ExportedDrawingV1 = {
-      version: 1,
-      dna: drawing.dna,
-      strokes: (await getAllStrokes(drawing.id)).map((stroke) => [
-        stroke.time,
-        stroke.type,
-        stroke.payload,
-      ]),
-    };
+    const drawingData = await exportDrawing(drawing);
 
     downloadFile(
       new Blob([JSON.stringify(drawingData)]),
