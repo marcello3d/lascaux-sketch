@@ -67,7 +67,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
     [width, height, navigate],
   );
 
-  const importDrawing = useCallback(async () => {
+  const onImportDrawing = useCallback(async () => {
     const files = await uploadFile(['.json', 'application/json']);
     if (!files) {
       console.warn(`no files!`);
@@ -75,8 +75,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
     }
     for (const file of files) {
       const drawing = JSON.parse(await file.text()) as ExportedDrawingV1;
-      const id = newId();
-      await importDrawing(id, drawing);
+      await importDrawing(newId(), drawing);
     }
   }, []);
 
@@ -120,7 +119,7 @@ export function IndexPage({ navigate }: RouteComponentProps) {
             onChange={onHeightChange}
           />
         </form>
-        <Button onClick={importDrawing}>
+        <Button onClick={onImportDrawing}>
           <Icon file={SatelliteDishIcon} alt="download" />
           Import JSON
         </Button>
