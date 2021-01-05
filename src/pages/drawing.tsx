@@ -53,7 +53,7 @@ export function DrawingPage(props: DrawingPageProps) {
     if (!drawing) {
       return;
     }
-    const drawingData = await exportDrawing(drawing);
+    const drawingData = await exportDrawing(drawing.id);
 
     downloadFile(
       new Blob([JSON.stringify(drawingData)]),
