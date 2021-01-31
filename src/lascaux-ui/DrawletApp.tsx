@@ -50,6 +50,7 @@ function useUpdateBrush<K extends keyof Brush & string>(
 type Props = {
   drawingId: string;
   drawingModel: DrawingModel;
+  saveButton?: React.ReactNode;
   lascauxDomRef?: MutableRefObject<LascauxDomInstance | null>;
   iconUrls: IconsUrls;
 };
@@ -60,6 +61,7 @@ export function DrawletApp({
   drawingId,
   drawingModel,
   lascauxDomRef,
+  saveButton,
   iconUrls,
 }: Props) {
   const drawletContainerRef = useRef<HTMLDivElement>(null);
@@ -241,6 +243,7 @@ export function DrawletApp({
   return (
     <div className={styles.root}>
       <div className={styles.tools}>
+        {saveButton}
         <Button disabled={strokeCount === 0} onClick={togglePlay}>
           <Icon
             file={playing ? iconUrls.pause : iconUrls.play}

@@ -9,17 +9,29 @@ import { createDrawingModel, dnaToDoc } from '../lascaux/fiver';
 import { DrawletApp } from '../lascaux-ui/DrawletApp';
 import { IconsUrls } from '../lascaux-ui/IconUrls';
 
+const defaultIconUrls = {
+  layerPlus: '',
+  play: '',
+  pause: '',
+  undo: '',
+  redo: '',
+  layer: '',
+  selectedLayer: '',
+};
+
 export function LascauxEmbedded({
   drawingId,
   width,
   height,
   lascauxDomRef,
-  iconUrls,
+  saveButton,
+  iconUrls = defaultIconUrls,
 }: {
   drawingId: string;
   width: number;
   height: number;
-  iconUrls: IconsUrls;
+  saveButton?: React.ReactNode;
+  iconUrls?: IconsUrls;
   lascauxDomRef?: MutableRefObject<LascauxDomInstance | null>;
 }) {
   const drawing = useDexieItem(db.drawings, drawingId);
@@ -47,6 +59,7 @@ export function LascauxEmbedded({
     <DrawletApp
       drawingId={id}
       drawingModel={drawingModel}
+      saveButton={saveButton}
       iconUrls={iconUrls}
       lascauxDomRef={lascauxDomRef}
     />
