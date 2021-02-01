@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { render } from 'react-dom';
 import { LascauxStandalone, LascauxStandaloneProps } from './LascauxStandalone';
 
@@ -13,7 +13,12 @@ class LascauxSketch2 {
     domRoot,
     ...rest
   }: LascauxStandaloneProps & { domRoot: HTMLElement }) {
-    render(<LascauxStandalone {...rest} />, domRoot);
+    render(
+      <Suspense fallback={<div>Loading Lascaux…</div>}>
+        <LascauxStandalone {...rest} />
+      </Suspense>,
+      domRoot,
+    );
   }
 }
 
