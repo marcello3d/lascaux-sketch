@@ -69,12 +69,13 @@ export function PlaybackApp({ drawingModel, lascauxDomRef, iconUrls }: Props) {
 
   return (
     <div className={styles.root}>
-      <div className={styles.tools}>
+      <div
+        ref={drawletContainerRef}
+        touch-action="none"
+        className={styles.canvasContainer}
+      />
+      <div className={styles.status}>
         <Button disabled={strokeCount === 0} onClick={togglePlay}>
-          <Icon
-            file={playing ? iconUrls.pause : iconUrls.play}
-            alt={playing ? 'Pause' : 'Play'}
-          />
           {playing ? 'Pause' : 'Play'}
         </Button>
         <Slider
@@ -88,11 +89,6 @@ export function PlaybackApp({ drawingModel, lascauxDomRef, iconUrls }: Props) {
           className={styles.cursorSlider}
         />
       </div>
-      <div
-        ref={drawletContainerRef}
-        touch-action="none"
-        className={styles.canvasContainer}
-      />
     </div>
   );
 }
