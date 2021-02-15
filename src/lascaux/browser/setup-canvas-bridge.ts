@@ -43,7 +43,11 @@ export default function createLascauxDomInstance(
     }
   };
 
-  then(canvas.gotoEnd(), requestRepaint);
+  if (editable) {
+    then(canvas.gotoEnd(), requestRepaint);
+  } else {
+    requestRepaint();
+  }
 
   function requestRepaint() {
     if (!requestedAnimation) {
