@@ -25,7 +25,6 @@ import { ExportedDrawingV1 } from '../lascaux/ExportedDrawing';
 import SatelliteDishIcon from '../icons/fa/satellite-dish.svg';
 import { Button } from '../ui/Button';
 import { importDrawing } from '../db/export';
-import { useMousetrap } from '../react-hooks/useMousetrap';
 import { CTRL_OR_CMD } from '../lascaux-ui/keyboard';
 
 function validSize(input: string): number | undefined {
