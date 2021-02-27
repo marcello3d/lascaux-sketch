@@ -17,7 +17,7 @@
     "classnames": "2.2.6",
     "dexie": "3.0.2",
     "dexie-observable": "1.0.0-beta.8",
-    "immer": "7.0.7",
+    "immer": "8.0.1",
     "jsondiffpatch": "0.4.1",
     "mousetrap": "1.6.5",
     "nanoid": "3.1.20",
