@@ -25,6 +25,8 @@ import { ExportedDrawingV1 } from '../lascaux/ExportedDrawing';
 import SatelliteDishIcon from '../icons/fa/satellite-dish.svg';
 import { Button } from '../ui/Button';
 import { importDrawing } from '../db/export';
+import { useMousetrap } from '../react-hooks/useMousetrap';
+import { CTRL_OR_CMD } from '../lascaux-ui/keyboard';
 
 function validSize(input: string): number | undefined {
   if (!/^\d+$/.test(input)) {
@@ -200,13 +202,25 @@ export function IndexPage({ navigate }: RouteComponentProps) {
         <h2>Keyboard shortcuts</h2>
         <ul>
           <li>
-            <strong>Ctrl+Z / Cmd+Z</strong>: Undo
+            <strong>{CTRL_OR_CMD}+Z</strong>: Undo
           </li>
           <li>
-            <strong>Ctrl+Z / Cmd+Z</strong>: Undo
+            <strong>Shift+{CTRL_OR_CMD}+Z</strong>: Redo
           </li>
           <li>
-            <strong>Ctrl+Z / Cmd+Z</strong>: Undo
+            <strong>{CTRL_OR_CMD}+=</strong>: Zoom in
+          </li>
+          <li>
+            <strong>{CTRL_OR_CMD}+-</strong>: Zoom out
+          </li>
+          <li>
+            <strong>{CTRL_OR_CMD}+0</strong>: Zoom to 100%
+          </li>
+          <li>
+            <strong>B</strong>: Brush
+          </li>
+          <li>
+            <strong>E</strong>: Erase
           </li>
         </ul>
         <h2>Diagnostics</h2>

@@ -26,6 +26,7 @@ import { LayerList } from './LayerList';
 import { ColorChooser } from './ColorChooser';
 import { useMousetrap } from '../react-hooks/useMousetrap';
 import { IconsUrls } from './IconUrls';
+import { MOUSETRAP_MOD } from './keyboard';
 
 function useUpdateBrush<K extends keyof Brush & string>(
   canvasInstance: LascauxDomInstance,
@@ -232,11 +233,11 @@ export function DrawletApp({
   );
   const brush = mode.brushes[mode.brush];
 
-  useMousetrap('meta+z', onUndo);
-  useMousetrap('meta+shift+z', onRedo);
-  useMousetrap('meta+=', zoomIn);
-  useMousetrap('meta+-', zoomOut);
-  useMousetrap('meta+0', zoomTo100);
+  useMousetrap(`${MOUSETRAP_MOD}+z`, onUndo);
+  useMousetrap(`${MOUSETRAP_MOD}+shift+z`, onRedo);
+  useMousetrap(`${MOUSETRAP_MOD}+=`, zoomIn);
+  useMousetrap(`${MOUSETRAP_MOD}+-`, zoomOut);
+  useMousetrap(`${MOUSETRAP_MOD}+0`, zoomTo100);
   useMousetrap('b', chooseBrush);
   useMousetrap('e', chooseEraser);
 
