@@ -1,8 +1,7 @@
-import glsl from 'babel-plugin-glsl/macro';
 import { ShaderDescription } from '../util/program';
 
 export const lineShader = new ShaderDescription(
-  glsl`
+  `
   attribute vec4 aPosition;
 
   uniform mat4 uMVMatrix;
@@ -13,7 +12,7 @@ export const lineShader = new ShaderDescription(
     gl_Position = uMVMatrix * aPosition;
   }
 `,
-  glsl`
+  `
   precision mediump float;
 
   uniform vec4 uColor;

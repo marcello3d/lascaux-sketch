@@ -1,7 +1,7 @@
 import mousetrap from 'mousetrap';
 import { useEffect, useRef } from 'react';
 
-type CallbackFn = (e: ExtendedKeyboardEvent, combo: string) => any;
+type CallbackFn = (e: KeyboardEvent, combo: string) => any;
 
 const currentBindings: Record<string, CallbackFn> = {};
 

@@ -1,8 +1,7 @@
-import glsl from 'babel-plugin-glsl/macro';
 import { ShaderDescription } from '../util/program';
 
 export const textureShader = new ShaderDescription(
-  glsl`
+  `
   attribute vec4 aPosition;
 
   uniform mat4 uMVMatrix;
@@ -14,7 +13,7 @@ export const textureShader = new ShaderDescription(
     vTextureCoord = aPosition.zw;
   }
 `,
-  glsl`
+  `
   precision mediump float;
 
   varying vec2 vTextureCoord;

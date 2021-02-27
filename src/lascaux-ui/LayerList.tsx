@@ -4,9 +4,8 @@ import { Button } from '../ui/Button';
 import classNames from 'classnames';
 import styles from './LayerList.module.css';
 import { Icon } from '../ui/Icon';
-import PenSquareIcon from '../icons/fa/pen-square.svg';
-import SquareIcon from '../icons/fa/square.svg';
 import { EditName } from '../ui/EditName';
+import { IconsUrls } from './IconUrls';
 
 type LayerListProps = {
   ids: Id[];
@@ -14,6 +13,7 @@ type LayerListProps = {
   mode: UserMode;
   onSelectLayer: (id: Id) => void;
   onRenameLayer: (id: Id, newName: string) => void;
+  iconUrls: IconsUrls;
 };
 
 export const LayerList = React.memo(function LayerList({
@@ -22,6 +22,7 @@ export const LayerList = React.memo(function LayerList({
   mode,
   onSelectLayer,
   onRenameLayer,
+  iconUrls,
 }: LayerListProps) {
   return (
     <span className={styles.layers}>
@@ -32,6 +33,7 @@ export const LayerList = React.memo(function LayerList({
             id={id}
             artboard={artboard}
             mode={mode}
+            iconUrls={iconUrls}
             onSelectLayer={onSelectLayer}
             onRenameLayer={onRenameLayer}
           />
@@ -47,6 +49,7 @@ type LayerProps = {
   mode: UserMode;
   onSelectLayer: (id: string) => void;
   onRenameLayer: (id: string, newName: string) => void;
+  iconUrls: IconsUrls;
 };
 
 function Layer({
@@ -55,6 +58,7 @@ function Layer({
   mode,
   onSelectLayer,
   onRenameLayer,
+  iconUrls,
 }: LayerProps) {
   const selected = id === mode.layer;
   const layer = artboard.layers[id];
@@ -83,7 +87,7 @@ function Layer({
         onClick={onClick}
       >
         <Icon
-          file={selected ? PenSquareIcon : SquareIcon}
+          file={selected ? iconUrls.selectedLayer : iconUrls.layer}
           alt={selected ? 'Selected layer' : 'Unselected layer'}
         />
         <EditName text={name} onChangeText={onChangeName} doubleClick={true} />
@@ -93,6 +97,7 @@ function Layer({
           ids={layer.layers}
           artboard={artboard}
           mode={mode}
+          iconUrls={iconUrls}
           onSelectLayer={onSelectLayer}
           onRenameLayer={onRenameLayer}
         />

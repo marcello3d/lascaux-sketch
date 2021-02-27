@@ -306,8 +306,9 @@ export class GlDrawingContext implements DrawingContext {
 
   sizeCanvasToWindow() {
     const { canvas } = this;
-    const screenWidth = document.documentElement.clientWidth;
-    const screenHeight = document.documentElement.clientHeight;
+    const el = canvas.parentElement || document.documentElement;
+    const screenWidth = el.clientWidth;
+    const screenHeight = el.clientHeight;
     canvas.style.width = screenWidth + 'px';
     canvas.style.height = screenHeight + 'px';
 

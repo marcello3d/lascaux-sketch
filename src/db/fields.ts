@@ -1,4 +1,4 @@
-import shortid from 'shortid';
+import { nanoid } from 'nanoid';
 
-export const newId = shortid;
+export const newId = nanoid;
 export const newDate = () => new Date().toISOString();

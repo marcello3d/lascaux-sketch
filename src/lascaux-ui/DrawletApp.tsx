@@ -1,4 +1,5 @@
 import React, {
+  MutableRefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -12,30 +13,20 @@ import { useAppendChild } from '../react-hooks/useAppendChild';
 import { Slider } from '../ui/Slider';
 import { Button } from '../ui/Button';
 import useEventEffect from '../react-hooks/useEventEffect';
-import { Layout } from '../pages/modules/Layout';
-import { Header } from '../pages/modules/Header';
-import FileDownloadIcon from '../icons/fa/file-download.svg';
 import { Icon } from '../ui/Icon';
-import { downloadFile, filenameDate } from '../ui/download';
 import { LascauxDomInstance, LascauxUiState } from '../lascaux/Drawlet';
 import DrawingModel from '../lascaux/data-model/DrawingModel';
 import createLascauxDomInstance from '../lascaux/browser/setup-canvas-bridge';
 import { db } from '../db/db';
 import { newDate, newId } from '../db/fields';
 
-import LayerPlusIcon from '../icons/fa/layer-plus.svg';
-import PlayIcon from '../icons/fa/play.svg';
-import PauseIcon from '../icons/fa/pause.svg';
-import UndoIcon from '../icons/fa/undo.svg';
-import RedoIcon from '../icons/fa/redo.svg';
-import SatelliteDishIcon from '../icons/fa/satellite-dish.svg';
 import { addLayer } from '../lascaux/DrawingDocUtil';
-import { Brush, Color, Dna, UserMode } from '../lascaux/DrawingDoc';
+import { Brush, Color, UserMode } from '../lascaux/DrawingDoc';
 import { LayerList } from './LayerList';
 import { ColorChooser } from './ColorChooser';
-import { ExportedDrawingV1 } from '../lascaux/ExportedDrawing';
-import { getAllStrokes } from '../db/DexieStorageModel';
 import { useMousetrap } from '../react-hooks/useMousetrap';
+import { IconsUrls } from './IconUrls';
+import { MOUSETRAP_MOD } from './keyboard';
 
 function useUpdateBrush<K extends keyof Brush & string>(
   canvasInstance: LascauxDomInstance,
@@ -59,13 +50,21 @@ function useUpdateBrush<K extends keyof Brush & string>(
 
 type Props = {
   drawingId: string;
-  dna: Dna;
   drawingModel: DrawingModel;
+  saveButton?: React.ReactNode;
+  lascauxDomRef?: MutableRefObject<LascauxDomInstance | null>;
+  iconUrls: IconsUrls;
 };
 
 const numberFormat = new Intl.NumberFormat();
 
-export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
+export function DrawletApp({
+  drawingId,
+  drawingModel,
+  lascauxDomRef,
+  saveButton,
+  iconUrls,
+}: Props) {
   const drawletContainerRef = useRef<HTMLDivElement>(null);
   const [updateObjectState, setUpdateObject] = useState<LascauxUiState | null>(
     null,
@@ -75,6 +74,11 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
     () => createLascauxDomInstance(drawingModel, setUpdateObject),
     [drawingModel],
   );
+  useEffect(() => {
+    if (lascauxDomRef) {
+      lascauxDomRef.current = canvasInstance;
+    }
+  }, [canvasInstance, lascauxDomRef]);
 
   useEffect(() => {
     return () => {
@@ -110,12 +114,6 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
   useLayoutEffect(() => canvasInstance.subscribe(), [canvasInstance]);
 
   useAppendChild(drawletContainerRef, drawingModel.editCanvas.dom);
-
-  const downloadPng = useCallback(() => {
-    canvasInstance.getPng().then((blob) => {
-      downloadFile(blob, `Lascaux Sketch ${filenameDate()}.png`);
-    });
-  }, [canvasInstance]);
 
   const [brushSize, setTempBrushSize, setBrushSize] = useUpdateBrush(
     canvasInstance,
@@ -235,52 +233,21 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
   );
   const brush = mode.brushes[mode.brush];
 
-  const downloadJson = useCallback(async () => {
-    const drawingData: ExportedDrawingV1 = {
-      version: 1,
-      dna,
-      strokes: (await getAllStrokes(drawingId)).map((stroke) => [
-        stroke.time,
-        stroke.type,
-        stroke.payload,
-      ]),
-    };
-
-    downloadFile(
-      new Blob([JSON.stringify(drawingData)]),
-      `${drawingId}-${filenameDate()}-raw.json`,
-    );
-  }, [dna, drawingId]);
-
-  useMousetrap('meta+z', onUndo);
-  useMousetrap('meta+shift+z', onRedo);
-  useMousetrap('meta+=', zoomIn);
-  useMousetrap('meta+-', zoomOut);
-  useMousetrap('meta+0', zoomTo100);
+  useMousetrap(`${MOUSETRAP_MOD}+z`, onUndo);
+  useMousetrap(`${MOUSETRAP_MOD}+shift+z`, onRedo);
+  useMousetrap(`${MOUSETRAP_MOD}+=`, zoomIn);
+  useMousetrap(`${MOUSETRAP_MOD}+-`, zoomOut);
+  useMousetrap(`${MOUSETRAP_MOD}+0`, zoomTo100);
   useMousetrap('b', chooseBrush);
   useMousetrap('e', chooseEraser);
 
   return (
-    <Layout
-      header={
-        <Header>
-          <Button onClick={downloadPng}>
-            <Icon file={FileDownloadIcon} alt="download" />
-            Save PNG
-          </Button>
-          <Button onClick={downloadJson}>
-            <Icon file={SatelliteDishIcon} alt="download" />
-            Save JSON
-          </Button>
-        </Header>
-      }
-      footer={false}
-      className={styles.root}
-    >
+    <div className={styles.root}>
       <div className={styles.tools}>
+        {saveButton}
         <Button disabled={strokeCount === 0} onClick={togglePlay}>
           <Icon
-            file={playing ? PauseIcon : PlayIcon}
+            file={playing ? iconUrls.pause : iconUrls.play}
             alt={playing ? 'Pause' : 'Play'}
           />
         </Button>
@@ -295,11 +262,11 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
           className={styles.cursorSlider}
         />
         <Button disabled={undo === undefined} onClick={onUndo}>
-          <Icon file={UndoIcon} alt="Undo icon" />
+          <Icon file={iconUrls.undo} alt="Undo icon" />
           Undo
         </Button>
         <Button disabled={redo === undefined} onClick={onRedo}>
-          <Icon file={RedoIcon} alt="Redo icon" />
+          <Icon file={iconUrls.redo} alt="Redo icon" />
           Redo
         </Button>
       </div>
@@ -373,10 +340,11 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
             mode={mode}
             onSelectLayer={onSelectLayer}
             onRenameLayer={onRenameLayer}
+            iconUrls={iconUrls}
           />
         </span>
         <Button onClick={onAddLayer}>
-          <Icon file={LayerPlusIcon} alt="Layer plus icon" />
+          <Icon file={iconUrls.layerPlus} alt="Layer plus icon" />
           Add Layer
         </Button>
         <label className={styles.toolLabel}>Diagnostics</label>
@@ -397,6 +365,6 @@ export function DrawletApp({ drawingId, dna, drawingModel }: Props) {
       />
       <div className={styles.right} />
       <div className={styles.status} />
-    </Layout>
+    </div>
   );
 }
