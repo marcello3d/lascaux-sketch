@@ -7,14 +7,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
       - uses: actions/cache@v2
         with:
-          path: node_modules/
-          key: ${{ runner.os }}-node_modules-${{ hashFiles('**/yarn.lock') }}
+          path: |
+            node_modules/
+            packages/*/node_modules/
+          key: ${{ runner.os }}-node_modules-v2-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
-            ${{ runner.os }}-node_modules-
+            ${{ runner.os }}-node_modules-v2-
       - run: yarn install --prefer-offline --frozen-lockfile
-      - run: yarn build
-      - run: yarn test
+      - run: yarn build-all
+      - run: yarn test-ci
         env:
           CI: true
