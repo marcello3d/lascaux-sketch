@@ -6,14 +6,14 @@ import { db } from './db';
 
 const tableCaches = new Map<string, Map<any, CacheEntry<any[]>>>();
 
-type Subscriber<T> = () => void;
+type Subscriber = () => void;
 type CacheEntry<T> = {
   stale: boolean;
   promise?: PromiseExtended<T>;
   resolved: boolean;
   value?: T;
   revision: number;
-  subscribers: Set<Subscriber<T>>;
+  subscribers: Set<Subscriber>;
 };
 
 type CollectionCache<T, K> = Map<Collection<T, K>, CacheEntry<T[]>>;
