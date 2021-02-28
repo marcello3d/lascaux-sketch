@@ -1,0 +1,20 @@
+{
+  "name": "@lascaux/embedded",
+  "version": "0.1.9",
+  "license": "Zlib",
+  "author": {
+    "name": "Marcello Bastea-Forte",
+    "email": "marcello@cellosoft.com"
+  },
+  "main": "src/library/index.ts",
+  "bugs": "https://github.com/marcello3d/lascaux-sketch/issues",
+  "homepage": "https://lascaux.studio",
+  "repository": {
+    "url": "https://github.com/marcello3d/lascaux-sketch"
+  },
+  "dependencies": {},
+  "scripts": {},
+  "devDependencies": {
+    "typescript": "4.2.2"
+  }
+}
