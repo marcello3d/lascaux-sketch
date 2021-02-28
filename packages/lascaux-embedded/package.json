@@ -7,13 +7,15 @@
     "email": "marcello@cellosoft.com"
   },
   "main": "src/library/index.ts",
+  "scripts": {
+    "build": "echo 'not implemented'"
+  },
   "bugs": "https://github.com/marcello3d/lascaux-sketch/issues",
   "homepage": "https://lascaux.studio",
   "repository": {
     "url": "https://github.com/marcello3d/lascaux-sketch"
   },
   "dependencies": {},
-  "scripts": {},
   "devDependencies": {
     "typescript": "4.2.2"
   }
