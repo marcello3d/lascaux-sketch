@@ -20,6 +20,6 @@ jobs:
             ${{ runner.os }}-node_modules-v2-
       - run: yarn install --prefer-offline --frozen-lockfile
       - run: yarn build-all
-      - run: yarn test-all
+      - run: yarn test-ci
         env:
           CI: true
