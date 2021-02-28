@@ -102,7 +102,10 @@ export default class DrawingModel {
       this._drawingCursor = this._gotoMap.addGoto(this._strokeCount, payload);
     } else {
       const targetCursor = this.editCanvas.targetCursor;
-      if (targetCursor !== this._drawingCursor) {
+      if (
+        targetCursor !== this._drawingCursor &&
+        targetCursor !== this._strokeCount
+      ) {
         this._drawingCursor = this._gotoMap.addGoto(
           this._strokeCount,
           targetCursor,

@@ -5,6 +5,7 @@ import {
 import { LascauxDomInstance } from '../lascaux/Drawlet';
 import { useEffect, useState } from 'react';
 import { newId } from '../db/fields';
+import pako from 'pako';
 
 export async function tryUpload(
   lascaux: LascauxDomInstance,
@@ -38,6 +39,28 @@ export async function download(
   const data = await res.arrayBuffer();
   // Import into database
   await importGzippedDrawing(drawingId, new Uint8Array(data));
+}
+
+export async function fetchAndUnzip(url: string): Promise<string> {
+  const res = await fetch(url);
+  const inflate = new pako.Inflate({ to: 'string' });
+  const body = res.body;
+  if (body) {
+    const reader = await body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (value) {
+        inflate.push(value);
+      }
+      if (done) {
+        break;
+      }
+    }
+  } else {
+    const blob = await res.arrayBuffer();
+    inflate.push(new Uint8Array(blob));
+  }
+  return inflate.result as string;
 }
 
 export function useLoadDrawing(
