@@ -20,7 +20,7 @@
     "immer": "8.0.1",
     "jsondiffpatch": "0.4.1",
     "mousetrap": "1.6.5",
-    "nanoid": "3.1.20",
+    "nanoid": "3.1.31",
     "pako": "2.0.3",
     "patch-package": "6.4.0",
     "promise-or-value": "1.0.0-alpha.2",
