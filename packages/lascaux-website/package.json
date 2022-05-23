@@ -15,7 +15,7 @@
   "dependencies": {
     "@marcello/pepjs": "0.4.4-pre.1",
     "classnames": "2.2.6",
-    "dexie": "3.0.2",
+    "dexie": "3.2.2",
     "dexie-observable": "1.0.0-beta.8",
     "immer": "8.0.1",
     "jsondiffpatch": "0.4.1",

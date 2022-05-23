@@ -4398,10 +4398,10 @@ dexie-observable@1.0.0-beta.8:
   resolved "https://registry.yarnpkg.com/dexie-observable/-/dexie-observable-1.0.0-beta.8.tgz#1c9000935327a96f493b4be866d56a838d6e3240"
   integrity sha512-Xn3rxOLTLFQ1FJo5DiMAobOpi7qEknXK2IXl9gPg1SbCnGPB6ZMNGQs3KHkpm6P+kGqoe7g51pKUfp+/p10fpg==
 
-dexie@3.0.2:
-  version "3.0.2"
-  resolved "https://registry.yarnpkg.com/dexie/-/dexie-3.0.2.tgz#4b979904d739e0530b68352005f175a82633a075"
-  integrity sha512-go4FnIoAhcUiCdxutfIZRxnSaSyDgfEq+GH7N0I8nTCJbC2FmeBj+0FrETa3ln5ix+VQMOPsFeYHlgE/8SZWwQ==
+dexie@3.2.2:
+  version "3.2.2"
+  resolved "https://registry.yarnpkg.com/dexie/-/dexie-3.2.2.tgz#fa6f2a3c0d6ed0766f8d97a03720056f88fe0e01"
+  integrity sha512-q5dC3HPmir2DERlX+toCBbHQXW5MsyrFqPFcovkH9N2S/UW/H3H5AWAB6iEOExeraAu+j+zRDG+zg/D7YhH0qg==
 
 diff-match-patch@^1.0.0:
   version "1.0.5"
