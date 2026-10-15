@@ -124,7 +124,13 @@ export class Replay {
       this.rewound = false;
       return;
     }
-    const keyframe = this.keyframes?.before(target, () => true) ?? null;
+    let keyframe = this.keyframes?.before(target, () => true) ?? null;
+    // the snapshots kept for gotos are whole states too
+    for (const snapshot of this.snapshots.values()) {
+      if (snapshot.index <= target && (!keyframe || snapshot.index > keyframe.index)) {
+        keyframe = snapshot;
+      }
+    }
     if (keyframe && keyframe.index > here) {
       this.restore(keyframe);
     } else if (here < 0) {
