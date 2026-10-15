@@ -140,12 +140,13 @@ export class Lascaux2Player {
       throw new Error('no url or data given');
     }
     const json = await readDrawing(bytes);
-    const { doc, model, strokes } = await loadDrawing(json);
+    const drawing = await loadDrawing(json);
+    const { doc, strokes } = drawing;
     if (this.destroyed) {
       return;
     }
     this.times = buildTimes(strokes, this.options.maxIdle ?? MAX_IDLE);
-    const replay = new Replay(model, strokes, doc.artboard, this.options.keyframes ?? {});
+    const replay = new Replay(drawing, this.options.keyframes ?? {});
     this.replay = replay;
     const width = Number(doc.artboard.width);
     const height = Number(doc.artboard.height);

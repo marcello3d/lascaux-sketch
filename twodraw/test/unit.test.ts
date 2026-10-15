@@ -7,13 +7,11 @@ import { buildTimes, cursorAt, durationOf, timeOf } from '../../src/twodraw/time
 import {
   decodeBand,
   encodeBand,
-  keepAll,
-  keepSpliced,
+  keepLayer,
   KeyframeStore,
   unpack,
   Keyframe,
 } from '../../src/twodraw/keyframes';
-import { skipKey } from '../../src/twodraw/replay';
 
 test('the clock follows the pen, shortens pauses and ignores the editor clock', () => {
   const strokes = [
@@ -59,25 +57,47 @@ test('bands round-trip through run-length encoding', () => {
   assert.deepEqual(back, words);
 });
 
-test('a keyframe re-encodes only the bands its rows touch, sharing the rest', () => {
-  const words = new Uint32Array(70000);
-  for (let i = 0; i < words.length; i += 7) words[i] = i;
+test('runs are of whole pixels (4 words of float32)', () => {
+  const words = new Uint32Array(4 * 1000);
+  for (let p = 0; p < 1000; p++) words.set([1, 2, 3, p < 600 ? 4 : 5], p * 4);
+  const encoded = encodeBand(words, 4);
+  assert.ok(encoded.length <= 12);
+  const back = new Uint32Array(words.length);
+  assert.equal(decodeBand(encoded, back, 0, 4), words.length);
+  assert.deepEqual(back, words);
+  // mixed literals and runs
+  const mixed = new Uint32Array(4 * 10);
+  for (let i = 0; i < mixed.length; i++) mixed[i] = i < 12 ? i : 9;
+  const out = new Uint32Array(mixed.length);
+  decodeBand(encodeBand(mixed, 4), out, 0, 4);
+  assert.deepEqual(out, mixed);
+});
+
+test('a keyframe re-encodes only the tiles drawn on, sharing the rest', () => {
+  // a 150 x 70 layer of 2-word pixels in 64 px tiles: 3 x 2 tiles, partial at the edges
+  const shape = { width: 150, height: 70, size: 64, unit: 2 };
+  const words = new Uint32Array(150 * 70 * 2);
+  for (let i = 0; i < words.length; i += 3) words[i] = i;
   const a = { bytes: 0 };
-  const base = keepAll(words, undefined, a);
-  assert.equal(base.bands.length, 5);
-  const fresh = new Uint32Array(100).fill(0xdeadbeef);
+  const whole = { x: 0, y: 0, w: 150, words };
+  const base = keepLayer(shape, undefined, true, whole, a);
+  assert.equal(base.tiles.length, 6);
+  assert.deepEqual(unpack(base), words);
+  // draw in tile 4 (tx 1, ty 1): pixels x 70..79, y 66..69
+  const next = words.slice();
+  for (let y = 66; y < 70; y++) for (let x = 70; x < 80; x++) next.set([7, 7], (y * 150 + x) * 2);
+  const rect = { x: 64, y: 64, w: 64, words: new Uint32Array(64 * 6 * 2) };
+  for (let y = 0; y < 6; y++) rect.words.set(next.subarray(((64 + y) * 150 + 64) * 2, ((64 + y) * 150 + 128) * 2), y * 128);
   const b = { bytes: 0 };
-  const next = keepSpliced(base, 20000, fresh, b);
-  assert.equal(next.bands.filter((band, i) => band === base.bands[i]).length, 4);
-  const expected = words.slice();
-  expected.set(fresh, 20000);
-  assert.deepEqual(unpack(next), expected);
+  const kept = keepLayer(shape, base, new Set([4]), rect, b);
+  assert.equal(kept.tiles.filter((t, i) => t === base.tiles[i]).length, 5);
+  assert.deepEqual(unpack(kept), next);
   assert.ok(b.bytes > 0 && b.bytes < a.bytes);
-  // unchanged rows: everything shared, nothing added
+  // a tile reported drawn on but unchanged: shared, nothing added
   const c = { bytes: 0 };
-  const same = keepSpliced(next, 20000, fresh, c);
+  const again = keepLayer(shape, kept, new Set([4]), rect, c);
   assert.equal(c.bytes, 0);
-  assert.ok(same.bands.every((band, i) => band === next.bands[i]));
+  assert.ok(again.tiles.every((t, i) => t === kept.tiles[i]));
 });
 
 function fakeKeyframe(index: number, words: number): Keyframe {
@@ -85,13 +105,13 @@ function fakeKeyframe(index: number, words: number): Keyframe {
   for (let i = 0; i < words; i++) data[i] = (i * 2654435761 + index) >>> 0;
   const kf: Keyframe = {
     index,
-    tag: '',
+    renderCursor: index,
     artboard: {} as any,
     state: { x: 0, y: 0, a: 0, size: 0 },
     layers: new Map(),
     bytes: 0,
   };
-  kf.layers.set('0', keepAll(data, undefined, kf));
+  kf.layers.set('0', keepLayer({ width: words, height: 1, size: 64, unit: 1 }, undefined, true, { x: 0, y: 0, w: words, words: data }, kf));
   return kf;
 }
 
@@ -115,15 +135,4 @@ test('a keyframe nothing fits in turns keyframes off', () => {
   store.add(fakeKeyframe(10, 50000));
   assert.equal(store.count, 0);
   assert.equal(store.due(20, 1e9), false);
-});
-
-test('states are tagged with the undo skips before them', () => {
-  const skips: [number, number][] = [
-    [10, 19],
-    [40, 49],
-  ];
-  assert.equal(skipKey(skips, 5), '');
-  assert.equal(skipKey(skips, 15), '10-14,');
-  assert.equal(skipKey(skips, 30), '10-19,');
-  assert.equal(skipKey(skips, 60), '10-19,40-49,');
 });

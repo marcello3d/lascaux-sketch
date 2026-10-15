@@ -5,32 +5,36 @@
  * the start. Same design and memory budget as the other 2draw players'
  * (Lascaux Classic's and ChickenPaint's).
  *
- * Each layer is kept in bands of BAND_WORDS 32-bit words of its stored data
- * (float32, float16 bits or bytes, as the framebuffer keeps it), each
- * run-length encoded (layers are mostly runs of transparency); a band that
- * hasn't changed since the keyframe the replay came from is shared with it.
- * Only the rows drawn on since then are read back from the GPU.
+ * Each layer is kept in 64px tiles of its stored data (float32, float16 bits
+ * or bytes, as the framebuffer keeps it), each run-length encoded by pixel
+ * (layers are mostly runs of transparency or of one colour); a tile that
+ * hasn't been drawn on since the keyframe the replay came from is shared with
+ * it, and only the tiles drawn on are read back from the GPU.
  */
 import { Artboard } from '../lascaux/DrawingDoc';
 import { DrawingState } from '../lascaux/legacy-model';
 
-const BAND_WORDS = 16 * 1024;
 const RUN_FLAG = 0x80000000;
 /** Rough cost of a keyframe's non-pixel state. */
 const STATE_BYTES = 4096;
 const MB = 1024 * 1024;
 
+/** A layer, kept as run-length encoded tiles (row by row, left to right). */
 export interface KeptBuffer {
-  /** 32-bit words in the layer's data */
-  readonly words: number;
-  readonly bands: Uint32Array[];
+  readonly width: number;
+  readonly height: number;
+  /** tile size (px) */
+  readonly size: number;
+  /** words per pixel (the run-length unit) */
+  readonly unit: number;
+  readonly tiles: Uint32Array[];
 }
 
 export interface Keyframe {
   /** stroke events applied (the replay continues with stroke `index`) */
   readonly index: number;
-  /** the undo skips the replay used to get here, up to `index` (skipKey) */
-  readonly tag: string;
+  /** the editor's render cursor then (where its next goto starts from) */
+  readonly renderCursor: number;
   readonly artboard: Artboard;
   readonly state: DrawingState;
   readonly layers: Map<string, KeptBuffer>;
@@ -38,29 +42,42 @@ export interface Keyframe {
   bytes: number;
 }
 
-export function encodeBand(words: Uint32Array): Uint32Array {
-  const out = new Uint32Array(words.length + 2);
+/**
+ * Run-length encodes `words` in units of `unit` words (one pixel: 4 words of
+ * float32, 2 of float16, 1 of bytes): a run of one pixel repeated is
+ * [RUN_FLAG | count, ...pixel], anything else [count, ...pixels].
+ */
+export function encodeBand(words: Uint32Array, unit: number = 1): Uint32Array {
+  const n = words.length / unit;
+  const out = new Uint32Array(words.length + 2 * unit + 2);
   let o = 0;
   let literalStart = 0;
-  let i = 0;
-  const n = words.length;
+  const same = (a: number, b: number): boolean => {
+    for (let k = 0; k < unit; k++) {
+      if (words[a * unit + k] !== words[b * unit + k]) {
+        return false;
+      }
+    }
+    return true;
+  };
   const flushLiterals = (end: number): void => {
     if (end > literalStart) {
       out[o++] = end - literalStart;
-      out.set(words.subarray(literalStart, end), o);
-      o += end - literalStart;
+      out.set(words.subarray(literalStart * unit, end * unit), o);
+      o += (end - literalStart) * unit;
     }
   };
+  let i = 0;
   while (i < n) {
-    const value = words[i];
     let runEnd = i + 1;
-    while (runEnd < n && words[runEnd] === value) {
+    while (runEnd < n && same(runEnd, i)) {
       runEnd++;
     }
     if (runEnd - i >= 3) {
       flushLiterals(i);
       out[o++] = (RUN_FLAG | (runEnd - i)) >>> 0;
-      out[o++] = value;
+      out.set(words.subarray(i * unit, i * unit + unit), o);
+      o += unit;
       literalStart = runEnd;
     }
     i = runEnd;
@@ -69,17 +86,27 @@ export function encodeBand(words: Uint32Array): Uint32Array {
   return out.slice(0, o);
 }
 
-export function decodeBand(encoded: Uint32Array, dest: Uint32Array, at: number): number {
+/** Decodes a band (encodeBand's) into `dest` from word `at`; returns the end. */
+export function decodeBand(encoded: Uint32Array, dest: Uint32Array, at: number, unit: number = 1): number {
   for (let i = 0; i < encoded.length; ) {
     const token = encoded[i++];
     if (token & RUN_FLAG) {
       const count = (token & ~RUN_FLAG) >>> 0;
-      dest.fill(encoded[i++], at, at + count);
-      at += count;
+      if (unit === 1) {
+        dest.fill(encoded[i], at, at + count);
+      } else {
+        const pixel = encoded.subarray(i, i + unit);
+        for (let c = 0; c < count; c++) {
+          dest.set(pixel, at + c * unit);
+        }
+      }
+      i += unit;
+      at += count * unit;
     } else {
-      dest.set(encoded.subarray(i, i + token), at);
-      i += token;
-      at += token;
+      const length = token * unit;
+      dest.set(encoded.subarray(i, i + length), at);
+      i += length;
+      at += length;
     }
   }
   return at;
@@ -97,58 +124,75 @@ function sameWords(a: Uint32Array, b: Uint32Array): boolean {
   return true;
 }
 
-/** A layer's whole data, kept (sharing bands with `previous` where equal). */
-export function keepAll(words: Uint32Array, previous: KeptBuffer | undefined, kf: { bytes: number }): KeptBuffer {
-  const bands: Uint32Array[] = [];
-  const same = previous !== undefined && previous.words === words.length;
-  for (let offset = 0, i = 0; offset < words.length; offset += BAND_WORDS, i++) {
-    const encoded = encodeBand(words.subarray(offset, Math.min(words.length, offset + BAND_WORDS)));
-    const old = same ? previous!.bands[i] : undefined;
-    if (old && sameWords(old, encoded)) {
-      bands.push(old);
-    } else {
-      bands.push(encoded);
-      kf.bytes += encoded.byteLength;
-    }
-  }
-  return { words: words.length, bands };
-}
-
 /**
- * `base` with words [from, from + fresh.length) replaced by `fresh` (the rows
- * drawn on since): only the bands those touch are re-encoded.
+ * A layer kept from `previous`, with the tiles in `fresh` (true: all) taken
+ * from `read` (the stored-data words of the layer's rectangle x, y, w × h,
+ * which covers them): tiles that come out the same are shared.
  */
-export function keepSpliced(base: KeptBuffer, from: number, fresh: Uint32Array, kf: { bytes: number }): KeptBuffer {
-  const to = from + fresh.length;
-  const scratch = new Uint32Array(BAND_WORDS);
-  const bands = base.bands.map((old, i) => {
-    const start = i * BAND_WORDS;
-    const end = Math.min(base.words, start + BAND_WORDS);
-    if (end <= from || start >= to) {
-      return old;
+export function keepLayer(
+  shape: { width: number; height: number; size: number; unit: number },
+  previous: KeptBuffer | undefined,
+  fresh: Set<number> | true,
+  read: { x: number; y: number; w: number; words: Uint32Array },
+  kf: { bytes: number },
+): KeptBuffer {
+  const { width, height, size, unit } = shape;
+  const tilesX = Math.ceil(width / size);
+  const tilesY = Math.ceil(height / size);
+  const same =
+    previous !== undefined &&
+    previous.width === width &&
+    previous.height === height &&
+    previous.size === size &&
+    previous.unit === unit;
+  const scratch = new Uint32Array(size * size * unit);
+  const tiles: Uint32Array[] = [];
+  for (let ty = 0, i = 0; ty < tilesY; ty++) {
+    for (let tx = 0; tx < tilesX; tx++, i++) {
+      const old = same ? previous!.tiles[i] : undefined;
+      if (old && fresh !== true && !fresh.has(i)) {
+        tiles.push(old);
+        continue;
+      }
+      const x0 = tx * size;
+      const y0 = ty * size;
+      const tw = Math.min(size, width - x0);
+      const th = Math.min(size, height - y0);
+      const rowWords = tw * unit;
+      const words = scratch.subarray(0, rowWords * th);
+      for (let y = 0; y < th; y++) {
+        const at = ((y0 + y - read.y) * read.w + (x0 - read.x)) * unit;
+        words.set(read.words.subarray(at, at + rowWords), y * rowWords);
+      }
+      const encoded = encodeBand(words, unit);
+      if (old && sameWords(old, encoded)) {
+        tiles.push(old);
+      } else {
+        tiles.push(encoded);
+        kf.bytes += encoded.byteLength;
+      }
     }
-    const words = scratch.subarray(0, end - start);
-    decodeBand(old, words, 0);
-    const a = Math.max(from, start);
-    const b = Math.min(to, end);
-    words.set(fresh.subarray(a - from, b - from), a - start);
-    const encoded = encodeBand(words);
-    if (sameWords(old, encoded)) {
-      return old;
-    }
-    kf.bytes += encoded.byteLength;
-    return encoded;
-  });
-  return { words: base.words, bands };
+  }
+  return { width, height, size, unit, tiles };
 }
 
-/** A kept layer's words. */
+/** A kept layer's words, row by row from y = 0. */
 export function unpack(kept: KeptBuffer): Uint32Array {
-  const words = new Uint32Array(kept.words);
-  let at = 0;
-  for (const band of kept.bands) {
-    at = decodeBand(band, words, at);
-  }
+  const { width, height, size, unit } = kept;
+  const words = new Uint32Array(width * height * unit);
+  const tilesX = Math.ceil(width / size);
+  const scratch = new Uint32Array(size * size * unit);
+  kept.tiles.forEach((tile, i) => {
+    const x0 = (i % tilesX) * size;
+    const y0 = Math.floor(i / tilesX) * size;
+    const tw = Math.min(size, width - x0);
+    const th = Math.min(size, height - y0);
+    const rowWords = tw * unit;
+    decodeBand(tile, scratch, 0, unit);
+    for (let y = 0; y < th; y++) {
+      words.set(scratch.subarray(y * rowWords, (y + 1) * rowWords), ((y0 + y) * width + x0) * unit);
+    }
+  });
   return words;
 }
 
@@ -182,6 +226,9 @@ export interface KeyframeOptions {
 export class KeyframeStore {
   private list: Keyframe[] = [];
   private total = 0;
+  /** Memory spent elsewhere out of the same budget (the replay's must-keep
+   * snapshots). */
+  private reserved = 0;
   private interval: number;
   private readonly memory: number;
 
@@ -213,6 +260,12 @@ export class KeyframeStore {
     return index > this.frontier && work >= this.interval && this.interval !== Infinity;
   }
 
+  /** `bytes` more of the budget are spent elsewhere. */
+  reserve(bytes: number): void {
+    this.reserved += bytes;
+    this.fit();
+  }
+
   add(keyframe: Keyframe): void {
     this.list.push(keyframe);
     this.total += keyframe.bytes + STATE_BYTES;
@@ -224,17 +277,17 @@ export class KeyframeStore {
    * newest) so they stay evenly spread, and take them half as often.
    */
   private fit(): void {
-    while (this.total > this.memory && this.list.length > 2) {
+    while (this.total + this.reserved > this.memory && this.list.length > 2) {
       const last = this.list.length - 1;
       this.list = this.list.filter((_, i) => i % 2 === 0 || i === last);
       this.recount();
       this.interval = this.interval > 0 ? this.interval * 2 : 1;
     }
-    if (this.total > this.memory && this.list.length > 1) {
+    if (this.total + this.reserved > this.memory && this.list.length > 1) {
       this.list = this.list.slice(-1);
       this.recount();
     }
-    if (this.total > this.memory) {
+    if (this.total + this.reserved > this.memory) {
       // not even one fits: stop (seeks replay from the start, as without keyframes)
       this.list = [];
       this.total = 0;
@@ -248,7 +301,7 @@ export class KeyframeStore {
     for (const k of this.list) {
       total += STATE_BYTES;
       for (const b of k.layers.values()) {
-        for (const band of b.bands) {
+        for (const band of b.tiles) {
           if (!seen.has(band)) {
             seen.add(band);
             total += band.byteLength;

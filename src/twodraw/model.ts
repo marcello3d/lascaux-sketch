@@ -2,8 +2,9 @@
  * The drawing's bookkeeping, without pixels: the editor's own DrawingModel
  * (undo/redo goto map, the brush mode in force at each stroke event) built by
  * loading the strokes exactly as the editor does, but on a drawing context
- * that draws nothing. The player's replay (replay.ts) then draws on the GPU
- * using these maps.
+ * that draws nothing, noting how it carried out each undo/redo (!goto): from
+ * which of its snapshots, to where, skipping what. The player's replay
+ * (replay.ts) then does the same on the GPU.
  */
 import { PromiseOrValue } from 'promise-or-value';
 import DrawingModel from '../lascaux/data-model/DrawingModel';
@@ -20,6 +21,7 @@ import { Artboard, DrawingDoc } from '../lascaux/DrawingDoc';
 import { dnaToDoc, handleCommand } from '../lascaux/fiver';
 import { RgbaImage } from '../lascaux/util/rgba-image';
 import { ExportedDrawingV1 } from '../lascaux/ExportedDrawing';
+import { Skips } from '../lascaux/data-model/GotoMap';
 
 /** Draws nothing; its snapshots hold no pixels (the artboard and the brush
  * state, which CanvasModel adds, are all the bookkeeping needs). */
@@ -92,11 +94,23 @@ class MemoryStorage implements StorageModel {
   flush(): void {}
 }
 
+/** How the editor carried out the !goto event at an index (CanvasModel.onGotoPlan). */
+export interface GotoPlan {
+  renderCursor: number;
+  base: 'reset' | 'current' | number;
+  target: number;
+  skips: Skips;
+}
+
 export interface LoadedDrawing {
   doc: DrawingDoc;
   model: DrawingModel;
   /** The stroke events as the model holds them (the file's, in order). */
   strokes: Stroke[];
+  /** By the index of their !goto event; none for a goto that did nothing. */
+  gotoPlans: Map<number, GotoPlan>;
+  /** The editor snapshot indexes some goto goes back to. */
+  snapshotBases: Set<number>;
 }
 
 /** Parses an exported drawing (the .json.gz's JSON) and builds its model. */
@@ -113,6 +127,15 @@ export async function loadDrawing(json: ExportedDrawingV1): Promise<LoadedDrawin
     handleCommand,
     context: new NullDrawingContext(),
   });
+  const gotoPlans = new Map<number, GotoPlan>();
+  const snapshotBases = new Set<number>();
+  model.editCanvas.onGotoPlan = (plan) => {
+    gotoPlans.set(model._strokeCount, plan);
+    if (typeof plan.base === 'number') {
+      snapshotBases.add(plan.base);
+    }
+  };
   await storage.replay(model);
-  return { doc, model, strokes: storage.strokes };
+  model.editCanvas.onGotoPlan = undefined;
+  return { doc, model, strokes: storage.strokes, gotoPlans, snapshotBases };
 }

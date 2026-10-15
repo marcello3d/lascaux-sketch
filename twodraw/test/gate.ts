@@ -63,9 +63,11 @@ async function gateOne(url: string, seeks: number, memoryMB: number, interval: n
   const t0 = performance.now();
   const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
   const json = await readDrawing(bytes);
-  const { doc, model, strokes } = await loadDrawing(json);
+  const drawing = await loadDrawing(json);
+  const { doc, strokes } = drawing;
   const tLoad = performance.now() - t0;
   const n = strokes.length;
+  const fileStrokes = json.strokes.length;
   const height = Number(doc.artboard.height);
   const rand = mulberry32(n * 7919 + 17);
   const targets = new Set<number>([0, n, 1, Math.floor(n / 2)]);
@@ -90,7 +92,7 @@ async function gateOne(url: string, seeks: number, memoryMB: number, interval: n
 
   // Straight replays: no keyframes, targets in order (forward only, from the
   // start whenever an undo sends it back).
-  const straight = new Replay(model, strokes, doc.artboard, false, precision);
+  const straight = new Replay(drawing, false, precision);
   const expected = new Map<number, string>();
   const tS = performance.now();
   for (const t of [...list].sort((a, b) => a - b)) {
@@ -100,7 +102,7 @@ async function gateOne(url: string, seeks: number, memoryMB: number, interval: n
   }
   const tStraight = performance.now() - tS;
 
-  const keyed = new Replay(model, strokes, doc.artboard, {
+  const keyed = new Replay(drawing, {
     memory: memoryMB * 1024 * 1024,
     interval,
   }, precision);
@@ -126,15 +128,16 @@ async function gateOne(url: string, seeks: number, memoryMB: number, interval: n
     const got = fingerprint(keyed, height);
     if (got !== expected.get(t)) {
       failures++;
-      log(`  MISMATCH at ${t} (resolves to ${keyed.resolve(t)}):\n    got  ${got}\n    want ${expected.get(t)}`);
+      log(`  MISMATCH at ${t}:\n    got  ${got}\n    want ${expected.get(t)}`);
     }
     void slices;
   }
   const kf = keyed.keyframes!;
-  const summary = {
+  const summary: Record<string, unknown> = {
     file: url.split('/').pop(),
     size: `${doc.artboard.width}x${doc.artboard.height}`,
     events: n,
+    fileEvents: fileStrokes,
     gotos: strokes.filter((s) => s.type === GOTO_EVENT).length,
     seeks: list.length,
     distinctFrames: new Set(expected.values()).size,
@@ -146,12 +149,97 @@ async function gateOne(url: string, seeks: number, memoryMB: number, interval: n
     restores,
     keyframes: kf.count,
     keyframeMB: +(kf.bytes / 1024 / 1024).toFixed(1),
+    gotoSnapshots: drawing.snapshotBases.size,
+    snapshotMB: +(keyed.snapshotMemory / 1024 / 1024).toFixed(1),
     gl: replay_info(keyed),
   };
+  // The editor's own replay (DrawingModel on a WebGL context, as on load,
+  // then CanvasModel.gotoEnd): its final picture against ours.
+  let editorFinal = 'skipped';
+  if (new URLSearchParams(location.search).get('editor') === '1') {
+    const ref = await editorReplay(json);
+    straight.plan(n);
+    straight.advance(Infinity);
+    straight.present();
+    const ours = straight.ctx.readCanvas();
+    let diff = 0;
+    for (let i = 0; i < ours.length; i += 4) {
+      if (Math.abs(ours[i] - ref[i]) > 1 || Math.abs(ours[i + 1] - ref[i + 1]) > 1 || Math.abs(ours[i + 2] - ref[i + 2]) > 1) diff++;
+    }
+    editorFinal = diff + ' px differ';
+  }
+  (summary as any).editorFinal = editorFinal;
+  // The stored picture (the .png beside the .json.gz) against our last frame.
+  try {
+    const png = await fetch(url.replace(/\.json\.gz$/, '.png'));
+    if (png.ok) {
+      const bitmap = await createImageBitmap(await png.blob());
+      const c2 = document.createElement('canvas');
+      c2.width = bitmap.width;
+      c2.height = bitmap.height;
+      const g = c2.getContext('2d')!;
+      g.drawImage(bitmap, 0, 0);
+      const want = g.getImageData(0, 0, c2.width, c2.height).data;
+      straight.plan(n);
+      straight.advance(Infinity);
+      straight.present();
+      const ours = straight.ctx.readCanvas(); // bottom row first
+      const w = c2.width;
+      const h = c2.height;
+      let diff = 0;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = ((h - 1 - y) * w + x) * 4;
+          const j = (y * w + x) * 4;
+          if (Math.abs(ours[i] - want[j]) > 1 || Math.abs(ours[i + 1] - want[j + 1]) > 1 || Math.abs(ours[i + 2] - want[j + 2]) > 1) diff++;
+        }
+      }
+      (summary as any).pngFinal = diff + ' px differ';
+    }
+  } catch (e) {
+    (summary as any).pngFinal = 'error ' + e;
+  }
   straight.dispose();
   keyed.dispose();
   log(JSON.stringify(summary));
   return summary;
+}
+
+async function editorReplay(json: any): Promise<Uint8Array> {
+  const { dnaToDoc, handleCommand } = await import('../../src/lascaux/fiver');
+  const DrawingModel = (await import('../../src/lascaux/data-model/DrawingModel')).default;
+  const strokes: any[] = [];
+  const snaps: Record<number, any> = {};
+  const links: Record<string, any> = {};
+  const storage: any = {
+    async replay(model: any) {
+      for (const [time, type, payload] of json.strokes) {
+        const p = model.addStroke(type, time, payload);
+        if (p) await p;
+      }
+    },
+    addStroke(index: number, type: string, time: number, payload: any) { strokes[index] = { type, time, payload }; },
+    getStroke(index: number) { return strokes[index]; },
+    addSnapshot(index: number, snap: any) { Object.assign(links, snap.links); snaps[index] = snap; },
+    getSnapshot(index: number) { return snaps[index]; },
+    getSnapshotLink(link: string) { return links[link]; },
+    flush() {},
+  };
+  const doc = dnaToDoc(json.dna);
+  const model = new DrawingModel({ doc, snapshotStrokeCount: 250, storageModel: storage, handleCommand });
+  await storage.replay(model);
+  await model.editCanvas.gotoEnd();
+  const ctx = (model.editCanvas as any)._ctx;
+  // as getPng draws it
+  const canvas: HTMLCanvasElement = ctx.getDom();
+  canvas.width = Number(doc.artboard.width);
+  canvas.height = Number(doc.artboard.height);
+  ctx._mainTextureVertexArray = new Float32Array([0, 0, 0, 0, canvas.width, 0, 1, 0, 0, canvas.height, 0, 1, canvas.width, canvas.height, 1, 1]);
+  ctx.updateViewport(1);
+  ctx.repaint(true);
+  const out = ctx.readCanvas();
+  canvas.getContext('webgl')?.getExtension('WEBGL_lose_context')?.loseContext();
+  return out;
 }
 
 function replay_info(r: Replay): string {

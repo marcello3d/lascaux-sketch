@@ -11,7 +11,7 @@ import {
 } from '../legacy-model';
 import { GOTO_EVENT, PATCH_ARTBOARD_EVENT, PATCH_MODE_EVENT } from './events';
 import jsonCopy from '../util/json-copy';
-import { isSkipped } from './GotoMap';
+import { isSkipped, Skips } from './GotoMap';
 import DrawingModel from './DrawingModel';
 import { GlDrawingContext } from '../webgl/GlDrawingContext';
 import ModeMap from './ModeMap';
@@ -30,6 +30,18 @@ export class CanvasModel {
   // The stroke cursor we're trying to get to
   private _targetCursor: number = 0;
   _state: DrawingState = makeInitialState();
+  /**
+   * 2draw player: told how each goto is carried out (the replay reproduces
+   * it): from `renderCursor`, back to the start ('reset'), to the snapshot at
+   * an index, or on from where it is ('current'); then the events up to
+   * `target` with `skips` skipped. Not called for a goto with nothing to do.
+   */
+  onGotoPlan?: (plan: {
+    renderCursor: number;
+    base: 'reset' | 'current' | number;
+    target: number;
+    skips: Skips;
+  }) => void;
 
   constructor(
     private readonly _drawing: DrawingModel,
@@ -230,6 +242,12 @@ export class CanvasModel {
         revert,
         skips,
       );
+      this.onGotoPlan?.({
+        renderCursor: this._renderCursor,
+        base: nearestSnapshotIndex === 0 ? 'reset' : nearestSnapshotIndex,
+        target,
+        skips,
+      });
       if (nearestSnapshotIndex === 0) {
         this.reset();
       } else {
@@ -244,6 +262,15 @@ export class CanvasModel {
       // Don't bother loading snapshot if we're not going to skip more than 100 steps with it
       // (This is very common when playing back!)
       const MIN_STEP_SKIP = 0;
+      this.onGotoPlan?.({
+        renderCursor: this._renderCursor,
+        base:
+          nearestSnapshotIndex > this._renderCursor + MIN_STEP_SKIP
+            ? nearestSnapshotIndex
+            : 'current',
+        target,
+        skips,
+      });
       if (nearestSnapshotIndex > this._renderCursor + MIN_STEP_SKIP) {
         await loadSnapshot(nearestSnapshotIndex);
       }

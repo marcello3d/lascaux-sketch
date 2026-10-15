@@ -50,8 +50,9 @@ function getTileKey(tilex: number, tiley: number): string {
 }
 
 type LayerInfo = {
-  /** 2draw player: framebuffer rows drawn on since takeDirtyRows(), [from, to). */
-  dirty?: [number, number];
+  /** 2draw player: the DIRTY_TILE tiles drawn on since takeDirtyTiles()
+   * (indexes ty * tilesX + tx), or true for all of them. */
+  dirty?: Set<number> | true;
   changed?: {
     tiles: Record<string, ChangedTile>;
     minX: number;
@@ -71,6 +72,9 @@ type ChangedTile = [
 ];
 
 const ENABLE_HALF_FLOAT_SUPPORT = true;
+
+/** 2draw player: the size of the tiles its keyframes track changes in. */
+const DIRTY_TILE = 64;
 
 export class GlDrawingContext implements DrawingContext {
   public readonly pixelWidth: number;
@@ -404,7 +408,7 @@ export class GlDrawingContext implements DrawingContext {
       }
     }
     // 2draw player: a new layer is blank, all of it changed.
-    return { frameBuffer, tiles, dirty: [0, Number(pixelHeight)] };
+    return { frameBuffer, tiles, dirty: true };
   }
 
   getPng(): Promise<Blob> {
@@ -817,7 +821,7 @@ export class GlDrawingContext implements DrawingContext {
     const miny = Math.min(y1 - halfSize1, y2 - halfSize2);
     const maxy = Math.max(y1 + halfSize1, y2 + halfSize2);
 
-    this.markDirty(layerInfo, miny, maxy);
+    this.markDirty(layerInfo, minx, miny, maxx, maxy);
     this.bindToLayer(layerInfo);
     if (save) {
       this.saveRect(layerInfo, minx, miny, maxx - minx, maxy - miny);
@@ -873,6 +877,11 @@ export class GlDrawingContext implements DrawingContext {
     const vertexColorArray = new Float32Array(rectCount * 4 * 4);
     const vertexIndexArray = new Uint16Array(rectCount * 6);
     let actualRects = 0;
+    // 2draw player: the box all of them touch
+    let dirtyX1 = Infinity;
+    let dirtyY1 = Infinity;
+    let dirtyX2 = -Infinity;
+    let dirtyY2 = -Infinity;
 
     const { pixelWidth, pixelHeight } = this;
     for (let i = 0, j = 0, k = 0, l = 0, m = 0; i < rectCount; i++) {
@@ -891,7 +900,10 @@ export class GlDrawingContext implements DrawingContext {
       y2 += 1;
 
       this.saveRect(layerInfo, x1, y1, x2 - x1, y2 - y1);
-      this.markDirty(layerInfo, y1, y2);
+      dirtyX1 = Math.min(dirtyX1, x1);
+      dirtyY1 = Math.min(dirtyY1, y1);
+      dirtyX2 = Math.max(dirtyX2, x2);
+      dirtyY2 = Math.max(dirtyY2, y2);
 
       //  0 --- 1
       //  |     |
@@ -943,6 +955,7 @@ export class GlDrawingContext implements DrawingContext {
       actualRects++;
     }
     if (actualRects > 0) {
+      this.markDirty(layerInfo, dirtyX1, dirtyY1, dirtyX2, dirtyY2);
       this.bindToLayer(layerInfo);
       const gl = this.gl;
       if (erase) {
@@ -1004,16 +1017,38 @@ export class GlDrawingContext implements DrawingContext {
 
   // --- 2draw player additions (keyframes, fixed-size display) ---
 
-  /** Rows [y1, y2] (drawing coordinates, which are framebuffer rows: the
-   * drawing matrix doesn't flip) may change: widened by a row each way. */
-  private markDirty(layerInfo: LayerInfo, y1: number, y2: number) {
-    const from = Math.max(0, Math.floor(Math.min(y1, y2)) - 1);
-    const to = Math.min(Number(this.pixelHeight), Math.ceil(Math.max(y1, y2)) + 2);
-    if (to <= from) {
+  /** The player's dirty-tile grid: DIRTY_TILE px squares from the
+   * framebuffer's origin (drawing coordinates: the drawing matrix doesn't
+   * flip), partial ones at the right and bottom. */
+  get dirtyGrid(): { size: number; tilesX: number; tilesY: number } {
+    const size = DIRTY_TILE;
+    return {
+      size,
+      tilesX: Math.ceil(Number(this.pixelWidth) / size),
+      tilesY: Math.ceil(Number(this.pixelHeight) / size),
+    };
+  }
+
+  /** The box x1..x2, y1..y2 (drawing coordinates) may change: widened by a
+   * pixel each way. */
+  private markDirty(layerInfo: LayerInfo, x1: number, y1: number, x2: number, y2: number) {
+    if (layerInfo.dirty === true) {
       return;
     }
-    const d = layerInfo.dirty;
-    layerInfo.dirty = d ? [Math.min(d[0], from), Math.max(d[1], to)] : [from, to];
+    const { size, tilesX, tilesY } = this.dirtyGrid;
+    const tx1 = Math.max(0, Math.floor((Math.min(x1, x2) - 1) / size));
+    const ty1 = Math.max(0, Math.floor((Math.min(y1, y2) - 1) / size));
+    const tx2 = Math.min(tilesX - 1, Math.floor((Math.max(x1, x2) + 1) / size));
+    const ty2 = Math.min(tilesY - 1, Math.floor((Math.max(y1, y2) + 1) / size));
+    if (tx2 < tx1 || ty2 < ty1) {
+      return;
+    }
+    const dirty = (layerInfo.dirty ??= new Set<number>()) as Set<number>;
+    for (let ty = ty1; ty <= ty2; ty++) {
+      for (let tx = tx1; tx <= tx2; tx++) {
+        dirty.add(ty * tilesX + tx);
+      }
+    }
   }
 
   /** The layer ids, in no particular order. */
@@ -1021,13 +1056,51 @@ export class GlDrawingContext implements DrawingContext {
     return Array.from(this._layers.keys());
   }
 
-  /** The rows drawn on in `layerId` since the last call, [from, to), or null. */
-  takeDirtyRows(layerId: string): [number, number] | null {
+  /** The dirty-grid tiles drawn on in `layerId` since the last call (true:
+   * all of them), or null for none. */
+  takeDirtyTiles(layerId: string): Set<number> | true | null {
     const info = this.getLayerInfo(layerId);
     const d = info.dirty ?? null;
     delete info.dirty;
     delete info.changed;
     return d;
+  }
+
+  /** Every layer: only the dirty-grid tiles not inside the top-left
+   * width × height count as drawn on (after that part was restored). */
+  setDirtyOutside(width: number, height: number): void {
+    const { size, tilesX, tilesY } = this.dirtyGrid;
+    const inX = Math.floor(width / size);
+    const inY = Math.floor(height / size);
+    for (const info of this._layers.values()) {
+      const dirty = new Set<number>();
+      for (let ty = 0; ty < tilesY; ty++) {
+        for (let tx = 0; tx < tilesX; tx++) {
+          if (tx >= inX || ty >= inY) {
+            dirty.add(ty * tilesX + tx);
+          }
+        }
+      }
+      info.dirty = dirty;
+      delete info.changed;
+    }
+  }
+
+  /** Whether dirty-grid tile `index` of a layer was drawn on (since the
+   * last takeDirtyTiles, clearDirty or setDirtyOutside). */
+  isDirty(layerId: string, index: number): boolean {
+    const dirty = this.getLayerInfo(layerId).dirty;
+    return dirty === true || (dirty !== undefined && dirty.has(index));
+  }
+
+  /** Overwrite a rectangle of a layer with stored data (w × h pixels, row by
+   * row from y). */
+  writeLayerRect(layerId: string, x: number, y: number, w: number, h: number, data: TypedArray): void {
+    const { gl } = this;
+    const layerInfo = this.getLayerInfo(layerId);
+    this.bindToLayer(layerInfo);
+    gl.bindTexture(gl.TEXTURE_2D, layerInfo.frameBuffer.texture);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, w, h, gl.RGBA, this._frameBufferInfo.glWriteType, data);
   }
 
   /** Forget what was drawn where (after a restore or reset). */
@@ -1051,13 +1124,16 @@ export class GlDrawingContext implements DrawingContext {
   /** Rows [from, to) of a layer, as stored data (the framebuffer's own
    * precision: float32, float16 bits or bytes). */
   readLayerRows(layerId: string, from: number, to: number): TypedArray {
+    return this.readLayerRect(layerId, 0, from, Number(this.pixelWidth), to - from);
+  }
+
+  /** A rectangle of a layer, as stored data, row by row from y. */
+  readLayerRect(layerId: string, x: number, y: number, width: number, rows: number): TypedArray {
     const { gl, _frameBufferInfo } = this;
     const { ReadTypedArray, WriteTypedArray, glReadType } = _frameBufferInfo;
-    const width = Number(this.pixelWidth);
-    const rows = to - from;
     this.bindToLayer(this.getLayerInfo(layerId));
     const read = new ReadTypedArray(width * rows * 4);
-    gl.readPixels(0, from, width, rows, gl.RGBA, glReadType, read);
+    gl.readPixels(x, y, width, rows, gl.RGBA, glReadType, read);
     if (read instanceof (WriteTypedArray as unknown as Function)) {
       return read;
     }
@@ -1086,6 +1162,41 @@ export class GlDrawingContext implements DrawingContext {
       this._frameBufferInfo.glWriteType,
       data,
     );
+  }
+
+  /**
+   * The part of a layer the editor's snapshots cover (CanvasModel's gotos
+   * restore only this): whole tiles, from the top-left; a partial tile at the
+   * right or bottom edge isn't in them (makeLayer, saveRect).
+   */
+  get snapshotRegion(): { width: number; height: number } {
+    const { tileSize } = this;
+    const tilesX = Math.floor(Number(this.pixelWidth) / tileSize - 1) + 1;
+    const tilesY = Math.floor(Number(this.pixelHeight) / tileSize - 1) + 1;
+    return { width: Math.max(0, tilesX) * tileSize, height: Math.max(0, tilesY) * tileSize };
+  }
+
+  /** Overwrite the top-left width × height of a layer from whole-layer
+   * stored data (readLayerRows' format), leaving the rest as it is. */
+  writeLayerRegion(layerId: string, data: TypedArray, width: number, height: number): void {
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+    const { gl } = this;
+    const stride = Number(this.pixelWidth) * 4;
+    let rect: TypedArray;
+    if (width * 4 === stride) {
+      rect = data.subarray(0, stride * height);
+    } else {
+      rect = new (this._frameBufferInfo.WriteTypedArray)(width * 4 * height);
+      for (let y = 0; y < height; y++) {
+        rect.set(data.subarray(y * stride, y * stride + width * 4), y * width * 4);
+      }
+    }
+    const layerInfo = this.getLayerInfo(layerId);
+    this.bindToLayer(layerInfo);
+    gl.bindTexture(gl.TEXTURE_2D, layerInfo.frameBuffer.texture);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, this._frameBufferInfo.glWriteType, rect);
   }
 
   /** Draw the drawing onto the (fixed-size) canvas, as getPng does. */
