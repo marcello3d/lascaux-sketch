@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "isolatedModules": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "useUnknownInCatchVariables": false,
+    "baseUrl": ".",
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
+    "paths": {
+      "*": [
+        "./node_modules/*",
+        "./node_modules/@types/*"
+      ]
+    },
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "es2020"
+    ],
+    "types": [
+      "node"
+    ]
+  },
+  "files": [
+    "../src/twodraw/player.ts",
+    "test/gate.ts",
+    "test/unit.test.ts"
+  ]
+}

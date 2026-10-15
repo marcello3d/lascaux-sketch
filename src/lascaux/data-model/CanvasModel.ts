@@ -35,10 +35,12 @@ export class CanvasModel {
     private readonly _drawing: DrawingModel,
     private readonly initialArtboard: Artboard,
     private readonly initialMode: UserMode,
+    /** 2draw player: a drawing context in place of a WebGL one. */
+    ctx?: DrawingContext,
   ) {
     this._artboard = initialArtboard;
     this._modeMap = new ModeMap<UserMode>(initialMode);
-    this._ctx = new GlDrawingContext(initialArtboard);
+    this._ctx = ctx ?? new GlDrawingContext(initialArtboard);
     this._inGoto = false;
     this.reset();
   }
@@ -62,6 +64,11 @@ export class CanvasModel {
   /** The mode that represents what the user should see, regardless of cursor position */
   get uiMode(): UserMode {
     return safeMode(this.artboard, this._modeMap.getLatestMode());
+  }
+
+  /** 2draw player: the recorded mode stroke `index` is drawn with. */
+  getModeAt(index: number): UserMode {
+    return this._modeMap.getMode(index);
   }
 
   get renderCursor(): number {

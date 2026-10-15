@@ -86,7 +86,7 @@ export function dnaToDoc(dna: Dna): DrawingDoc {
   return newDoc(width, height);
 }
 
-function handleCommand(
+export function handleCommand(
   mode: UserMode,
   state: DrawingState,
   ctx: DrawingContext,

@@ -22,10 +22,11 @@ import {
   FrameBuffer,
   FrameBufferInfo,
 } from './util/gl-framebuffer';
-import { TypedArray } from '../util/typed-arrays';
+import { TypedArray, TypedArrayConstructor } from '../util/typed-arrays';
 import { checkError, getOrThrow } from './util/gl-errors';
 import { setDrawingMatrix, setViewportMatrix } from './util/gl-matrix';
 import { copyRgbaPixels, RgbaImage } from '../util/rgba-image';
+import { float32ArrayToUint16Array } from '../util/float16';
 import { Artboard, IdMap } from '../DrawingDoc';
 import { newId } from '../../db/fields';
 
@@ -49,6 +50,8 @@ function getTileKey(tilex: number, tiley: number): string {
 }
 
 type LayerInfo = {
+  /** 2draw player: framebuffer rows drawn on since takeDirtyRows(), [from, to). */
+  dirty?: [number, number];
   changed?: {
     tiles: Record<string, ChangedTile>;
     minX: number;
@@ -108,7 +111,19 @@ export class GlDrawingContext implements DrawingContext {
 
   private readonly _readBuffer: TypedArray;
 
-  constructor(artboard: Artboard, tileSize: number = 64) {
+  /** 2draw player: the canvas is the drawing's own size (no window sizing). */
+  private readonly fixedSize: boolean;
+
+  constructor(
+    artboard: Artboard,
+    tileSize: number = 64,
+    options: {
+      fixedSize?: boolean;
+      /** 2draw player tests: use at most this framebuffer precision. */
+      maxPrecision?: 'float32' | 'float16' | 'uint8';
+    } = {},
+  ) {
+    this.fixedSize = options.fixedSize === true;
     this.tileSize = tileSize;
 
     this.scale = 1;
@@ -124,7 +139,12 @@ export class GlDrawingContext implements DrawingContext {
     canvas.style.top = '0';
 
     this.canvas = canvas;
-    this.sizeCanvasToWindow();
+    if (this.fixedSize) {
+      canvas.width = width;
+      canvas.height = height;
+    } else {
+      this.sizeCanvasToWindow();
+    }
 
     const gl = canvas.getContext('webgl', {
       preserveDrawingBuffer: true,
@@ -150,7 +170,9 @@ export class GlDrawingContext implements DrawingContext {
     this._OES_texture_half_float = gl.getExtension('OES_texture_half_float');
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
 
+    const maxPrecision = options.maxPrecision ?? 'float32';
     const floatCombos =
+      maxPrecision === 'float32' &&
       this._OES_texture_float &&
       checkRenderTargetSupport(gl, gl.RGBA, gl.FLOAT);
     if (
@@ -162,6 +184,7 @@ export class GlDrawingContext implements DrawingContext {
     } else {
       const halfFloatCombos =
         ENABLE_HALF_FLOAT_SUPPORT &&
+        maxPrecision !== 'uint8' &&
         this._OES_texture_half_float &&
         checkRenderTargetSupport(
           gl,
@@ -226,7 +249,9 @@ export class GlDrawingContext implements DrawingContext {
         this.repaint();
       });
     };
-    window.addEventListener('resize', updateCanvasAndGl, false);
+    if (!this.fixedSize) {
+      window.addEventListener('resize', updateCanvasAndGl, false);
+    }
 
     this._textureProgram = this._createTextureProgram(gl, width, height);
     this._ellipseProgram = this._createEllipseProgram(gl, width, height);
@@ -251,7 +276,12 @@ export class GlDrawingContext implements DrawingContext {
     this.setArtboard(artboard);
     this._artboard = artboard;
 
-    updateCanvasAndGl();
+    if (this.fixedSize) {
+      this.pixelRatio = 1;
+      this.updateViewport(1);
+    } else {
+      updateCanvasAndGl();
+    }
 
     checkError(gl);
   }
@@ -373,7 +403,8 @@ export class GlDrawingContext implements DrawingContext {
         tiles[key] = { x, y, link: null };
       }
     }
-    return { frameBuffer, tiles };
+    // 2draw player: a new layer is blank, all of it changed.
+    return { frameBuffer, tiles, dirty: [0, Number(pixelHeight)] };
   }
 
   getPng(): Promise<Blob> {
@@ -786,6 +817,7 @@ export class GlDrawingContext implements DrawingContext {
     const miny = Math.min(y1 - halfSize1, y2 - halfSize2);
     const maxy = Math.max(y1 + halfSize1, y2 + halfSize2);
 
+    this.markDirty(layerInfo, miny, maxy);
     this.bindToLayer(layerInfo);
     if (save) {
       this.saveRect(layerInfo, minx, miny, maxx - minx, maxy - miny);
@@ -859,6 +891,7 @@ export class GlDrawingContext implements DrawingContext {
       y2 += 1;
 
       this.saveRect(layerInfo, x1, y1, x2 - x1, y2 - y1);
+      this.markDirty(layerInfo, y1, y2);
 
       //  0 --- 1
       //  |     |
@@ -967,6 +1000,106 @@ export class GlDrawingContext implements DrawingContext {
     const tileCount =
       layerIds.length * Object.keys(_layers.get(layerIds[0]) ?? {}).length;
     return `WebGL ${_frameBufferInfo.writeTypeName} (${_frameBufferBits} bit): ${pixelWidth}x${pixelHeight} (${tileCount} tiles)`;
+  }
+
+  // --- 2draw player additions (keyframes, fixed-size display) ---
+
+  /** Rows [y1, y2] (drawing coordinates, which are framebuffer rows: the
+   * drawing matrix doesn't flip) may change: widened by a row each way. */
+  private markDirty(layerInfo: LayerInfo, y1: number, y2: number) {
+    const from = Math.max(0, Math.floor(Math.min(y1, y2)) - 1);
+    const to = Math.min(Number(this.pixelHeight), Math.ceil(Math.max(y1, y2)) + 2);
+    if (to <= from) {
+      return;
+    }
+    const d = layerInfo.dirty;
+    layerInfo.dirty = d ? [Math.min(d[0], from), Math.max(d[1], to)] : [from, to];
+  }
+
+  /** The layer ids, in no particular order. */
+  layerIds(): string[] {
+    return Array.from(this._layers.keys());
+  }
+
+  /** The rows drawn on in `layerId` since the last call, [from, to), or null. */
+  takeDirtyRows(layerId: string): [number, number] | null {
+    const info = this.getLayerInfo(layerId);
+    const d = info.dirty ?? null;
+    delete info.dirty;
+    delete info.changed;
+    return d;
+  }
+
+  /** Forget what was drawn where (after a restore or reset). */
+  clearDirty(): void {
+    for (const info of this._layers.values()) {
+      delete info.dirty;
+      delete info.changed;
+    }
+  }
+
+  /** Elements per pixel row of a layer's stored data (RGBA). */
+  get rowLength(): number {
+    return Number(this.pixelWidth) * 4;
+  }
+
+  /** The typed array a layer's stored data comes in (texSubImage2D's). */
+  get storedArrayType(): TypedArrayConstructor {
+    return this._frameBufferInfo.WriteTypedArray;
+  }
+
+  /** Rows [from, to) of a layer, as stored data (the framebuffer's own
+   * precision: float32, float16 bits or bytes). */
+  readLayerRows(layerId: string, from: number, to: number): TypedArray {
+    const { gl, _frameBufferInfo } = this;
+    const { ReadTypedArray, WriteTypedArray, glReadType } = _frameBufferInfo;
+    const width = Number(this.pixelWidth);
+    const rows = to - from;
+    this.bindToLayer(this.getLayerInfo(layerId));
+    const read = new ReadTypedArray(width * rows * 4);
+    gl.readPixels(0, from, width, rows, gl.RGBA, glReadType, read);
+    if (read instanceof (WriteTypedArray as unknown as Function)) {
+      return read;
+    }
+    if (read instanceof Float32Array && WriteTypedArray === Uint16Array) {
+      return float32ArrayToUint16Array(read);
+    }
+    const out = new WriteTypedArray(read.length);
+    out.set(read);
+    return out;
+  }
+
+  /** Overwrite a whole layer with stored data (readLayerRows' format). */
+  writeLayer(layerId: string, data: TypedArray): void {
+    const { gl } = this;
+    const layerInfo = this.getLayerInfo(layerId);
+    this.bindToLayer(layerInfo);
+    gl.bindTexture(gl.TEXTURE_2D, layerInfo.frameBuffer.texture);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      0,
+      0,
+      Number(this.pixelWidth),
+      Number(this.pixelHeight),
+      gl.RGBA,
+      this._frameBufferInfo.glWriteType,
+      data,
+    );
+  }
+
+  /** Draw the drawing onto the (fixed-size) canvas, as getPng does. */
+  present(): void {
+    this.repaint(true);
+  }
+
+  /** The drawing's pixels as shown (for tests): RGBA bytes, bottom row first. */
+  readCanvas(): Uint8Array {
+    const { gl } = this;
+    this.bindFrameBuffer();
+    const out = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
+    gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, out);
+    return out;
   }
 
   getLayerCount(): number {

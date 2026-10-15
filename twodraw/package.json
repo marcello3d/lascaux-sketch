@@ -1,0 +1,23 @@
+{
+  "name": "lascaux-sketch-2draw-player",
+  "private": true,
+  "description": "2draw.net's Lascaux Sketch 2 animation player (window.Lascaux2Player), built from ../src without React or IndexedDB.",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node test/run.mjs"
+  },
+  "dependencies": {
+    "immer": "7.0.7",
+    "jsondiffpatch": "0.4.1",
+    "nanoid": "3.1.20",
+    "promise-or-value": "1.0.0-alpha.2",
+    "seedrandom": "3.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/seedrandom": "2.4.28",
+    "esbuild": "0.24.2",
+    "typescript": "5.6.3"
+  }
+}

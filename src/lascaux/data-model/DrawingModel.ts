@@ -5,7 +5,7 @@ import { DRAW_END_EVENT, GOTO_EVENT, isKeyframeEvent } from './events';
 import GotoMap, { Skips } from './GotoMap';
 import SnapshotMap from './SnapshotMap';
 
-import { DrawletHandleFn } from '../Drawlet';
+import { DrawingContext, DrawletHandleFn } from '../Drawlet';
 import { StorageModel } from './StorageModel';
 import { DrawingDoc } from '../DrawingDoc';
 import { CanvasModel } from './CanvasModel';
@@ -36,11 +36,14 @@ export default class DrawingModel {
     storageModel,
     handleCommand,
     snapshotStrokeCount = 5000,
+    context,
   }: {
     doc: DrawingDoc;
     storageModel: StorageModel;
     handleCommand: DrawletHandleFn;
     snapshotStrokeCount?: number;
+    /** 2draw player: the edit canvas's drawing context (default WebGL). */
+    context?: DrawingContext;
   }) {
     this._storageModel = storageModel;
     this._handleCommand = handleCommand;
@@ -51,11 +54,16 @@ export default class DrawingModel {
     this._snapshotMap = new SnapshotMap();
     this._snapshotStrokeCount = snapshotStrokeCount;
     this._strokesSinceSnapshot = 0;
-    this.editCanvas = new CanvasModel(this, artboard, mode);
+    this.editCanvas = new CanvasModel(this, artboard, mode, context);
   }
 
   getInfo() {
     return this.editCanvas.getInfo();
+  }
+
+  /** 2draw player: the undo/redo (goto) map. */
+  get gotoMap(): GotoMap {
+    return this._gotoMap;
   }
 
   get strokeCount() {
