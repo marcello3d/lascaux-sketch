@@ -13,8 +13,11 @@
  * The state after n events depends only on n, so the replay keeps in-memory
  * keyframes (keyframes.ts: whole layers) to start a seek from the nearest one
  * instead of from the start. A replay from a keyframe draws the same pixels as
- * one from the start. The editor snapshots the gotos go back to are kept as
- * well (outside the keyframe budget: correctness, not speed).
+ * one from the start. The editor snapshots the gotos go back to are kept in
+ * the same store, under the same budget: while the replay is between a
+ * snapshot and the last goto going back to it, the snapshot is kept before
+ * any keyframe; one that wasn't kept is made again when a goto needs it, by
+ * replaying up to it from the nearest earlier kept state (regenerate).
  */
 import produce from 'immer';
 import DrawingModel from '../lascaux/data-model/DrawingModel';
@@ -43,7 +46,10 @@ interface PendingGoto {
 
 export class Replay {
   readonly ctx: GlDrawingContext;
-  readonly keyframes: KeyframeStore | null;
+  /** The kept states: keyframes (unless off) and the snapshots gotos need. */
+  readonly store: KeyframeStore;
+  /** Snapshots made again because they weren't kept. */
+  regenerations = 0;
   /** Events applied: the canvas's layers are the drawing after them (unless
    * a goto is under way, `pending`). */
   cursor = 0;
@@ -67,9 +73,7 @@ export class Replay {
   /** The last keyframe or snapshot kept (to share tiles with when there is
    * no base). */
   private lastCapture: Keyframe | null = null;
-  /** The drawing at the editor snapshots gotos go back to. */
-  private readonly snapshots = new Map<number, Keyframe>();
-  private snapshotBytes = 0;
+  private readonly keyframesOn: boolean;
   private readonly model: DrawingModel;
   private readonly strokes: readonly Stroke[];
   private readonly gotoPlans: Map<number, GotoPlan>;
@@ -92,7 +96,17 @@ export class Replay {
     this.artboard = this.initialArtboard;
     this.height = Number(this.initialArtboard.height);
     this.ctx = new GlDrawingContext(this.initialArtboard, 64, { fixedSize: true, maxPrecision });
-    this.keyframes = keyframes === false ? null : new KeyframeStore(keyframes);
+    this.keyframesOn = keyframes !== false;
+    // without keyframes, the snapshots gotos need are all kept (unbounded:
+    // the gate's straight replays, the reference the keyframed ones match)
+    this.store = new KeyframeStore(keyframes === false ? { interval: Infinity, memory: Infinity } : keyframes);
+    const pins = new Map<number, number>();
+    for (const [index, plan] of this.gotoPlans) {
+      if (typeof plan.base === 'number') {
+        pins.set(plan.base, Math.max(pins.get(plan.base) ?? 0, index));
+      }
+    }
+    this.store.setPins(pins);
     const bytesPerElement = new this.ctx.storedArrayType(1).BYTES_PER_ELEMENT;
     this.wordsPerPixel = bytesPerElement;
   }
@@ -101,9 +115,9 @@ export class Replay {
     return this.strokes.length;
   }
 
-  /** Bytes the kept editor snapshots use (bands they don't share). */
-  get snapshotMemory(): number {
-    return this.snapshotBytes;
+  /** The keyframe store, or null with keyframes off. */
+  get keyframes(): KeyframeStore | null {
+    return this.keyframesOn ? this.store : null;
   }
 
   /** The replay has reached its target. */
@@ -124,13 +138,8 @@ export class Replay {
       this.rewound = false;
       return;
     }
-    let keyframe = this.keyframes?.before(target, () => true) ?? null;
     // the snapshots kept for gotos are whole states too
-    for (const snapshot of this.snapshots.values()) {
-      if (snapshot.index <= target && (!keyframe || snapshot.index > keyframe.index)) {
-        keyframe = snapshot;
-      }
-    }
+    const keyframe = this.store.before(target);
     if (keyframe && keyframe.index > here) {
       this.restore(keyframe);
     } else if (here < 0) {
@@ -181,8 +190,8 @@ export class Replay {
         const now = performance.now();
         this.work += now - last;
         last = now;
-        if (this.pending === null && this.keyframes?.due(this.cursor, this.work)) {
-          this.keep(this.keyframes);
+        if (this.pending === null && this.store.due(this.cursor, this.work)) {
+          this.keep(this.store);
           last = performance.now();
         }
         if (now - started >= budget && (this.pending !== null || this.cursor < this.target)) {
@@ -196,12 +205,20 @@ export class Replay {
 
   /** Just reached `cursor` (no goto under way): keep it if a goto needs it. */
   private atCursor(): void {
-    if (this.snapshotBases.has(this.cursor) && !this.snapshots.has(this.cursor)) {
-      const before = this.snapshotBytes;
-      const kept = this.capture();
-      this.snapshots.set(this.cursor, kept);
-      this.snapshotBytes = before + kept.bytes;
-      this.keyframes?.reserve(kept.bytes);
+    if (this.snapshotBases.has(this.cursor) && !this.store.at(this.cursor)) {
+      this.store.position = this.cursor;
+      this.store.add(this.capture());
+      this.forgetDropped();
+    }
+  }
+
+  /** Let go of states the store dropped (they'd hold memory outside it). */
+  private forgetDropped(): void {
+    if (this.base && !this.store.holds(this.base)) {
+      this.base = null;
+    }
+    if (this.lastCapture && !this.store.holds(this.lastCapture)) {
+      this.lastCapture = null;
     }
   }
 
@@ -220,23 +237,83 @@ export class Replay {
       this.clear();
       from = 0;
     } else if (typeof plan.base === 'number') {
-      const snapshot = this.snapshots.get(plan.base);
-      if (!snapshot) {
-        throw new Error(`goto ${index}: no snapshot ${plan.base}`);
+      const snapshot = this.store.at(plan.base);
+      if (snapshot) {
+        // CanvasModel's loadSnapshot: the artboard, the brush state, and the
+        // snapshot's whole tiles; edges stay as they are.
+        this.setArtboard(snapshot.artboard);
+        const { width, height } = this.ctx.snapshotRegion;
+        this.writeLayers(snapshot, width, height);
+        this.state = jsonCopy(snapshot.state);
+        // the layers are the snapshot's now, but for the edges
+        this.ctx.setDirtyOutside(width, height);
+        this.base = snapshot;
+      } else {
+        this.regenerate(plan.base);
       }
-      // CanvasModel's loadSnapshot: the artboard, the brush state, and the
-      // snapshot's whole tiles; edges stay as they are.
-      this.setArtboard(snapshot.artboard);
-      const { width, height } = this.ctx.snapshotRegion;
-      this.writeLayers(snapshot, width, height);
-      this.state = jsonCopy(snapshot.state);
-      // the layers are the snapshot's now, but for the edges
-      this.ctx.setDirtyOutside(width, height);
-      this.base = snapshot;
       from = plan.base;
     }
     this.renderCursor = from;
     this.pending = { next: from, target: plan.target, skips: plan.skips };
+  }
+
+  /**
+   * The same as going back to snapshot `base` that wasn't kept: replay up to
+   * it (from the nearest earlier kept state, or the start), then put back
+   * the edges as they were, which loadSnapshot leaves alone. Gotos on the
+   * way regenerate theirs too (always further back, so it ends).
+   */
+  private regenerate(base: number): void {
+    this.regenerations++;
+    const width = Number(this.initialArtboard.width);
+    const height = this.height;
+    const region = this.ctx.snapshotRegion;
+    const right = region.width < width;
+    const bottom = region.height < height && region.width > 0;
+    const edges = new Map<string, { right?: ArrayBufferView; bottom?: ArrayBufferView }>();
+    if (right || bottom) {
+      for (const id of this.ctx.layerIds()) {
+        edges.set(id, {
+          right: right ? this.ctx.readLayerRect(id, region.width, 0, width - region.width, height) : undefined,
+          bottom: bottom ? this.ctx.readLayerRect(id, 0, region.height, region.width, height - region.height) : undefined,
+        });
+      }
+    }
+    const { cursor, target, rewound } = this;
+    const start = this.store.before(base);
+    if (start) {
+      this.restore(start);
+    } else {
+      this.restart();
+    }
+    this.target = base;
+    this.advance(Infinity);
+    // the layers, artboard and brush state are the snapshot's: now the edges
+    if (right || bottom) {
+      const Type = this.ctx.storedArrayType as any;
+      for (const id of this.ctx.layerIds()) {
+        const kept = edges.get(id);
+        if (right) {
+          const w = width - region.width;
+          this.ctx.writeLayerRect(id, region.width, 0, w, height, kept?.right ?? new Type(w * height * 4));
+        }
+        if (bottom) {
+          const h = height - region.height;
+          this.ctx.writeLayerRect(id, 0, region.height, region.width, h, kept?.bottom ?? new Type(region.width * h * 4));
+        }
+      }
+    }
+    // as after going back to a kept snapshot (or, if it wasn't kept even now, no base)
+    const snapshot = this.store.at(base);
+    if (snapshot) {
+      this.ctx.setDirtyOutside(region.width, region.height);
+    } else {
+      this.ctx.clearDirty();
+    }
+    this.base = snapshot;
+    this.cursor = cursor;
+    this.target = target;
+    this.rewound = rewound;
   }
 
   /** CanvasModel.execute (modes come from the map the editor built). */
@@ -385,7 +462,9 @@ export class Replay {
 
   /** Keep a keyframe of the drawing as it is now. */
   private keep(store: KeyframeStore): void {
+    store.position = this.cursor;
     store.add(this.capture());
+    this.forgetDropped();
     this.work = 0;
   }
 

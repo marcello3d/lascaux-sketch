@@ -197,7 +197,8 @@ export function unpack(kept: KeptBuffer): Uint32Array {
 }
 
 /**
- * How much memory keyframes may use on this device: 16MB per GB of RAM
+ * How much memory keyframes (with the editor snapshots undo/redo goes back
+ * to) may use on this device: 16MB per GB of RAM
  * where the browser says (navigator.deviceMemory), up to 128MB; otherwise by
  * the screen: 32MB on phones, 64MB on tablets, 128MB on desktops. Over budget
  * the player keeps fewer, evenly spread keyframes: a small budget costs seek
@@ -218,19 +219,37 @@ export function defaultKeyframeMemory(): number {
 export interface KeyframeOptions {
   /** Take a keyframe after about this much replay work (ms). Default 150; 0: at every chance. */
   interval?: number;
-  /** Bytes the keyframes may use. Default defaultKeyframeMemory(). */
+  /** Bytes the keyframes (and the editor snapshots kept for undo/redo) may
+   * use. Default defaultKeyframeMemory(). */
   memory?: number;
 }
 
-/** The keyframes of one replay, in stroke order. */
+/**
+ * The kept states of one replay, in stroke order: keyframes, and the editor
+ * snapshots its undo/redo gotos go back to. Both are the drawing after some
+ * number of events (which depends only on that number), so any of them can
+ * start a seek, and one budget covers them all (tiles shared between them
+ * counted once).
+ *
+ * A snapshot the replay will need soon (it is between the snapshot and the
+ * last goto that goes back to it: `pins`; a few at most) is kept before any
+ * keyframe; one that isn't kept is made again when a goto needs it
+ * (replay.ts), so a small budget costs speed, never correctness. Only a
+ * budget too small for even the pinned snapshots is overrun (`forced`): a
+ * replay that had to make each of them again would take minutes.
+ */
 export class KeyframeStore {
   private list: Keyframe[] = [];
   private total = 0;
-  /** Memory spent elsewhere out of the same budget (the replay's must-keep
-   * snapshots). */
-  private reserved = 0;
+  private highest = 0;
   private interval: number;
   private readonly memory: number;
+  /** Snapshot index → the last goto going back to it. */
+  private pins: ReadonlyMap<number, number> = new Map();
+  /** Where the replay is (events): the snapshots it will need are pinned. */
+  position = 0;
+  /** Times the pinned snapshots alone were over budget (and kept anyway). */
+  forced = 0;
 
   constructor(options: KeyframeOptions = {}) {
     this.interval = options.interval ?? 150;
@@ -241,9 +260,18 @@ export class KeyframeStore {
     return this.list.length;
   }
 
-  /** Memory the keyframes use (shared bands counted once). */
+  /** Memory the kept states use (shared bands counted once). */
   get bytes(): number {
     return this.total;
+  }
+
+  /** The most `bytes` has been (after fitting the budget). */
+  get peak(): number {
+    return this.highest;
+  }
+
+  get budget(): number {
+    return this.memory;
   }
 
   get keyframes(): readonly Keyframe[] {
@@ -255,43 +283,86 @@ export class KeyframeStore {
     return this.list.length > 0 ? this.list[this.list.length - 1].index : 0;
   }
 
+  /** The editor snapshots gotos go back to: index → the last goto that does. */
+  setPins(pins: ReadonlyMap<number, number>): void {
+    this.pins = pins;
+  }
+
   /** Whether a keyframe is due at stroke `index` after `work` ms of replay. */
   due(index: number, work: number): boolean {
     return index > this.frontier && work >= this.interval && this.interval !== Infinity;
   }
 
-  /** `bytes` more of the budget are spent elsewhere. */
-  reserve(bytes: number): void {
-    this.reserved += bytes;
+  add(keyframe: Keyframe): void {
+    let i = this.list.length;
+    while (i > 0 && this.list[i - 1].index > keyframe.index) {
+      i--;
+    }
+    if (i > 0 && this.list[i - 1].index === keyframe.index) {
+      return;
+    }
+    this.list.splice(i, 0, keyframe);
+    // shared tiles: recount (a state kept out of order shares with any)
+    this.recount();
     this.fit();
+    this.highest = Math.max(this.highest, this.total);
   }
 
-  add(keyframe: Keyframe): void {
-    this.list.push(keyframe);
-    this.total += keyframe.bytes + STATE_BYTES;
-    this.fit();
+  /** The kept state after exactly `index` events, if any. */
+  at(index: number): Keyframe | null {
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const k = this.list[i];
+      if (k.index === index) {
+        return k;
+      }
+      if (k.index < index) {
+        break;
+      }
+    }
+    return null;
+  }
+
+  /** Whether `keyframe` is still kept. */
+  holds(keyframe: Keyframe): boolean {
+    return this.at(keyframe.index) === keyframe;
+  }
+
+  /** A snapshot the replay will soon go back to. */
+  private pinned(k: Keyframe): boolean {
+    const until = this.pins.get(k.index);
+    return until !== undefined && k.index <= this.position && this.position <= until;
   }
 
   /**
-   * Over budget: drop every other keyframe (keeping the first and the
-   * newest) so they stay evenly spread, and take them half as often.
+   * Over budget: drop every other keyframe (keeping the first, the newest
+   * and the pinned snapshots) so they stay evenly spread, and take them
+   * half as often; then all but the pinned.
    */
   private fit(): void {
-    while (this.total + this.reserved > this.memory && this.list.length > 2) {
+    const over = () => this.total > this.memory;
+    while (over() && this.list.length > 2) {
       const last = this.list.length - 1;
-      this.list = this.list.filter((_, i) => i % 2 === 0 || i === last);
+      const thinned = this.list.filter((k, i) => i % 2 === 0 || i === last || this.pinned(k));
+      if (thinned.length === this.list.length) {
+        break;
+      }
+      this.list = thinned;
       this.recount();
       this.interval = this.interval > 0 ? this.interval * 2 : 1;
     }
-    if (this.total + this.reserved > this.memory && this.list.length > 1) {
-      this.list = this.list.slice(-1);
+    if (over()) {
+      const last = this.list.length - 1;
+      this.list = this.list.filter((k, i) => i === last || this.pinned(k));
       this.recount();
     }
-    if (this.total + this.reserved > this.memory) {
-      // not even one fits: stop (seeks replay from the start, as without keyframes)
-      this.list = [];
-      this.total = 0;
+    if (over()) {
+      // not even one keyframe fits beside what the gotos need: stop taking them
       this.interval = Infinity;
+      this.list = this.list.filter((k) => this.pinned(k));
+      this.recount();
+    }
+    if (over()) {
+      this.forced++;
     }
   }
 
@@ -312,8 +383,8 @@ export class KeyframeStore {
     this.total = total;
   }
 
-  /** The latest keyframe at or before stroke `target` that `fits` accepts. */
-  before(target: number, fits: (k: Keyframe) => boolean): Keyframe | null {
+  /** The latest kept state at or before stroke `target` that `fits` accepts. */
+  before(target: number, fits: (k: Keyframe) => boolean = () => true): Keyframe | null {
     for (let i = this.list.length - 1; i >= 0; i--) {
       const k = this.list[i];
       if (k.index <= target && fits(k)) {

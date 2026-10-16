@@ -136,3 +136,36 @@ test('a keyframe nothing fits in turns keyframes off', () => {
   assert.equal(store.count, 0);
   assert.equal(store.due(20, 1e9), false);
 });
+
+test('the snapshots a goto will soon go back to are dropped last', () => {
+  const store = new KeyframeStore({ memory: 1024 * 1024, interval: 10 });
+  // snapshot 150 is gone back to by the goto at 820
+  store.setPins(new Map([[150, 820]]));
+  store.position = 150;
+  store.add(fakeKeyframe(150, 50000));
+  for (let i = 2; i <= 8; i++) {
+    store.position = i * 100;
+    store.add(fakeKeyframe(i * 100, 50000)); // ~200 KB each
+  }
+  assert.ok(store.bytes <= 1024 * 1024 && store.peak <= 1024 * 1024);
+  assert.ok(store.at(150));
+  assert.equal(store.keyframes[store.keyframes.length - 1].index, 800);
+  // kept in stroke order, whatever order they come in
+  store.position = 250;
+  store.add(fakeKeyframe(250, 10));
+  const kept = store.keyframes.map((k) => k.index);
+  assert.deepEqual(kept, [...kept].sort((a, b) => a - b));
+  assert.ok(store.at(250));
+  // a budget too small for even that: kept anyway, and owned up to
+  const tiny = new KeyframeStore({ memory: 1000 });
+  tiny.setPins(new Map([[10, 20]]));
+  tiny.position = 10;
+  tiny.add(fakeKeyframe(10, 50000));
+  assert.ok(tiny.at(10));
+  assert.equal(tiny.forced, 1);
+  // past its last goto it is a keyframe like the others
+  tiny.position = 30;
+  tiny.add(fakeKeyframe(30, 50000));
+  assert.equal(tiny.count, 0);
+  assert.equal(tiny.forced, 1);
+});

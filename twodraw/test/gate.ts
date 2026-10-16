@@ -3,7 +3,9 @@
  * seeks to random points in random order on a replay with keyframes (in
  * slices, as the player does) and checks every layer's pixels and the shown
  * picture bit for bit against a replay without keyframes, which only ever
- * replays forward from the start.
+ * replays forward from the start. Also fails a drawing whose keyframes and
+ * snapshots together went over the budget (memory=, MB), unless the budget
+ * couldn't hold even the snapshots the next gotos need (forced).
  *
  *   gate.html?files=a.json.gz,b.json.gz&seeks=40&memory=8
  * Results: window.gateResult (and the page text).
@@ -141,7 +143,7 @@ async function gateOne(url: string, seeks: number, memoryMB: number, interval: n
     gotos: strokes.filter((s) => s.type === GOTO_EVENT).length,
     seeks: list.length,
     distinctFrames: new Set(expected.values()).size,
-    failures,
+    failures: failures + (kf.peak > memoryMB * 1024 * 1024 && kf.forced === 0 ? 1 : 0) + (straight.regenerations > 0 ? 1 : 0),
     loadMs: Math.round(tLoad),
     straightMs: Math.round(tStraight),
     avgSeekMs: Math.round(totalSeek / list.length),
@@ -150,7 +152,16 @@ async function gateOne(url: string, seeks: number, memoryMB: number, interval: n
     keyframes: kf.count,
     keyframeMB: +(kf.bytes / 1024 / 1024).toFixed(1),
     gotoSnapshots: drawing.snapshotBases.size,
-    snapshotMB: +(keyed.snapshotMemory / 1024 / 1024).toFixed(1),
+    // all the snapshots gotos go back to, as the straight replay keeps them
+    allSnapshotsMB: +(straight.store.peak / 1024 / 1024).toFixed(1),
+    // keyframes and snapshots together, against the budget
+    peakMB: +(kf.peak / 1024 / 1024).toFixed(1),
+    budgetMB: memoryMB,
+    overBudget: kf.peak > memoryMB * 1024 * 1024,
+    // over only because the snapshots the next gotos need didn't fit
+    forced: kf.forced,
+    regenerations: keyed.regenerations,
+    straightRegenerations: straight.regenerations,
     gl: replay_info(keyed),
   };
   // The editor's own replay (DrawingModel on a WebGL context, as on load,
