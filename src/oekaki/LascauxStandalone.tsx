@@ -3,6 +3,7 @@ import React, { useCallback, useRef } from 'react';
 import { LascauxDomInstance, LascauxEmbedded } from '../library';
 import { Button } from '../ui/Button';
 import { tryUpload, useLoadDrawing } from './fetch';
+import { installEmbedApi } from './embed-api';
 
 export type LascauxStandaloneProps = {
   canvasWidth: number;
@@ -44,6 +45,7 @@ export function LascauxStandalone({
       height={canvasHeight}
       lascauxDomRef={lascauxDomRef}
       saveButton={<Button onClick={doSave}>Submit</Button>}
+      onInstance={installEmbedApi}
     />
   );
 }

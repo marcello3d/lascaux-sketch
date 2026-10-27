@@ -67,8 +67,17 @@ export default function createLascauxDomInstance(
     }
   }
 
+  // UI state notifications are throttled to one per frame. A frame is not
+  // guaranteed: a hidden or background page gets no animation frames, and
+  // when the throttle waited on one alone it never let another notification
+  // through, so the UI froze on its last state (the Erase checkbox turned
+  // on, then never off: React kept putting back the stale `checked`, and
+  // B/E changed the brush without the UI showing it). A timer is the
+  // fallback, and the throttle ends before anything in the frame can throw.
   let requestNotifyFrame: number | null = null;
+  let requestNotifyTimer: number | null = null;
   let needToNotify = false;
+  const uiListeners = new Set<(state: LascauxUiState) => void>();
 
   function getUiState(): LascauxUiState {
     return {
@@ -85,18 +94,40 @@ export default function createLascauxDomInstance(
 
   function notifyRenderDone() {
     // debounce notifications
-    if (!requestNotifyFrame) {
-      onUpdate(getUiState());
+    if (requestNotifyFrame === null && requestNotifyTimer === null) {
+      const state = getUiState();
+      onUpdate(state);
+      uiListeners.forEach((listener) => listener(state));
       needToNotify = false;
-      requestNotifyFrame = window.requestAnimationFrame(() => {
-        canvas.repaint();
-        requestNotifyFrame = null;
-        if (needToNotify) {
-          notifyRenderDone();
-        }
-      });
+      requestNotifyFrame = window.requestAnimationFrame(() =>
+        endNotifyThrottle(true),
+      );
+      requestNotifyTimer = window.setTimeout(
+        () => endNotifyThrottle(false),
+        100,
+      );
     } else {
       needToNotify = true;
+    }
+  }
+
+  function endNotifyThrottle(inFrame: boolean) {
+    if (requestNotifyFrame !== null) {
+      window.cancelAnimationFrame(requestNotifyFrame);
+      requestNotifyFrame = null;
+    }
+    if (requestNotifyTimer !== null) {
+      window.clearTimeout(requestNotifyTimer);
+      requestNotifyTimer = null;
+    }
+    try {
+      if (inFrame) {
+        canvas.repaint();
+      }
+    } finally {
+      if (needToNotify) {
+        notifyRenderDone();
+      }
     }
   }
 
@@ -167,6 +198,13 @@ export default function createLascauxDomInstance(
     dom: canvas.dom,
 
     getUiState,
+
+    listen(listener: (state: LascauxUiState) => void) {
+      uiListeners.add(listener);
+      return () => {
+        uiListeners.delete(listener);
+      };
+    },
 
     getInfo() {
       return drawingModel.editCanvas.getInfo();

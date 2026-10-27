@@ -26,6 +26,7 @@ export function LascauxEmbedded({
   lascauxDomRef,
   saveButton,
   iconUrls = defaultIconUrls,
+  onInstance,
 }: {
   drawingId: string;
   width: number;
@@ -33,6 +34,7 @@ export function LascauxEmbedded({
   saveButton?: React.ReactNode;
   iconUrls?: IconsUrls;
   lascauxDomRef?: MutableRefObject<LascauxDomInstance | null>;
+  onInstance?: (instance: LascauxDomInstance) => void | (() => void);
 }) {
   const drawing = useDexieItem(db.drawings, drawingId);
   useEffect(() => {
@@ -62,6 +64,7 @@ export function LascauxEmbedded({
       saveButton={saveButton}
       iconUrls={iconUrls}
       lascauxDomRef={lascauxDomRef}
+      onInstance={onInstance}
     />
   );
 }

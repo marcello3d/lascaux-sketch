@@ -1043,7 +1043,8 @@ export class GlDrawingContext implements DrawingContext {
     if (tx2 < tx1 || ty2 < ty1) {
       return;
     }
-    const dirty = (layerInfo.dirty ??= new Set<number>()) as Set<number>;
+    // (not `??=`: the editor bundle's TypeScript 3.9 can't parse it)
+    const dirty = (layerInfo.dirty ?? (layerInfo.dirty = new Set<number>())) as Set<number>;
     for (let ty = ty1; ty <= ty2; ty++) {
       for (let tx = tx1; tx <= tx2; tx++) {
         dirty.add(ty * tilesX + tx);

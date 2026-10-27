@@ -54,6 +54,8 @@ type Props = {
   saveButton?: React.ReactNode;
   lascauxDomRef?: MutableRefObject<LascauxDomInstance | null>;
   iconUrls: IconsUrls;
+  /** Called once the editor is set up; may return a cleanup (2draw's window.lascaux2). */
+  onInstance?: (instance: LascauxDomInstance) => void | (() => void);
 };
 
 const numberFormat = new Intl.NumberFormat();
@@ -64,6 +66,7 @@ export function DrawletApp({
   lascauxDomRef,
   saveButton,
   iconUrls,
+  onInstance,
 }: Props) {
   const drawletContainerRef = useRef<HTMLDivElement>(null);
   const [updateObjectState, setUpdateObject] = useState<LascauxUiState | null>(
@@ -112,6 +115,7 @@ export function DrawletApp({
   } = updateObjectState || canvasInstance.getUiState();
 
   useLayoutEffect(() => canvasInstance.subscribe(), [canvasInstance]);
+  useEffect(() => onInstance?.(canvasInstance), [canvasInstance, onInstance]);
 
   useAppendChild(drawletContainerRef, drawingModel.editCanvas.dom);
 

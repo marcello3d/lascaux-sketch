@@ -91,6 +91,8 @@ export type LascauxUiState = {
 export type LascauxDomInstance = {
   dom: HTMLElement;
   getUiState(): LascauxUiState;
+  /** Called with each UI state the bridge hands its `onUpdate`; returns an unsubscribe. */
+  listen(listener: (state: LascauxUiState) => void): () => void;
   getPng(): Promise<Blob>;
   flush(): void;
   mutateArtboard(recipe: (draft: Draft<Artboard>) => void): void;
