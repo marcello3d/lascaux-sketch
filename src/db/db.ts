@@ -1,5 +1,16 @@
 import 'dexie-observable';
 import Dexie, { Table } from 'dexie';
+
+// dexie-observable marks this tab gone on 'beforeunload'. A beforeunload
+// listener, even one that never asks, keeps the 2draw iOS app from letting a
+// swipe back through (it counts them), so it listens to 'pagehide' instead.
+{
+  const observable = (Dexie as any).Observable;
+  if (observable?._onBeforeUnload && typeof window !== 'undefined') {
+    window.removeEventListener('beforeunload', observable._onBeforeUnload);
+    window.addEventListener('pagehide', observable._onBeforeUnload);
+  }
+}
 import { Stroke } from '../lascaux/data-model/StorageModel';
 import { Dna } from '../lascaux/DrawingDoc';
 
