@@ -26,18 +26,21 @@ export async function importDrawing(
   drawing: ExportedDrawingV1,
   createdAt: string = newDate(),
 ) {
-  await db.drawings.add({
-    id: drawingId,
-    createdAt,
-    dna: drawing.dna,
+  // all or nothing: a half-imported drawing would open as a draft's copy
+  await db.transaction('rw', db.drawings, db.strokes, async () => {
+    await db.drawings.add({
+      id: drawingId,
+      createdAt,
+      dna: drawing.dna,
+    });
+    await db.strokes.bulkAdd(
+      drawing.strokes.map(([time, type, payload], index) => ({
+        drawingId,
+        index,
+        time,
+        type,
+        payload,
+      })),
+    );
   });
-  await db.strokes.bulkAdd(
-    drawing.strokes.map(([time, type, payload], index) => ({
-      drawingId,
-      index,
-      time,
-      type,
-      payload,
-    })),
-  );
 }

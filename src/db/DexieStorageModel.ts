@@ -11,6 +11,7 @@ import { RgbaImage } from '../lascaux/util/rgba-image';
 import DrawingModel from '../lascaux/data-model/DrawingModel';
 
 import { db, DbStroke } from './db';
+import { writeStroke } from './save-state';
 
 export function getAllStrokes(drawingId: string) {
   return db.strokes
@@ -55,7 +56,7 @@ export class DexieStorageModel implements StorageModel {
     if (index < this.priorStrokeCount) {
       return;
     }
-    db.strokes.add(stroke);
+    writeStroke(stroke);
   }
 
   flush(): void {}

@@ -7,6 +7,8 @@ export type DbDrawing = {
   id: string;
   name?: string;
   createdAt: string;
+  /** When a stroke was last stored (roughly: updated once a minute), for expiry. */
+  savedAt?: string;
   dna: Dna;
 };
 

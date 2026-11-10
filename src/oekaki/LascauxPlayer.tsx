@@ -14,7 +14,7 @@ export function LascauxPlayer({
   jsonGzUrl,
 }: LascauxPlayerProps) {
   const lascauxDomRef = useRef<LascauxDomInstance>(null);
-  const drawingId = useLoadDrawing(jsonGzUrl, onDownloadFailure);
+  const { drawingId } = useLoadDrawing(jsonGzUrl, onDownloadFailure);
 
   return (
     <LascauxPlayerEmbedded
